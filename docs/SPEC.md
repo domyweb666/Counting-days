@@ -259,4 +259,4 @@
 | `project.yml` | XcodeGen 的專案描述。repo 裡不放 `.xcodeproj`，雲端建置時才產生 |
 | `.github/workflows/build.yml` | 每次推上 GitHub 自動跑核心測試，並編譯一次 app（模擬器、不簽章） |
 
-簽章與上傳 TestFlight 還沒接，需要 App Store Connect 的 API 金鑰。
+簽章與上傳 TestFlight 走 `.github/workflows/testflight.yml`，只能手動啟動，操作步驟在 `docs/TESTFLIGHT.md`。這條流程還沒用真的金鑰跑過。
