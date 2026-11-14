@@ -1,9 +1,9 @@
 {
-  "station": "audit-batch",
-  "updated_at": "2026-11-14T12:00:00+08:00",
+  "station": "regression",
+  "updated_at": "2026-11-15T06:40:00+08:00",
   "updated_by": "vibe-traffic-control",
   "pieces": {
-    "todo": 0,
+    "todo": 1,
     "machine_verified": 4,
     "human_verified": 0
   },
@@ -12,6 +12,13 @@
       "name": "第一版",
       "total": 4,
       "machine_done": 4,
+      "human_verified": false,
+      "approved": true
+    },
+    {
+      "name": "新手引導",
+      "total": 1,
+      "machine_done": 0,
       "human_verified": false,
       "approved": true
     }
