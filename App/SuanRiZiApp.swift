@@ -9,6 +9,7 @@ struct SuanRiZiApp: App {
         WindowGroup {
             RootView()
                 .environment(app)
+                .tint(Theme.accent)
         }
     }
 }
@@ -42,47 +43,50 @@ struct PermissionIntroView: View {
     @State private var asking = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: DT.Space.s6) {
             Spacer()
-            Text("蒜日子").sFont(34, .black).foregroundStyle(Theme.ink)
-            Text("把 iPhone 行事曆裡的行程，換成手機上看得清楚的月曆。")
-                .sFont(19, .bold)
-                .foregroundStyle(Theme.ink)
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: DT.Space.s3) {
+                Text("蒜日子").dFont(DT.TypeScale.largeTitle).foregroundStyle(Theme.ink)
+                Text("把 iPhone 行事曆裡的行程，換成手機上看得清楚的月曆。")
+                    .dFont(DT.TypeScale.title3)
+                    .foregroundStyle(Theme.ink)
+            }
+            SectionCard {
                 point("需要讀取你的行事曆，才能把行程畫出來。")
+                Hairline()
                 point("新增和修改行程時，會直接寫回系統行事曆。")
+                Hairline()
                 point("行程不會離開這支手機，蒜日子沒有帳號，也沒有伺服器。")
             }
             Spacer()
-            Button {
+            if let message = app.store.lastError {
+                Text(message).dFont(DT.TypeScale.footnote).foregroundStyle(Theme.destructive)
+            }
+            WideButton(title: asking ? "等你在視窗上選擇…" : "允許讀取行事曆") {
                 asking = true
                 Task {
                     await app.store.requestAccess()
                     asking = false
                 }
-            } label: {
-                Text("允許讀取行事曆")
-                    .sFont(17, .bold)
-                    .foregroundStyle(Theme.inkInverse)
-                    .frame(maxWidth: .infinity, minHeight: 52)
-                    .background(RoundedRectangle(cornerRadius: 16).fill(Theme.ink))
             }
-            .buttonStyle(.plain)
             .disabled(asking)
-            if let message = app.store.lastError {
-                Text(message).sFont(13, .bold).foregroundStyle(Theme.holiday)
-            }
         }
-        .padding(24)
+        .padding(.horizontal, DT.Size.screenMargin)
+        .padding(.vertical, DT.Space.s6)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(Theme.bg.ignoresSafeArea())
     }
 
     private func point(_ text: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            RoundedRectangle(cornerRadius: 3).fill(Theme.select).frame(width: 10, height: 10)
-            Text(text).sFont(16, .medium).foregroundStyle(Theme.pastFg)
+        HStack(alignment: .firstTextBaseline, spacing: DT.Space.s3) {
+            Circle().fill(Theme.accent).frame(width: Theme.Grid.pip, height: Theme.Grid.pip)
+            Text(text)
+                .dFont(DT.TypeScale.subheadline)
+                .foregroundStyle(Theme.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(.vertical, DT.Space.s3)
+        .frame(minHeight: DT.Size.row)
     }
 }
 
@@ -102,26 +106,19 @@ struct PermissionDeniedView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(spacing: DT.Space.s4) {
             Spacer()
-            Text("讀不到行事曆").sFont(28, .black).foregroundStyle(Theme.ink)
-            Text(reason).sFont(16, .medium).foregroundStyle(Theme.pastFg)
+            EmptyStateView(systemImage: "calendar.badge.exclamationmark", title: "讀不到行事曆", message: reason)
             Spacer()
-            Button {
+            WideButton(title: "前往設定") {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     UIApplication.shared.open(url)
                 }
-            } label: {
-                Text("前往設定")
-                    .sFont(17, .bold)
-                    .foregroundStyle(Theme.inkInverse)
-                    .frame(maxWidth: .infinity, minHeight: 52)
-                    .background(RoundedRectangle(cornerRadius: 16).fill(Theme.ink))
             }
-            .buttonStyle(.plain)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .padding(.horizontal, DT.Size.screenMargin)
+        .padding(.vertical, DT.Space.s6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.bg.ignoresSafeArea())
     }
 }

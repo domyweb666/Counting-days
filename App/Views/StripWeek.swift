@@ -1,7 +1,7 @@
 import SwiftUI
 import CalendarCore
 
-/// C 週條：一週一橫條，沒事的日子縮窄，有事的日子撐開
+/// 週條：一週一橫條，沒事的日子縮窄，有事的日子撐開
 struct StripWeek: View {
     let vm: CalendarViewModel
     let week: WeekModel
@@ -11,13 +11,13 @@ struct StripWeek: View {
         if week.isCollapsed {
             emptyRow
         } else {
-            FlexRow(spacing: 4) {
+            FlexRow(spacing: DT.Space.s1) {
                 ForEach(vm.builder.stripItems(for: week)) { item in
                     itemView(item)
                 }
             }
             .frame(minHeight: 64)
-            .padding(.horizontal, 4)
+            .padding(.horizontal, DT.Space.s1)
         }
     }
 
@@ -28,11 +28,11 @@ struct StripWeek: View {
                 Button {
                     vm.toggle(day.date)
                 } label: {
-                    VStack(spacing: 0) {
-                        DayNumber(vm: vm, day: day, height: 24, fontSize: 14)
+                    VStack(spacing: 1) {
+                        DayNumber(vm: vm, day: day, height: Theme.Grid.dayCircleSmall, fontSize: 13)
                         Text(vm.subline(for: day)?.text ?? vm.dow(day.date))
-                            .sFont(11, .medium)
-                            .foregroundStyle(day.holidays.isEmpty ? Theme.sub : Theme.holiday)
+                            .sFont(10, .medium)
+                            .foregroundStyle(day.holidays.isEmpty ? Theme.sub : Theme.destructive)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                         HStack(spacing: 2) {
@@ -42,18 +42,18 @@ struct StripWeek: View {
                         }
                         .frame(height: 5)
                     }
-                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .frame(maxWidth: .infinity, minHeight: DT.Size.row)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressStyle())
                 .accessibilityLabel(vm.accessibilityLabel(for: day))
                 .contextMenu {
                     Button("新增行程", systemImage: "plus") { actions.add(day.date) }
                 }
             }
         }
-        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.card))
-        .padding(.horizontal, 4)
+        .background(RoundedRectangle(cornerRadius: DT.Radius.lg).fill(Theme.card))
+        .padding(.horizontal, DT.Space.s1)
     }
 
     @ViewBuilder
@@ -61,37 +61,37 @@ struct StripWeek: View {
         switch item {
         case .narrow(let day):
             Button { vm.toggle(day.date) } label: { narrow(day) }
-                .buttonStyle(.plain)
+                .buttonStyle(PressStyle())
                 .accessibilityLabel(vm.accessibilityLabel(for: day))
                 .flex(0)
         case .card(let day):
             Button { vm.toggle(day.date) } label: { card(day) }
-                .buttonStyle(.plain)
+                .buttonStyle(PressStyle())
                 .accessibilityLabel(vm.accessibilityLabel(for: day))
                 .flex(2)
         case .compact(let day):
             Button { vm.toggle(day.date) } label: { compact(day) }
-                .buttonStyle(.plain)
+                .buttonStyle(PressStyle())
                 .accessibilityLabel(vm.accessibilityLabel(for: day))
                 .flex(1)
         case .trip(let seg):
             Button { vm.toggle(week.days[seg.startCol].date) } label: { trip(seg) }
-                .buttonStyle(.plain)
+                .buttonStyle(PressStyle())
                 .flex(CGFloat(seg.span))
         }
     }
 
-    private func selectionRing(_ day: DayModel, radius: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: radius)
-            .strokeBorder(vm.selected == day.date ? Theme.select : Color.clear, lineWidth: 3)
+    private func selectionRing(_ day: DayModel) -> some View {
+        RoundedRectangle(cornerRadius: DT.Radius.lg)
+            .strokeBorder(vm.selected == day.date ? Theme.accent : Color.clear, lineWidth: Theme.Grid.ring)
     }
 
     private func narrow(_ day: DayModel) -> some View {
         VStack(spacing: 2) {
-            DayNumber(vm: vm, day: day, height: 28, fontSize: 14)
-            Text(vm.dow(day.date)).sFont(11, .medium).foregroundStyle(Theme.sub)
+            DayNumber(vm: vm, day: day, height: Theme.Grid.dayCircleSmall, fontSize: 13)
+            Text(vm.dow(day.date)).sFont(10, .medium).foregroundStyle(Theme.sub)
         }
-        .frame(width: 30)
+        .frame(width: Theme.Grid.dayCircle)
         .frame(maxHeight: .infinity)
         .contentShape(Rectangle())
     }
@@ -102,82 +102,87 @@ struct StripWeek: View {
         return base
     }
 
+    private func dateColor(_ day: DayModel) -> Color {
+        if day.isToday { return Theme.strong }
+        return day.isPast ? Theme.sub : Theme.ink
+    }
+
     private func card(_ day: DayModel) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: DT.Space.s1) {
             Text(dateLabel(day, short: false))
-                .sFont(12, .bold)
-                .foregroundStyle(day.isToday ? Theme.select : (day.isPast ? Theme.pastFg : Theme.ink))
+                .dFont(DT.TypeScale.caption)
+                .foregroundStyle(dateColor(day))
                 .lineLimit(1)
             ForEach(day.events.prefix(6)) { e in
                 let isHead = e.id == day.head?.id
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(day.isPast ? Theme.sub : vm.color(e.categoryID))
-                        .frame(width: 9, height: 9)
+                        .fill(day.isPast ? Theme.tertiary : vm.color(e.categoryID))
+                        .frame(width: Theme.Grid.pip, height: Theme.Grid.pip)
                     Text(e.event.title)
-                        .sFont(isHead ? 17 : 14, isHead ? .heavy : .bold)
+                        .dFont(isHead ? DT.TypeScale.headline : DT.TypeScale.subheadline)
                         .multilineTextAlignment(.leading)
                 }
             }
             if day.events.count > 6 {
-                Text("還有 \(day.events.count - 6) 件").sFont(12, .bold).foregroundStyle(Theme.sub)
+                Text("還有 \(day.events.count - 6) 件").dFont(DT.TypeScale.caption).foregroundStyle(Theme.sub)
             }
         }
-        .foregroundStyle(day.isPast ? Theme.pastFg : Theme.ink)
-        .padding(.vertical, 8)
-        .padding(.horizontal, 10)
+        .foregroundStyle(day.isPast ? Theme.sub : Theme.ink)
+        .padding(.vertical, DT.Space.s2)
+        .padding(.horizontal, DT.Space.s3)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12).fill(day.isPast ? Theme.pastBg : Theme.card))
-        .overlay(selectionRing(day, radius: 12))
+        .background(RoundedRectangle(cornerRadius: DT.Radius.lg).fill(day.isPast ? Theme.muted : Theme.card))
+        .overlay(selectionRing(day))
         .contentShape(Rectangle())
     }
 
     private func compact(_ day: DayModel) -> some View {
-        VStack(spacing: 4) {
+        VStack(spacing: DT.Space.s1) {
             Text(dateLabel(day, short: true))
-                .sFont(12, .bold)
-                .foregroundStyle(day.isToday ? Theme.select : Theme.ink)
+                .dFont(DT.TypeScale.caption)
+                .foregroundStyle(dateColor(day))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             if let head = day.head {
-                EventChip(label: head.label, color: vm.color(head.categoryID), isPast: day.isPast, fontSize: 13)
+                EventChip(vm: vm, label: head.label, categoryID: head.categoryID, isPast: day.isPast)
             }
             PipRow(vm: vm, events: day.rest, isPast: day.isPast)
         }
         .padding(.top, 6)
-        .padding(.horizontal, 3)
-        .padding(.bottom, 8)
+        .padding(.horizontal, Theme.Grid.gap)
+        .padding(.bottom, DT.Space.s2)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.card))
-        .overlay(selectionRing(day, radius: 12))
+        .background(RoundedRectangle(cornerRadius: DT.Radius.lg).fill(Theme.card))
+        .overlay(selectionRing(day))
         .contentShape(Rectangle())
     }
 
     private func trip(_ seg: BandSegment) -> some View {
-        let lead: CGFloat = seg.startsHere ? 12 : 0
-        let trail: CGFloat = seg.endsHere ? 12 : 0
+        let lead: CGFloat = seg.startsHere ? DT.Radius.lg : 0
+        let trail: CGFloat = seg.endsHere ? DT.Radius.lg : 0
         let from = week.days[seg.startCol].date
         let to = week.days[seg.endCol].date
         let range = seg.span == 1
             ? "\(vm.dayNumber(from)) 週\(vm.dow(from))"
             : "\(vm.cellLabel(from)) 週\(vm.dow(from)) → \(vm.dayNumber(to)) 週\(vm.dow(to))"
         return VStack(alignment: .leading, spacing: 2) {
-            Text(range).sFont(13, .bold).lineLimit(1).minimumScaleFactor(0.7)
+            Text(range).dFont(DT.TypeScale.caption).lineLimit(1).minimumScaleFactor(0.7)
             Text(seg.band.event.title)
-                .sFont(seg.span == 1 ? 15 : 22, .heavy)
+                .dFont(seg.span == 1 ? DT.TypeScale.subheadline : DT.TypeScale.title2)
                 .lineLimit(2)
                 .minimumScaleFactor(0.6)
         }
-        .foregroundStyle(seg.isPast ? Theme.pastFg : Color.white)
-        .padding(.vertical, 8)
-        .padding(.horizontal, seg.span == 1 ? 6 : 12)
+        .foregroundStyle(seg.isPast ? Theme.sub : vm.onColor(seg.band.categoryID))
+        .padding(.vertical, DT.Space.s2)
+        .padding(.horizontal, seg.span == 1 ? 6 : DT.Space.s3)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(
             UnevenRoundedRectangle(
                 topLeadingRadius: lead, bottomLeadingRadius: lead,
                 bottomTrailingRadius: trail, topTrailingRadius: trail
             )
-            .fill(seg.isPast ? Theme.pastBg : vm.color(seg.band.categoryID))
+            .fill(seg.isPast ? Theme.muted : vm.color(seg.band.categoryID))
         )
         .contentShape(Rectangle())
         .accessibilityLabel("\(seg.band.event.title)，共 \(seg.band.totalDays) 天")

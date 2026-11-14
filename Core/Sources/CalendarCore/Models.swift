@@ -52,7 +52,7 @@ public struct CalEvent: Identifiable, Hashable, Sendable {
 public struct EventCategory: Codable, Hashable, Identifiable, Sendable {
     public var id: String
     public var name: String
-    /// 例如 "#6D28D9"
+    /// 例如 "#6F5F8F"
     public var colorHex: String
     /// 挑主事件時優先（預設：看診、行程）。
     public var isPriority: Bool
@@ -113,10 +113,10 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public static let fallbackCategoryID = "trip"
 
     public static let defaultCategories: [EventCategory] = [
-        EventCategory(id: "work", name: "工作", colorHex: "#6D28D9"),
-        EventCategory(id: "trip", name: "行程", colorHex: "#1D4ED8", isPriority: true),
-        EventCategory(id: "med", name: "看診", colorHex: "#C2410C", isPriority: true),
-        EventCategory(id: "errand", name: "辦事", colorHex: "#0F766E")
+        EventCategory(id: "work", name: "工作", colorHex: "#6F5F8F"),
+        EventCategory(id: "trip", name: "行程", colorHex: "#4B6C8F", isPriority: true),
+        EventCategory(id: "med", name: "看診", colorHex: "#A65F45", isPriority: true),
+        EventCategory(id: "errand", name: "辦事", colorHex: "#7A6A3A")
     ]
 
     public init(

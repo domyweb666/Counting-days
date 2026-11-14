@@ -1,78 +1,92 @@
 import SwiftUI
 import CalendarCore
 
-/// B 清單：上面小月曆只有色塊，下面是「接下來」
+/// 清單：上面小月曆只有色塊，下面是「接下來」
 struct ListModeView: View {
     let vm: CalendarViewModel
     let actions: CalendarActions
 
+    /// 這個畫面的內容離螢幕邊緣 20：外層已經有月曆的 8，這裡再補 12
+    private let inset = DT.Size.screenMargin - Theme.Grid.margin
+
     var body: some View {
         ScrollView {
-            VStack(spacing: 6) {
+            VStack(spacing: DT.Space.s3) {
                 miniCalendar
                 if let sel = vm.selected, let day = vm.day(for: sel) {
                     DayPanel(vm: vm, day: day, actions: actions)
+                        .padding(.horizontal, inset - DT.Space.s1)
                 }
                 Text("接下來")
-                    .sFont(15, .bold)
-                    .foregroundStyle(Theme.pastFg)
+                    .dFont(DT.TypeScale.title3)
+                    .foregroundStyle(Theme.ink)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 6)
-                    .padding(.horizontal, 8)
+                    .padding(.top, DT.Space.s2)
+                    .padding(.horizontal, inset + DT.Space.s1)
+                    .accessibilityAddTraits(.isHeader)
                 if vm.upcoming.isEmpty {
-                    Text("接下來沒有行程")
-                        .sFont(15, .medium)
-                        .foregroundStyle(Theme.sub)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 8)
+                    EmptyStateView(
+                        systemImage: "calendar",
+                        title: "接下來沒有行程",
+                        message: "按右上角的「+」新增一個，它會寫進 iPhone 的行事曆。"
+                    )
                 }
                 ForEach(vm.upcoming) { card in
                     UpcomingCardView(vm: vm, card: card)
+                        .padding(.horizontal, inset)
                 }
             }
-            .padding(.bottom, 16)
+            .padding(.bottom, DT.Space.s8)
         }
     }
 
     private var miniCalendar: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: DT.Space.s2) {
             HStack {
                 Button { vm.shiftListMonth(-1) } label: {
-                    Image(systemName: "chevron.left").frame(width: 44, height: 32)
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 15, weight: .semibold))
+                        .frame(width: DT.Size.touch, height: DT.Size.touch)
                 }
                 .accessibilityLabel("上個月")
                 Spacer()
-                HStack(spacing: 0) {
-                    ForEach(vm.weekdaySymbols, id: \.self) { s in
-                        Text(s).sFont(12, .medium).foregroundStyle(Theme.sub).frame(maxWidth: .infinity)
-                    }
-                }
+                Text("\(vm.titleYearText) 年 \(vm.titleMonthText)")
+                    .dFont(DT.TypeScale.callout)
+                    .foregroundStyle(Theme.ink)
                 Spacer()
                 Button { vm.shiftListMonth(1) } label: {
-                    Image(systemName: "chevron.right").frame(width: 44, height: 32)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 15, weight: .semibold))
+                        .frame(width: DT.Size.touch, height: DT.Size.touch)
                 }
                 .accessibilityLabel("下個月")
             }
-            .foregroundStyle(Theme.ink)
-            VStack(spacing: 4) {
+            .foregroundStyle(Theme.accent)
+            HStack(spacing: 0) {
+                ForEach(vm.weekdaySymbols, id: \.self) { s in
+                    Text(s).dFont(DT.TypeScale.caption).foregroundStyle(Theme.sub).frame(maxWidth: .infinity)
+                }
+            }
+            .accessibilityHidden(true)
+            VStack(spacing: DT.Space.s1) {
                 ForEach(vm.listWeeks) { week in
                     HStack(spacing: 0) {
                         ForEach(Array(week.days.enumerated()), id: \.element.id) { col, day in
                             Button { vm.toggle(day.date) } label: {
                                 MiniCell(vm: vm, week: week, col: col, day: day)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(PressStyle())
                             .accessibilityLabel(vm.accessibilityLabel(for: day))
                         }
                     }
                 }
             }
-            .padding(.horizontal, 44)
         }
-        .padding(.top, 10)
-        .padding(.bottom, 12)
-        .background(RoundedRectangle(cornerRadius: 18).fill(Theme.card))
-        .padding(.horizontal, 4)
+        .padding(.top, DT.Space.s1)
+        .padding(.horizontal, DT.Space.s3)
+        .padding(.bottom, DT.Space.s4)
+        .background(RoundedRectangle(cornerRadius: DT.Radius.xl).fill(Theme.card))
+        .padding(.horizontal, inset)
     }
 }
 
@@ -82,6 +96,8 @@ struct MiniCell: View {
     let col: Int
     let day: DayModel
 
+    private let side: CGFloat = 36
+
     private var segment: BandSegment? {
         week.segments.first { $0.band.lane == 0 && col >= $0.startCol && col <= $0.endCol }
     }
@@ -90,41 +106,41 @@ struct MiniCell: View {
         let isSelected = vm.selected == day.date
         let seg = segment
         let label = Text(vm.cellLabel(day.date))
-            .sFont(vm.dayNumber(day.date) == 1 ? 12 : 15, .bold)
+            .sFont(vm.dayNumber(day.date) == 1 ? 12 : 15, .semibold)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
 
         ZStack {
             if let seg {
-                let lead: CGFloat = (col == seg.startCol && seg.startsHere) || col == 0 ? 10 : 0
-                let trail: CGFloat = (col == seg.endCol && seg.endsHere) || col == 6 ? 10 : 0
+                let lead: CGFloat = (col == seg.startCol && seg.startsHere) || col == 0 ? DT.Radius.md : 0
+                let trail: CGFloat = (col == seg.endCol && seg.endsHere) || col == 6 ? DT.Radius.md : 0
                 UnevenRoundedRectangle(
                     topLeadingRadius: lead, bottomLeadingRadius: lead,
                     bottomTrailingRadius: trail, topTrailingRadius: trail
                 )
-                .fill(seg.isPast ? Theme.pastBg : vm.color(seg.band.categoryID))
-                label.foregroundStyle(seg.isPast ? Theme.pastFg : Color.white)
+                .fill(seg.isPast ? Theme.muted : vm.color(seg.band.categoryID))
+                label.foregroundStyle(seg.isPast ? Theme.sub : vm.onColor(seg.band.categoryID))
             } else if let head = day.head {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(day.isPast ? Theme.pastBg : vm.color(head.categoryID))
-                    .frame(width: 36)
-                label.foregroundStyle(day.isPast ? Theme.pastFg : Color.white)
+                RoundedRectangle(cornerRadius: DT.Radius.md)
+                    .fill(day.isPast ? Theme.muted : vm.color(head.categoryID))
+                    .frame(width: side)
+                label.foregroundStyle(day.isPast ? Theme.sub : vm.onColor(head.categoryID))
             } else {
                 label.foregroundStyle(
-                    day.holidays.isEmpty ? (day.isPast ? Theme.sub : Theme.ink) : Theme.holiday
+                    day.holidays.isEmpty ? (day.isPast ? Theme.tertiary : Theme.ink) : Theme.destructive
                 )
             }
             if day.isToday {
-                Circle().strokeBorder(seg == nil ? Theme.ink : Color.white, lineWidth: 3).frame(width: 36)
+                Circle().strokeBorder(Theme.accent, lineWidth: Theme.Grid.ring).frame(width: side)
             }
-            if isSelected {
-                RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(seg == nil ? Theme.select : Color.white, lineWidth: 3)
-                    .frame(width: 36)
+            if isSelected, !day.isToday {
+                RoundedRectangle(cornerRadius: DT.Radius.md)
+                    .strokeBorder(Theme.accent, lineWidth: Theme.Grid.ring)
+                    .frame(width: side)
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 36)
+        .frame(height: side)
         .opacity(vm.isInListMonth(day.date) ? 1 : 0.35)
         .contentShape(Rectangle())
     }
@@ -136,33 +152,32 @@ struct UpcomingCardView: View {
 
     var body: some View {
         Button {
-            let target = max(card.date, vm.today)
-            vm.jump(to: target)
+            vm.jump(to: max(card.date, vm.today))
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: DT.Space.s3) {
                 block
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .sFont(20, .heavy)
+                        .dFont(DT.TypeScale.headline)
                         .foregroundStyle(Theme.ink)
                         .multilineTextAlignment(.leading)
                     if let sub {
                         Text(sub)
-                            .sFont(13, .medium)
-                            .foregroundStyle(Theme.pastFg)
+                            .dFont(DT.TypeScale.footnote)
+                            .foregroundStyle(Theme.sub)
                             .multilineTextAlignment(.leading)
                     }
                 }
                 Spacer(minLength: 0)
-                Text(card.awayText).sFont(15, .bold).foregroundStyle(Theme.pastFg)
+                Text(card.awayText).dFont(DT.TypeScale.subheadline).foregroundStyle(Theme.sub)
             }
-            .padding(10)
+            .padding(.vertical, DT.Space.s3)
+            .padding(.horizontal, DT.Space.s4)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 16).fill(Theme.card))
+            .background(RoundedRectangle(cornerRadius: DT.Radius.xl).fill(Theme.card))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 4)
+        .buttonStyle(PressStyle())
     }
 
     private var title: String {
@@ -185,28 +200,28 @@ struct UpcomingCardView: View {
     }
 
     private var block: some View {
-        let color: Color
+        let categoryID: String
         let big: String
         let small: String
-        let bigSize: CGFloat
+        let bigStyle: DomyTypeStyle
         switch card.kind {
         case .day(let d):
-            color = vm.color(d.head?.categoryID ?? "")
+            categoryID = d.head?.categoryID ?? ""
             big = String(vm.dayNumber(d.date))
             small = "週" + vm.dow(d.date)
-            bigSize = 24
+            bigStyle = DT.TypeScale.title2
         case .band(let b):
-            color = vm.color(b.categoryID)
+            categoryID = b.categoryID
             big = vm.md(b.firstDay)
             small = "到 " + vm.md(b.lastDay)
-            bigSize = 18
+            bigStyle = DT.TypeScale.headline
         }
         return VStack(spacing: 0) {
-            Text(big).sFont(bigSize, .heavy).lineLimit(1).minimumScaleFactor(0.6)
-            Text(small).sFont(12, .bold).lineLimit(1).minimumScaleFactor(0.6)
+            Text(big).dFont(bigStyle).lineLimit(1).minimumScaleFactor(0.6)
+            Text(small).dFont(DT.TypeScale.caption).lineLimit(1).minimumScaleFactor(0.6)
         }
-        .foregroundStyle(Color.white)
-        .frame(width: 60, height: 60)
-        .background(RoundedRectangle(cornerRadius: 12).fill(color))
+        .foregroundStyle(vm.onColor(categoryID))
+        .frame(width: 56, height: 56)
+        .background(RoundedRectangle(cornerRadius: DT.Radius.md).fill(vm.color(categoryID)))
     }
 }

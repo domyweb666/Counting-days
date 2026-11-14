@@ -9,56 +9,55 @@ struct DayPanel: View {
 
     var body: some View {
         let rows = vm.builder.detailRows(for: day)
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: DT.Space.s1) {
             header(count: rows.count)
             if rows.isEmpty {
                 Text("這天沒有行程")
-                    .sFont(15, .medium)
-                    .foregroundStyle(Theme.pastFg)
-                    .padding(.horizontal, 6)
+                    .dFont(DT.TypeScale.subheadline)
+                    .foregroundStyle(Theme.sub)
+                    .padding(.vertical, DT.Space.s2)
             }
-            ForEach(rows) { row in
+            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                if index > 0, !row.isSolid, !rows[index - 1].isSolid {
+                    Hairline()
+                }
                 Button {
                     actions.open(row.event)
                 } label: {
                     DetailRowView(vm: vm, row: row, isPast: day.isPast)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressStyle())
                 .contextMenu { menu(for: row) }
             }
-            Button {
+            WideButton(title: "新增行程", kind: .secondary, systemImage: "plus") {
                 actions.add(day.date)
-            } label: {
-                Label("新增行程", systemImage: "plus")
-                    .sFont(15, .bold)
-                    .foregroundStyle(Theme.select)
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(Theme.bg))
             }
-            .buttonStyle(.plain)
+            .padding(.top, DT.Space.s2)
         }
-        .padding(.top, 8)
-        .padding(.horizontal, 10)
-        .padding(.bottom, 10)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Theme.card))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.select, lineWidth: 2))
-        .padding(.horizontal, 4)
+        .padding(.top, DT.Space.s3)
+        .padding(.horizontal, DT.Space.s4)
+        .padding(.bottom, DT.Space.s4)
+        .background(RoundedRectangle(cornerRadius: DT.Radius.xl).fill(Theme.card))
+        .overlay(RoundedRectangle(cornerRadius: DT.Radius.xl).strokeBorder(Theme.accent, lineWidth: 2))
+        .padding(.horizontal, DT.Space.s1)
     }
 
     private func header(count: Int) -> some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: DT.Space.s2) {
                     Text("\(vm.md(day.date)) 週\(vm.dow(day.date))")
-                        .sFont(19, .heavy)
+                        .dFont(DT.TypeScale.title3)
                         .foregroundStyle(Theme.ink)
                     if count > 0 {
-                        Text("\(count) 件").sFont(13, .bold).foregroundStyle(Theme.pastFg)
+                        Text("\(count) 件").dFont(DT.TypeScale.footnote).foregroundStyle(Theme.sub)
                     }
                 }
-                Text(subtitle)
-                    .sFont(12, .medium)
-                    .foregroundStyle(day.holidays.isEmpty ? Theme.sub : Theme.holiday)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .dFont(DT.TypeScale.caption)
+                        .foregroundStyle(day.holidays.isEmpty ? Theme.sub : Theme.destructive)
+                }
             }
             Spacer()
             Button {
@@ -67,13 +66,13 @@ struct DayPanel: View {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(Theme.ink)
-                    .frame(width: 44, height: 44)
-                    .background(Circle().fill(Theme.bg))
+                    .frame(width: DT.Size.iconButton, height: DT.Size.iconButton)
+                    .background(Circle().fill(Theme.muted))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressStyle())
             .accessibilityLabel("收合")
         }
-        .padding(.leading, 4)
+        .padding(.bottom, DT.Space.s1)
     }
 
     private var subtitle: String {
@@ -105,17 +104,20 @@ struct DayPanel: View {
     }
 }
 
-struct DetailRowView: View {
-    let vm: CalendarViewModel
-    let row: DetailRow
-    let isPast: Bool
-
-    private var isSolid: Bool {
-        switch row.kind {
+extension DetailRow {
+    /// 跨日事件與主事件畫成整條實色
+    var isSolid: Bool {
+        switch kind {
         case .band, .head: return true
         case .normal, .routine: return false
         }
     }
+}
+
+struct DetailRowView: View {
+    let vm: CalendarViewModel
+    let row: DetailRow
+    let isPast: Bool
 
     private var title: String {
         if case .band(let n, _) = row.kind { return "\(row.title) · 第 \(n) 天" }
@@ -123,32 +125,60 @@ struct DetailRowView: View {
     }
 
     var body: some View {
-        let color = vm.color(row.categoryID)
-        let solidFg: Color = isPast ? Theme.pastFg : .white
-        HStack(spacing: 8) {
+        if row.isSolid { solid } else { plain }
+    }
+
+    private var solid: some View {
+        let fg = isPast ? Theme.sub : vm.onColor(row.categoryID)
+        return HStack(spacing: DT.Space.s3) {
             Text(row.timeText)
-                .sFont(13, .bold)
-                .foregroundStyle(isSolid ? solidFg : Theme.pastFg)
-                .frame(minWidth: 42, alignment: .leading)
-            RoundedRectangle(cornerRadius: 3)
-                .fill(isSolid ? solidFg : (isPast ? Theme.sub : color))
-                .frame(width: 10, height: 10)
+                .dFont(DT.TypeScale.footnote)
+                .opacity(0.85)
+                .frame(minWidth: DT.Size.touch, alignment: .leading)
             Text(title)
-                .sFont(isSolid ? 19 : 15, isSolid ? .heavy : (row.kind == .routine ? .medium : .bold))
-                .foregroundStyle(isSolid ? solidFg : (isPast || row.kind == .routine ? Theme.pastFg : Theme.ink))
+                .dFont(DT.TypeScale.title3)
                 .multilineTextAlignment(.leading)
             Spacer(minLength: 0)
             if row.isPinned {
                 Image(systemName: "pin.fill")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(isSolid ? solidFg : Theme.sub)
                     .accessibilityLabel("已置頂")
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .frame(maxWidth: .infinity, minHeight: isSolid ? 44 : 34, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 10).fill(isSolid ? (isPast ? Theme.pastBg : color) : Color.clear))
+        .foregroundStyle(fg)
+        .padding(.horizontal, DT.Space.s3)
+        .padding(.vertical, DT.Space.s2)
+        .frame(maxWidth: .infinity, minHeight: DT.Size.row, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: DT.Radius.md).fill(isPast ? Theme.muted : vm.color(row.categoryID)))
+        .padding(.horizontal, -DT.Space.s2)
+        .padding(.bottom, DT.Space.s1)
+        .contentShape(Rectangle())
+    }
+
+    private var plain: some View {
+        let dim = isPast || row.kind == .routine
+        return HStack(spacing: DT.Space.s3) {
+            Text(row.timeText)
+                .dFont(DT.TypeScale.footnote)
+                .foregroundStyle(Theme.sub)
+                .frame(minWidth: DT.Size.touch, alignment: .leading)
+            RoundedRectangle(cornerRadius: 3)
+                .fill(isPast ? Theme.tertiary : vm.color(row.categoryID))
+                .frame(width: Theme.Grid.square, height: Theme.Grid.square)
+            Text(title)
+                .dFont(DT.TypeScale.body)
+                .foregroundStyle(dim ? Theme.sub : Theme.ink)
+                .multilineTextAlignment(.leading)
+            Spacer(minLength: 0)
+            if row.isPinned {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Theme.sub)
+                    .accessibilityLabel("已置頂")
+            }
+        }
+        .padding(.vertical, DT.Space.s1)
+        .frame(maxWidth: .infinity, minHeight: DT.Size.touch, alignment: .leading)
         .contentShape(Rectangle())
     }
 }

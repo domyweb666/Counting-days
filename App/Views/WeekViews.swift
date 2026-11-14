@@ -8,32 +8,32 @@ struct CalendarActions {
     var shortName: (CalEvent) -> Void
 }
 
-/// 日期數字：今天是黑底白字的圓，被選的有藍框
+/// 日期數字：今天是產品色實心圓，被選的有產品色外框
 struct DayNumber: View {
     let vm: CalendarViewModel
     let day: DayModel
-    var height: CGFloat = 30
+    var height: CGFloat = Theme.Grid.dayCircle
     var fontSize: CGFloat = 15
 
     private var isSelected: Bool { vm.selected == day.date }
 
     private var foreground: Color {
-        if day.isToday { return Theme.inkInverse }
-        if !day.holidays.isEmpty { return Theme.holiday }
-        return day.isPast ? Theme.sub : Theme.ink
+        if day.isToday { return Theme.onAccent }
+        if !day.holidays.isEmpty { return Theme.destructive }
+        return day.isPast ? Theme.tertiary : Theme.ink
     }
 
     var body: some View {
         let label = vm.cellLabel(day.date)
         Text(label)
-            .sFont(label.count > 2 ? fontSize - 3 : fontSize, .bold)
+            .sFont(label.count > 2 ? fontSize - 3 : fontSize, .semibold)
             .foregroundStyle(foreground)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
-            .padding(.horizontal, 3)
+            .padding(.horizontal, Theme.Grid.gap)
             .frame(minWidth: height, minHeight: height)
-            .background(Capsule().fill(day.isToday ? Theme.ink : Color.clear))
-            .overlay(Capsule().strokeBorder(isSelected ? Theme.select : Color.clear, lineWidth: 3))
+            .background(Capsule().fill(day.isToday ? Theme.accent : Color.clear))
+            .overlay(Capsule().strokeBorder(isSelected ? Theme.accent : Color.clear, lineWidth: Theme.Grid.ring))
     }
 }
 
@@ -44,7 +44,7 @@ struct SublineText: View {
     var body: some View {
         Text(subline?.text ?? " ")
             .sFont(10, .medium)
-            .foregroundStyle(subline?.isHoliday == true ? Theme.holiday : Theme.sub)
+            .foregroundStyle(subline?.isHoliday == true ? Theme.destructive : Theme.sub)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
     }
@@ -57,22 +57,22 @@ struct CollapsedWeek: View {
     let actions: CalendarActions
 
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: Theme.Grid.gap) {
             ForEach(week.days) { day in
                 Button {
                     vm.toggle(day.date)
                 } label: {
                     VStack(spacing: 2) {
-                        DayNumber(vm: vm, day: day, height: 24, fontSize: 13)
+                        DayNumber(vm: vm, day: day, height: Theme.Grid.dayCircleSmall, fontSize: 13)
                         if let sub = vm.subline(for: day) {
                             SublineText(subline: sub)
                         }
                         dots(day)
                     }
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .frame(maxWidth: .infinity, minHeight: DT.Size.touch)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressStyle())
                 .accessibilityLabel(vm.accessibilityLabel(for: day))
                 .contextMenu {
                     Button("新增行程", systemImage: "plus") { actions.add(day.date) }
@@ -84,14 +84,14 @@ struct CollapsedWeek: View {
     private func dots(_ day: DayModel) -> some View {
         HStack(spacing: 2) {
             ForEach(day.events.prefix(4)) { e in
-                Circle().fill(vm.color(e.categoryID)).frame(width: 6, height: 6)
+                Circle().fill(vm.color(e.categoryID)).frame(width: Theme.Grid.dot, height: Theme.Grid.dot)
             }
         }
-        .frame(height: 6)
+        .frame(height: Theme.Grid.dot)
     }
 }
 
-/// 展開的一週（A 彈性週、D 主事件共用）
+/// 展開的一週（彈性週、主事件共用）
 struct ExpandedWeek: View {
     let vm: CalendarViewModel
     let week: WeekModel
@@ -107,22 +107,22 @@ struct ExpandedWeek: View {
     }
 
     var body: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 3) {
+        VStack(spacing: DT.Space.s1) {
+            HStack(spacing: Theme.Grid.gap) {
                 ForEach(week.days) { day in
                     Button {
                         vm.toggle(day.date)
                     } label: {
-                        VStack(spacing: 0) {
+                        VStack(spacing: 1) {
                             DayNumber(vm: vm, day: day)
                             if hasSubline {
                                 SublineText(subline: vm.subline(for: day))
                             }
                         }
-                        .frame(maxWidth: .infinity, minHeight: 34)
+                        .frame(maxWidth: .infinity, minHeight: DT.Size.touch)
                         .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressStyle())
                     .accessibilityLabel(vm.accessibilityLabel(for: day))
                     .contextMenu {
                         Button("新增行程", systemImage: "plus") { actions.add(day.date) }
@@ -132,7 +132,7 @@ struct ExpandedWeek: View {
             ForEach(lanes, id: \.self) { lane in
                 BandLaneRow(vm: vm, week: week, segments: week.segments.filter { $0.band.lane == lane }, thin: lane >= 2)
             }
-            HStack(alignment: .top, spacing: 3) {
+            HStack(alignment: .top, spacing: Theme.Grid.gap) {
                 ForEach(week.days) { day in
                     Button {
                         vm.toggle(day.date)
@@ -141,18 +141,18 @@ struct ExpandedWeek: View {
                             .frame(maxWidth: .infinity, alignment: .top)
                             .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressStyle())
                     .accessibilityHidden(true)
                 }
             }
         }
-        .padding(.top, 6)
-        .padding(.bottom, 10)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Theme.card))
+        .padding(.top, DT.Space.s2)
+        .padding(.bottom, DT.Space.s3)
+        .background(RoundedRectangle(cornerRadius: DT.Radius.xl).fill(Theme.card))
     }
 }
 
-/// 一格裡的事件：A 方式列出全部，D 方式只有主事件加小色塊
+/// 一格裡的事件：彈性週列出全部，主事件只有一個色塊加小色塊
 struct DayColumn: View {
     let vm: CalendarViewModel
     let day: DayModel
@@ -162,20 +162,20 @@ struct DayColumn: View {
     static let maxPips = 4
 
     var body: some View {
-        VStack(spacing: 3) {
+        VStack(spacing: Theme.Grid.gap) {
             if showAll {
                 ForEach(day.events.prefix(Self.maxChips)) { e in
-                    EventChip(label: e.label, color: vm.color(e.categoryID), isPast: day.isPast, fontSize: 13)
+                    EventChip(vm: vm, label: e.label, categoryID: e.categoryID, isPast: day.isPast)
                 }
                 if day.events.count > Self.maxChips {
                     Text("還有\(day.events.count - Self.maxChips)件")
-                        .sFont(11, .bold)
+                        .sFont(11, .semibold)
                         .foregroundStyle(Theme.sub)
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                 }
             } else if let head = day.head {
-                EventChip(label: head.label, color: vm.color(head.categoryID), isPast: day.isPast, fontSize: 14)
+                EventChip(vm: vm, label: head.label, categoryID: head.categoryID, isPast: day.isPast)
                 PipRow(vm: vm, events: day.rest, isPast: day.isPast)
             }
         }
@@ -184,43 +184,43 @@ struct DayColumn: View {
 }
 
 struct EventChip: View {
+    let vm: CalendarViewModel
     let label: String
-    let color: Color
+    let categoryID: String
     let isPast: Bool
-    let fontSize: CGFloat
 
     var body: some View {
         Text(label)
-            .sFont(fontSize, .bold)
+            .sFont(13, .semibold)
             .multilineTextAlignment(.center)
             .lineLimit(2)
             .minimumScaleFactor(0.75)
-            .foregroundStyle(isPast ? Theme.pastFg : Color.white)
+            .foregroundStyle(isPast ? Theme.sub : vm.onColor(categoryID))
             .padding(.vertical, 5)
-            .padding(.horizontal, 3)
+            .padding(.horizontal, 2)
             .frame(maxWidth: .infinity)
-            .background(RoundedRectangle(cornerRadius: 7).fill(isPast ? Theme.pastBg : color))
+            .background(RoundedRectangle(cornerRadius: DT.Radius.sm).fill(isPast ? Theme.muted : vm.color(categoryID)))
     }
 }
 
-/// 其餘事件：每件一個 8 pt 小色塊，最多 4 個，再多加「+」
+/// 其餘事件：每件一個小色塊，最多 4 個，再多加「+」
 struct PipRow: View {
     let vm: CalendarViewModel
     let events: [ClassifiedEvent]
     let isPast: Bool
 
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: Theme.Grid.gap) {
             ForEach(events.prefix(DayColumn.maxPips)) { e in
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(isPast ? Theme.sub : vm.color(e.categoryID))
-                    .frame(width: 8, height: 8)
+                    .fill(isPast ? Theme.tertiary : vm.color(e.categoryID))
+                    .frame(width: Theme.Grid.pip, height: Theme.Grid.pip)
             }
             if events.count > DayColumn.maxPips {
-                Text("+").sFont(10, .heavy).foregroundStyle(Theme.sub)
+                Text("+").sFont(10, .bold).foregroundStyle(Theme.sub)
             }
         }
-        .frame(minHeight: 8)
+        .frame(minHeight: Theme.Grid.pip)
     }
 }
 
@@ -231,15 +231,16 @@ struct BandLaneRow: View {
     let segments: [BandSegment]
     let thin: Bool
 
-    private var height: CGFloat { thin ? 4 : 36 }
+    private var height: CGFloat { thin ? Theme.Grid.bandThin : Theme.Grid.band }
 
     var body: some View {
         GeometryReader { geo in
-            let colW = (geo.size.width - 18) / 7
+            let gap = Theme.Grid.gap
+            let colW = (geo.size.width - gap * 6) / 7
             ForEach(segments) { seg in
                 segmentView(seg)
-                    .frame(width: CGFloat(seg.span) * colW + CGFloat(seg.span - 1) * 3, height: height)
-                    .offset(x: CGFloat(seg.startCol) * (colW + 3))
+                    .frame(width: CGFloat(seg.span) * colW + CGFloat(seg.span - 1) * gap, height: height)
+                    .offset(x: CGFloat(seg.startCol) * (colW + gap))
             }
         }
         .frame(height: height)
@@ -247,9 +248,9 @@ struct BandLaneRow: View {
 
     @ViewBuilder
     private func segmentView(_ seg: BandSegment) -> some View {
-        let fill = seg.isPast ? Theme.pastBg : vm.color(seg.band.categoryID)
-        let lead: CGFloat = seg.startsHere ? (thin ? 2 : 10) : 0
-        let trail: CGFloat = seg.endsHere ? (thin ? 2 : 10) : 0
+        let fill = seg.isPast ? Theme.muted : vm.color(seg.band.categoryID)
+        let lead: CGFloat = seg.startsHere ? (thin ? 2 : DT.Radius.md) : 0
+        let trail: CGFloat = seg.endsHere ? (thin ? 2 : DT.Radius.md) : 0
         let shape = UnevenRoundedRectangle(
             topLeadingRadius: lead, bottomLeadingRadius: lead,
             bottomTrailingRadius: trail, topTrailingRadius: trail
@@ -260,23 +261,23 @@ struct BandLaneRow: View {
             Button {
                 vm.toggle(week.days[seg.startCol].date)
             } label: {
-                HStack(spacing: 4) {
+                HStack(spacing: DT.Space.s1) {
                     Text(seg.band.event.title)
-                        .sFont(16, .heavy)
+                        .dFont(DT.TypeScale.callout)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                     Spacer(minLength: 0)
                     if seg.span >= 3, let right = rightText(seg) {
-                        Text(right).sFont(13, .bold).lineLimit(1)
+                        Text(right).sFont(13, .semibold).lineLimit(1)
                     }
                 }
-                .foregroundStyle(seg.isPast ? Theme.pastFg : Color.white)
-                .padding(.horizontal, seg.span == 1 ? 4 : 12)
+                .foregroundStyle(seg.isPast ? Theme.sub : vm.onColor(seg.band.categoryID))
+                .padding(.horizontal, seg.span == 1 ? DT.Space.s1 : DT.Space.s3)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(shape.fill(fill))
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressStyle())
             .accessibilityLabel("\(seg.band.event.title)，共 \(seg.band.totalDays) 天")
         }
     }

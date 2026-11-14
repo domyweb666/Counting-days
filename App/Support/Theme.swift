@@ -1,55 +1,90 @@
 import SwiftUI
 import UIKit
 
-extension UIColor {
-    convenience init(rgb: UInt32) {
-        self.init(
-            red: CGFloat((rgb >> 16) & 0xFF) / 255,
-            green: CGFloat((rgb >> 8) & 0xFF) / 255,
-            blue: CGFloat(rgb & 0xFF) / 255,
-            alpha: 1
-        )
+// 介面的顏色、字級、間距、圓角一律來自 App/Design/DomyTokens.swift（從 domy-design 複製，不要手改）。
+// 這個檔只做兩件事：指定蒜日子的產品色，以及放月曆格子專用、設計系統沒有的值。
+
+typealias DT = DomyTokens
+
+enum Theme {
+    /// 蒜日子的產品色：鼠尾草
+    static let product = DomyTheme.sage
+
+    static let bg = product.canvas
+    static let card = DT.Neutral.surface
+    static let muted = DT.Neutral.surfaceMuted
+    static let separator = DT.Neutral.separator
+    static let ink = DT.Neutral.textPrimary
+    static let sub = DT.Neutral.textSecondary
+    static let tertiary = DT.Neutral.textTertiary
+    static let accent = product.accent
+    static let onAccent = product.onAccent
+    static let strong = product.strong
+    static let soft = product.soft
+    static let destructive = DT.Neutral.destructive
+
+    // MARK: 類別色（蒜日子自己功能的顏色，不放進 domy-design）
+
+    /// 預設四個類別的降彩實色：淺色模式的色碼 → 深色模式的色碼
+    private static let categoryDark: [UInt32: UInt32] = [
+        0x6F5F8F: 0xA99BD0, // 工作 霧紫
+        0x4B6C8F: 0x8FB0D4, // 行程 灰藍
+        0xA65F45: 0xDB9C84, // 看診 陶土
+        0x7A6A3A: 0xC2B078  // 辦事 橄欖褐
+    ]
+    private static let onKnownCategory = Color(domyLight: 0xFFFFFF, domyDark: 0x1D1D1F)
+    private static let fallbackCategoryHex: UInt32 = 0x4B6C8F
+
+    static func parseHex(_ hex: String) -> UInt32? {
+        var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if s.hasPrefix("#") { s.removeFirst() }
+        guard s.count == 6 else { return nil }
+        return UInt32(s, radix: 16)
+    }
+
+    /// 類別色塊的底色與壓在上面的字色。
+    /// 預設色在深色模式會換成較亮的版本配深色字；使用者自訂的顏色兩種模式都用同一個色、配白字。
+    static func category(hex: String) -> (fill: Color, on: Color) {
+        let value = parseHex(hex) ?? fallbackCategoryHex
+        if let dark = categoryDark[value] {
+            return (Color(domyLight: value, domyDark: dark), onKnownCategory)
+        }
+        return (Color(uiColor: UIColor(domyHex: value)), .white)
+    }
+
+    // MARK: 月曆格子專用的尺寸（例外：設計系統的階梯放不進 7 欄格子）
+
+    enum Grid {
+        /// 月曆左右邊距。一格要塞得下 3 個中文字，用不了設計系統的 20。
+        static let margin: CGFloat = 8
+        static let gap: CGFloat = 3
+        static let dayCircle: CGFloat = 30
+        static let dayCircleSmall: CGFloat = 26
+        static let band: CGFloat = 36
+        static let bandThin: CGFloat = 4
+        static let pip: CGFloat = 8
+        static let dot: CGFloat = 6
+        static let square: CGFloat = 10
+        static let ring: CGFloat = 3
     }
 }
 
 extension Color {
-    /// 淺色、深色模式各一個顏色
-    init(light: UInt32, dark: UInt32) {
-        self.init(uiColor: UIColor { traits in
-            traits.userInterfaceStyle == .dark ? UIColor(rgb: dark) : UIColor(rgb: light)
-        })
-    }
-
-    /// "#6D28D9" 這種字串。格式不對時回傳 nil，由呼叫的地方決定怎麼辦。
+    /// "#6F5F8F" 這種字串。格式不對時回傳 nil。
     init?(hex: String) {
-        var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        if s.hasPrefix("#") { s.removeFirst() }
-        guard s.count == 6, let v = UInt32(s, radix: 16) else { return nil }
-        self.init(uiColor: UIColor(rgb: v))
+        guard let v = Theme.parseHex(hex) else { return nil }
+        self.init(uiColor: UIColor(domyHex: v))
     }
 
     var hexString: String {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        guard UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &a) else { return "#1D4ED8" }
+        guard UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &a) else { return "#4B6C8F" }
         func c(_ v: CGFloat) -> Int { Int((min(max(v, 0), 1) * 255).rounded()) }
         return String(format: "#%02X%02X%02X", c(r), c(g), c(b))
     }
 }
 
-enum Theme {
-    static let bg = Color(light: 0xF4F5F7, dark: 0x0E1014)
-    static let card = Color(light: 0xFFFFFF, dark: 0x1C1F26)
-    static let ink = Color(light: 0x14171C, dark: 0xF2F4F7)
-    static let inkInverse = Color(light: 0xFFFFFF, dark: 0x14171C)
-    static let sub = Color(light: 0x5B6370, dark: 0xA3ABB8)
-    static let pastBg = Color(light: 0xE3E6EB, dark: 0x2A2E37)
-    static let pastFg = Color(light: 0x454C57, dark: 0xB4BBC7)
-    static let select = Color(light: 0x1D4ED8, dark: 0x6B9BFF)
-    static let holiday = Color(light: 0xB91C1C, dark: 0xF87171)
-    static let fallbackCategory = Color(uiColor: UIColor(rgb: 0x1D4ED8))
-}
-
-/// 跟著系統字體大小縮放的固定字級
+/// 月曆格子裡的小字：設計系統字級以外的尺寸，跟著系統字體大小縮放
 struct ScaledFont: ViewModifier {
     @ScaledMetric private var size: CGFloat
     private let weight: Font.Weight
@@ -65,8 +100,18 @@ struct ScaledFont: ViewModifier {
 }
 
 extension View {
+    /// 月曆格子專用。一般介面文字請用 dFont。
     func sFont(_ size: CGFloat, _ weight: Font.Weight = .regular) -> some View {
         modifier(ScaledFont(size: size, weight: weight))
+    }
+
+    /// 設計系統的字級
+    func dFont(_ style: DomyTypeStyle) -> some View {
+        font(style.font)
+    }
+
+    func domyShadow(_ s: DomyShadow) -> some View {
+        shadow(color: DT.Neutral.shadow.opacity(s.opacity), radius: s.radius, x: 0, y: s.y)
     }
 }
 
@@ -83,7 +128,7 @@ extension View {
 }
 
 struct FlexRow: Layout {
-    var spacing: CGFloat = 4
+    var spacing: CGFloat = DT.Space.s1
 
     private func widths(total: CGFloat, subviews: Subviews) -> [CGFloat] {
         var fixed: CGFloat = 0

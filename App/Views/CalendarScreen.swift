@@ -43,22 +43,25 @@ struct CalendarScreen: View {
         )
     }
 
+    /// 標題列、切換鈕、倒數日離螢幕邊緣 20：外層已經有月曆的 8，這裡再補 12
+    private let inset = DT.Size.screenMargin - Theme.Grid.margin
+
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: DT.Space.s3) {
             header
             modeTabs
             if !vm.countdowns.isEmpty { countdownStrip }
             if let message = app.store.lastError ?? app.settings.errorMessage {
                 Text(message)
-                    .sFont(13, .bold)
-                    .foregroundStyle(Theme.holiday)
+                    .dFont(DT.TypeScale.footnote)
+                    .foregroundStyle(Theme.destructive)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, inset)
             }
             content
         }
-        .padding(.horizontal, 8)
-        .padding(.top, 4)
+        .padding(.horizontal, Theme.Grid.margin)
+        .padding(.top, DT.Space.s2)
         .background(Theme.bg.ignoresSafeArea())
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .onAppear {
@@ -90,104 +93,77 @@ struct CalendarScreen: View {
     // MARK: 標題列
 
     private var header: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: DT.Space.s2) {
             Button { sheet = .monthPicker } label: {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(vm.titleMonthText).sFont(34, .black).foregroundStyle(Theme.ink)
-                    Text(vm.titleYearText).sFont(15, .medium).foregroundStyle(Theme.sub)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Theme.sub)
+                    Text(vm.titleMonthText).dFont(DT.TypeScale.largeTitle).foregroundStyle(Theme.ink)
+                    Text(vm.titleYearText).dFont(DT.TypeScale.subheadline).foregroundStyle(Theme.sub)
                 }
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-                .frame(minHeight: 44)
+                .frame(minHeight: DT.Size.touch)
+                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressStyle())
             .accessibilityLabel("\(vm.titleYearText) 年 \(vm.titleMonthText)，點一下選擇年月")
             Spacer(minLength: 0)
-            iconButton("magnifyingglass", label: "搜尋") { sheet = .search }
-            iconButton("gearshape", label: "設定") { sheet = .settings }
-            Button { vm.goToday() } label: {
-                Text("今天")
-                    .sFont(15, .bold)
-                    .foregroundStyle(Theme.ink)
-                    .padding(.horizontal, 14)
-                    .frame(height: 44)
-                    .background(Capsule().fill(Theme.card))
+            CircleIconButton(systemName: "magnifyingglass", label: "搜尋") { sheet = .search }
+            CircleIconButton(systemName: "gearshape", label: "設定") { sheet = .settings }
+            PillTextButton(title: "今天") { vm.goToday() }
+            CircleIconButton(systemName: "plus", label: "新增行程", primary: true) {
+                sheet = .newEvent(vm.selected ?? vm.today)
             }
-            .buttonStyle(.plain)
-            Button { sheet = .newEvent(vm.selected ?? vm.today) } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(Theme.inkInverse)
-                    .frame(width: 44, height: 44)
-                    .background(Circle().fill(Theme.ink))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("新增行程")
         }
-        .padding(.horizontal, 4)
-    }
-
-    private func iconButton(_ name: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: name)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(Theme.ink)
-                .frame(width: 44, height: 44)
-                .background(Circle().fill(Theme.card))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
+        .padding(.horizontal, inset)
     }
 
     private var modeTabs: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: DT.Space.s1) {
             ForEach(DisplayMode.allCases, id: \.self) { m in
                 let on = m == mode
                 Button {
                     app.settings.update { $0.mode = m }
                 } label: {
                     Text(m.label)
-                        .sFont(14, .bold)
+                        .dFont(DT.TypeScale.callout)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
-                        .foregroundStyle(on ? Theme.inkInverse : Theme.pastFg)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .background(Capsule().fill(on ? Theme.ink : Color.clear))
+                        .foregroundStyle(on ? Theme.strong : Theme.ink)
+                        .frame(maxWidth: .infinity, minHeight: DT.Size.buttonCompact)
+                        .background(Capsule().fill(on ? Theme.soft : Color.clear))
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressStyle())
                 .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
-        .padding(2)
+        .padding(DT.Space.s1)
         .background(Capsule().fill(Theme.card))
-        .padding(.horizontal, 4)
+        .domyShadow(DT.Elevation.level1)
+        .padding(.horizontal, inset)
     }
 
     private var countdownStrip: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+            HStack(spacing: DT.Space.s2) {
                 ForEach(vm.countdowns) { item in
                     Button { vm.jump(to: item.date) } label: {
-                        HStack(spacing: 6) {
+                        HStack(spacing: DT.Space.s2) {
                             RoundedRectangle(cornerRadius: 3)
                                 .fill(vm.color(item.categoryID))
-                                .frame(width: 10, height: 10)
-                            Text(item.title).sFont(14, .bold).foregroundStyle(Theme.ink).lineLimit(1)
-                            Text(item.text).sFont(14, .heavy).foregroundStyle(vm.color(item.categoryID))
+                                .frame(width: Theme.Grid.square, height: Theme.Grid.square)
+                            Text(item.title).dFont(DT.TypeScale.subheadline).foregroundStyle(Theme.ink).lineLimit(1)
+                            Text(item.text).dFont(DT.TypeScale.callout).foregroundStyle(Theme.strong)
                         }
-                        .padding(.horizontal, 12)
-                        .frame(minHeight: 44)
+                        .padding(.horizontal, DT.Space.s4)
+                        .frame(minHeight: DT.Size.touch)
                         .background(Capsule().fill(Theme.card))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressStyle())
                     .accessibilityLabel("\(item.title)，\(item.text)")
                 }
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, inset)
         }
     }
 
@@ -198,7 +174,7 @@ struct CalendarScreen: View {
         if mode == .list {
             ListModeView(vm: vm, actions: actions)
         } else {
-            VStack(spacing: 6) {
+            VStack(spacing: DT.Space.s2) {
                 if mode != .strips { weekdayHeader }
                 weekScroll
             }
@@ -206,9 +182,9 @@ struct CalendarScreen: View {
     }
 
     private var weekdayHeader: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: Theme.Grid.gap) {
             ForEach(vm.weekdaySymbols, id: \.self) { s in
-                Text(s).sFont(12, .medium).foregroundStyle(Theme.sub).frame(maxWidth: .infinity)
+                Text(s).dFont(DT.TypeScale.caption).foregroundStyle(Theme.sub).frame(maxWidth: .infinity)
             }
         }
         .accessibilityHidden(true)
@@ -217,31 +193,21 @@ struct CalendarScreen: View {
     private var weekScroll: some View {
         @Bindable var model = vm
         return ScrollView {
-            LazyVStack(spacing: 6) {
+            LazyVStack(spacing: DT.Space.s2) {
                 ForEach(vm.weeks) { week in
                     WeekBlock(vm: vm, week: week, mode: mode, actions: actions)
                 }
             }
             .scrollTargetLayout()
-            .padding(.bottom, 8)
-            HStack(spacing: 8) {
-                loadButton("載入更早的月份") { vm.loadEarlier() }
-                loadButton("載入更晚的月份") { vm.loadLater() }
+            .padding(.bottom, DT.Space.s2)
+            HStack(spacing: DT.Space.s2) {
+                WideButton(title: "更早的月份", kind: .secondary) { vm.loadEarlier() }
+                WideButton(title: "更晚的月份", kind: .secondary) { vm.loadLater() }
             }
-            .padding(.bottom, 16)
+            .padding(.horizontal, inset)
+            .padding(.bottom, DT.Space.s8)
         }
         .scrollPosition(id: $model.topWeekID, anchor: .top)
-    }
-
-    private func loadButton(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .sFont(13, .bold)
-                .foregroundStyle(Theme.pastFg)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .background(RoundedRectangle(cornerRadius: 12).fill(Theme.card))
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: 彈出畫面
@@ -279,7 +245,7 @@ struct WeekBlock: View {
     let actions: CalendarActions
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: DT.Space.s2) {
             if mode == .strips {
                 StripWeek(vm: vm, week: week, actions: actions)
             } else if week.isCollapsed {
@@ -298,12 +264,17 @@ struct MissingEventView: View {
     let close: () -> Void
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text("找不到這個行程").sFont(19, .heavy)
-            Text("它可能剛被刪除或移到別的行事曆。").sFont(15).foregroundStyle(Theme.sub)
-            Button("關閉", action: close).buttonStyle(.borderedProminent)
+        VStack(spacing: DT.Space.s4) {
+            EmptyStateView(
+                systemImage: "calendar.badge.exclamationmark",
+                title: "找不到這個行程",
+                message: "它可能剛被刪除，或是移到別的行事曆了。"
+            )
+            WideButton(title: "關閉", kind: .secondary, action: close)
         }
-        .padding(24)
+        .padding(DT.Size.screenMargin)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.bg.ignoresSafeArea())
         .presentationDetents([.medium])
     }
 }
@@ -339,6 +310,7 @@ struct MonthPickerSheet: View {
                     }
                 }
         }
+        .tint(Theme.accent)
         .presentationDetents([.medium])
     }
 }

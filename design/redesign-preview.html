@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>蒜日子 重新設計預覽</title>
+<style>
+:root { color-scheme: light dark; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; background: #E9E7E1; color: #1D1D1F; }
+body.dark { background: #2A2A2C; color: #F5F5F7; }
+.bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; padding: 12px 16px; background: inherit; border-bottom: 1px solid rgba(128,128,128,.3); }
+.bar b { font-size: 13px; margin-right: 6px; opacity: .7; }
+.seg { display: inline-flex; background: rgba(128,128,128,.18); border-radius: 999px; padding: 3px; }
+.seg button { border: 0; background: transparent; color: inherit; font: inherit; font-size: 14px; font-weight: 600; padding: 8px 14px; border-radius: 999px; cursor: pointer; min-height: 36px; }
+.seg button[aria-pressed="true"] { background: #1D1D1F; color: #fff; }
+body.dark .seg button[aria-pressed="true"] { background: #F5F5F7; color: #1D1D1F; }
+.sw { width: 12px; height: 12px; border-radius: 6px; display: inline-block; margin-right: 6px; vertical-align: -1px; }
+.stage { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; padding: 20px 16px 40px; }
+.col { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.col h2 { margin: 0; font-size: 14px; font-weight: 600; opacity: .75; }
+.note { max-width: 820px; margin: 0 auto; padding: 0 16px 40px; font-size: 14px; line-height: 1.7; opacity: .85; }
+
+/* 手機畫面 */
+.phone { width: 390px; max-width: calc(100vw - 32px); height: 800px; border-radius: 40px; overflow: hidden; background: var(--canvas); color: var(--text); box-shadow: 0 12px 32px rgba(0,0,0,.22); display: flex; flex-direction: column; }
+.scroll { flex: 1; overflow-y: auto; padding: 54px 8px 24px; display: flex; flex-direction: column; gap: 12px; }
+.scroll > * { flex: none; }
+.m20 { margin: 0 12px; }
+.hdr { display: flex; align-items: center; gap: 8px; }
+.hdr .t { font-size: 34px; font-weight: 700; line-height: 41px; white-space: nowrap; }
+.hdr .y { font-size: 15px; color: var(--text2); margin-left: 6px; }
+.grow { flex: 1; }
+.ib { width: 44px; height: 44px; border-radius: 999px; background: var(--surface); color: var(--accent); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 18px var(--sh1); flex: none; }
+.ib.txt { width: auto; padding: 0 16px; font-size: 16px; font-weight: 600; color: var(--strong); }
+.ib.pri { background: var(--accent); color: var(--onAccent); }
+.ib svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.tabs { display: flex; gap: 4px; background: var(--surface); border-radius: 999px; padding: 4px; box-shadow: 0 4px 18px var(--sh1); }
+.tabs span { flex: 1; text-align: center; font-size: 15px; font-weight: 600; line-height: 36px; border-radius: 999px; color: var(--text); }
+.tabs span.on { background: var(--soft); color: var(--strong); }
+.chips { display: flex; gap: 8px; overflow: hidden; }
+.chip { display: flex; align-items: center; gap: 8px; background: var(--surface); border-radius: 999px; padding: 0 16px; height: 44px; font-size: 15px; white-space: nowrap; }
+.chip b { color: var(--strong); font-weight: 600; }
+.sq { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; font-size: 12px; font-weight: 500; color: var(--text2); text-align: center; }
+.wk { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.card { background: var(--surface); border-radius: 20px; padding: 8px 0 12px; display: flex; flex-direction: column; gap: 4px; }
+.dn { display: flex; flex-direction: column; align-items: center; gap: 1px; min-height: 44px; justify-content: center; }
+.num { min-width: 30px; height: 30px; padding: 0 3px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; border: 3px solid transparent; }
+.num.sm { min-width: 26px; height: 26px; font-size: 13px; }
+.num.past { color: var(--text3); }
+.num.today { background: var(--accent); color: var(--onAccent); }
+.num.sel { border-color: var(--accent); }
+.num.hol { color: var(--destructive); }
+.sub { font-size: 10px; font-weight: 500; color: var(--text2); line-height: 12px; height: 12px; }
+.sub.hol { color: var(--destructive); }
+.dots { display: flex; gap: 2px; height: 6px; }
+.dots i { width: 6px; height: 6px; border-radius: 3px; }
+.cell { display: flex; flex-direction: column; gap: 3px; padding: 0 1px; min-width: 0; }
+.ev { border-radius: 8px; padding: 5px 2px; font-size: 13px; font-weight: 600; line-height: 17px; text-align: center; color: #fff; }
+.ev.past { background: var(--muted) !important; color: var(--text2); }
+.pips { display: flex; gap: 3px; justify-content: center; min-height: 8px; }
+.pips i { width: 8px; height: 8px; border-radius: 2px; }
+.band { height: 36px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; color: #fff; font-size: 16px; font-weight: 700; }
+.band small { font-size: 13px; font-weight: 600; }
+.panel { background: var(--surface); border-radius: 20px; padding: 12px 16px 16px; margin: 0 4px; border: 2px solid var(--accent); display: flex; flex-direction: column; gap: 4px; }
+.panel .ph { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.panel .pt { font-size: 20px; font-weight: 600; }
+.panel .pc { font-size: 13px; color: var(--text2); margin-left: 8px; }
+.panel .ps { font-size: 12px; font-weight: 500; color: var(--text2); }
+.x { width: 44px; height: 44px; border-radius: 999px; background: var(--muted); display: flex; align-items: center; justify-content: center; color: var(--text); }
+.x svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; fill: none; }
+.row { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+.row + .row { border-top: 1px solid var(--sep); }
+.row .tm { width: 44px; font-size: 13px; color: var(--text2); flex: none; }
+.row .tt { font-size: 17px; }
+.row.head { background: var(--c); color: #fff; border-radius: 12px; padding: 0 12px; min-height: 52px; margin: 0 -8px 4px; border: 0; }
+.row.head + .row { border-top: 0; }
+.row.head .tm { color: inherit; opacity: .85; }
+.row.head .tt { font-size: 20px; font-weight: 600; }
+.btn { height: 52px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 600; }
+.btn.sec { background: var(--muted); color: var(--text); margin-top: 8px; }
+.btn.pri { background: var(--accent); color: var(--onAccent); }
+.btn.cmp { height: 36px; font-size: 15px; padding: 0 16px; align-self: center; }
+h3.sec { margin: 8px 16px 0; font-size: 20px; font-weight: 600; }
+.up { background: var(--surface); border-radius: 20px; margin: 0 12px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+.up .blk { width: 56px; height: 56px; border-radius: 12px; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; flex: none; }
+.up .blk b { font-size: 22px; line-height: 26px; }
+.up .blk span { font-size: 12px; font-weight: 500; }
+.up .mid { flex: 1; min-width: 0; }
+.up .mid b { font-size: 17px; font-weight: 600; display: block; }
+.up .mid span { font-size: 13px; color: var(--text2); }
+.up .aw { font-size: 15px; color: var(--text2); flex: none; }
+.mini { background: var(--surface); border-radius: 20px; margin: 0 12px; padding: 12px 16px 16px; }
+.mini .wk { gap: 0; row-gap: 4px; }
+.mc { height: 36px; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; }
+.mc span { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.mc.past span { color: var(--text3); }
+.mc.fill span { color: #fff; }
+.mc.pastfill span { background: var(--muted); color: var(--text2); }
+.mc.today span { border-radius: 999px; box-shadow: inset 0 0 0 3px var(--accent); }
+.mc.bandc { color: #fff; }
+.sect { margin: 0 12px; display: flex; flex-direction: column; gap: 8px; }
+.sect h4 { margin: 0 4px; font-size: 20px; font-weight: 600; }
+.sect .box { background: var(--surface); border-radius: 20px; padding: 0 16px; }
+.sect .foot { font-size: 13px; color: var(--text2); padding: 0 16px; line-height: 18px; }
+.srow { min-height: 52px; display: flex; align-items: center; gap: 12px; font-size: 17px; }
+.srow + .srow { border-top: 1px solid var(--sep); }
+.pick { height: 34px; padding: 0 12px; border-radius: 999px; background: var(--soft); color: var(--strong); font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+.tog { width: 51px; height: 31px; border-radius: 999px; background: var(--accent); position: relative; flex: none; }
+.tog::after { content: ""; position: absolute; right: 2px; top: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; }
+.nav { display: flex; align-items: center; justify-content: space-between; margin: 0 12px; }
+.nav b { font-size: 17px; font-weight: 600; }
+.big { font-size: 34px; font-weight: 700; margin: 0 12px; line-height: 41px; }
+.empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 32px 24px; text-align: center; }
+.empty .ic { width: 64px; height: 64px; border-radius: 999px; background: var(--soft); color: var(--accent); display: flex; align-items: center; justify-content: center; }
+.empty .ic svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.empty b { font-size: 20px; font-weight: 600; }
+.empty p { margin: 0; font-size: 15px; color: var(--text2); line-height: 22px; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <div><b>產品色</b><span class="seg" id="themeSeg"></span></div>
+  <div><b>類別色</b><span class="seg" id="palSeg"></span></div>
+  <div><b>外觀</b><span class="seg" id="modeSeg"></span></div>
+</div>
+<div class="stage" id="stage"></div>
+<p class="note">這是用網頁畫的示意，字體和 iPhone 上的系統字會有一點出入，行程是示範用的假資料（今天設在 11/14）。「類別色」可以切三種做法：原本的鮮豔色、降彩實色（白字）、淡底深字。辦事從藍綠改成橄欖褐，避免跟鼠尾草的綠撞在一起。</p>
+
+<script>
+var NEUTRAL = {
+  light: { surface:'#FFFFFF', muted:'#EFEBE3', sep:'#E5E1D8', text:'#1D1D1F', text2:'#66666D', text3:'#A1A1A6', destructive:'#C4372C', sh1:'rgba(25,22,20,.06)' },
+  dark:  { surface:'#1C1C1E', muted:'#2C2C2E', sep:'#38383A', text:'#F5F5F7', text2:'#A1A1A8', text3:'#636366', destructive:'#FF6B5E', sh1:'rgba(0,0,0,.06)' }
+};
+var CANVAS = { standard: { light:'#F5F5F7', dark:'#000000' }, warm: { light:'#F7F4EC', dark:'#14130F' } };
+var THEMES = {
+  garlic: { label:'蒜綠（新）', canvas:'warm',
+    light:{ accent:'#5C6B12', onAccent:'#FFFFFF', strong:'#4A570E', soft:'#E9EDD2' },
+    dark: { accent:'#B9C76A', onAccent:'#1E2405', strong:'#D3DD9C', soft:'#2D3312' } },
+  sage: { label:'鼠尾草', canvas:'standard',
+    light:{ accent:'#4F6B57', onAccent:'#FFFFFF', strong:'#3F5746', soft:'#E3ECE5' },
+    dark: { accent:'#9DC2A5', onAccent:'#12251A', strong:'#BFD9C4', soft:'#22322A' } },
+  gold: { label:'金棕', canvas:'warm',
+    light:{ accent:'#916B1B', onAccent:'#FFFFFF', strong:'#7A5916', soft:'#F1E6CC' },
+    dark: { accent:'#D9AE4E', onAccent:'#2B2006', strong:'#E6C277', soft:'#3A2F17' } }
+};
+var KEYS = ['work','trip','med','errand'];
+var CAT = {}, DOT = {};
+KEYS.forEach(function(k){ CAT[k] = 'var(--' + k + '-bg);color:var(--' + k + '-fg)'; DOT[k] = 'var(--' + k + '-dot)'; });
+// 類別色三種做法：[底色, 字色, 色點]
+var PALETTES = {
+  vivid: { label:'原本（鮮豔）',
+    light:{ work:['#6D28D9','#FFFFFF','#6D28D9'], trip:['#1D4ED8','#FFFFFF','#1D4ED8'], med:['#C2410C','#FFFFFF','#C2410C'], errand:['#0F766E','#FFFFFF','#0F766E'] } },
+  muted: { label:'降彩實色',
+    light:{ work:['#6F5F8F','#FFFFFF','#6F5F8F'], trip:['#4B6C8F','#FFFFFF','#4B6C8F'], med:['#A65F45','#FFFFFF','#A65F45'], errand:['#7A6A3A','#FFFFFF','#7A6A3A'] },
+    dark: { work:['#A99BD0','#1D1D1F','#A99BD0'], trip:['#8FB0D4','#1D1D1F','#8FB0D4'], med:['#DB9C84','#1D1D1F','#DB9C84'], errand:['#C2B078','#1D1D1F','#C2B078'] } },
+  soft: { label:'淡底深字',
+    light:{ work:['#E7E2F0','#4E4070','#6F5F8F'], trip:['#DDE6F0','#2F4D6E','#4B6C8F'], med:['#F2DFD6','#7E3F2A','#A65F45'], errand:['#ECE5CF','#5A4D22','#7A6A3A'] },
+    dark: { work:['#2E2940','#CFC4E8','#A99BD0'], trip:['#22303F','#BCD0E6','#8FB0D4'], med:['#3D2720','#EDBFAE','#DB9C84'], errand:['#332D18','#DCCF9E','#C2B078'] } }
+};
+var state = { theme:'sage', mode:'light', pal:'muted' };
+
+var ICON = {
+  search:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>',
+  gear:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>',
+  plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  x:'<svg viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13"/></svg>',
+  cal:'<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>'
+};
+
+// 2026 年 11 月：1 號是週日。i = 0 是 11/1
+var EV = {
+  3:[['領包裹','errand']], 5:[['健檢','med'],['領證件','errand']],
+  15:[['晨會','work'],['訪談','work'],['午餐','trip'],['錄影','work']],
+  16:[['週會','work'],['交稿','work'],['寄件','errand']],
+  17:[['回診','med'],['剪片','work']], 19:[['聚餐','trip']], 24:[['複診','med']]
+};
+var SUB = { 0:'廿二', 6:'立冬', 8:'十月', 21:'小雪', 22:'十五' };
+var TODAY = 13, SEL = 15, T0 = 26, T1 = 33;
+function label(i){ return i === 30 ? '12/1' : String(i < 30 ? i + 1 : i - 29); }
+function lunar(i){ return SUB[i] || ['初','十','廿'][Math.floor(((i + 21) % 30) / 10)] + '一二三四五六七八九十'[(i + 21) % 10]; }
+
+function header(){
+  return '<div class="hdr m20"><span class="t">11月</span><span class="y">2026</span><span class="grow"></span>' +
+    '<span class="ib">' + ICON.search + '</span><span class="ib">' + ICON.gear + '</span>' +
+    '<span class="ib txt">今天</span><span class="ib pri">' + ICON.plus + '</span></div>';
+}
+function tabs(on){
+  return '<div class="tabs m20">' + ['彈性週','清單','週條','主事件'].map(function(t, i){
+    return '<span' + (i === on ? ' class="on"' : '') + '>' + t + '</span>'; }).join('') + '</div>';
+}
+function chips(){
+  return '<div class="chips m20"><span class="chip"><i class="sq" style="background:' + DOT.trip + '"></i>去旅行 <b>還有 13 天</b></span>' +
+    '<span class="chip"><i class="sq" style="background:' + DOT.med + '"></i>複診 <b>還有 11 天</b></span></div>';
+}
+function num(i, small, sel){
+  var c = 'num' + (small ? ' sm' : '') + (i < TODAY ? ' past' : '') + (i === TODAY ? ' today' : '') + (sel && i === SEL ? ' sel' : '') + (i === 22 ? ' hol' : '');
+  return '<span class="' + c + '">' + label(i) + '</span>';
+}
+function collapsed(w){
+  var h = '<div class="wk">';
+  for (var i = w * 7; i < w * 7 + 7; i++) {
+    h += '<div class="dn">' + num(i, true, true) + '<span class="sub">' + lunar(i) + '</span><span class="dots">' +
+      (EV[i] || []).map(function(e){ return '<i style="background:' + DOT[e[1]] + '"></i>'; }).join('') + '</span></div>';
+  }
+  return h + '</div>';
+}
+function expanded(w, headOnly, sel){
+  var h = '<div class="card"><div class="wk">';
+  for (var i = w * 7; i < w * 7 + 7; i++) h += '<div class="dn">' + num(i, false, sel) + '<span class="sub' + (i === 22 ? ' hol' : '') + '">' + (i === 22 ? '感恩節' : lunar(i)) + '</span></div>';
+  h += '</div>';
+  var s = Math.max(T0, w * 7), e = Math.min(T1, w * 7 + 6);
+  if (s <= e) {
+    var a = s === T0 ? '10px' : '0', b = e === T1 ? '10px' : '0';
+    h += '<div class="wk"><div class="band" style="grid-column:' + (s % 7 + 1) + '/' + (e % 7 + 2) + ';background:' + CAT.trip + ';border-radius:' + a + ' ' + b + ' ' + b + ' ' + a + '"><span>去旅行</span>' +
+      (e - s >= 2 ? '<small>' + (s === T0 ? '共 8 天' : '12/4 結束') + '</small>' : '') + '</div></div>';
+  }
+  h += '<div class="wk">';
+  for (i = w * 7; i < w * 7 + 7; i++) {
+    var evs = EV[i] || [];
+    h += '<div class="cell">';
+    if (headOnly && evs.length) {
+      h += '<span class="ev" style="background:' + CAT[evs[0][1]] + '">' + evs[0][0] + '</span><span class="pips">' +
+        evs.slice(1).map(function(x){ return '<i style="background:' + DOT[x[1]] + '"></i>'; }).join('') + '</span>';
+    } else {
+      h += evs.map(function(x){ return '<span class="ev" style="background:' + CAT[x[1]] + '">' + x[0] + '</span>'; }).join('');
+    }
+    h += '</div>';
+  }
+  return h + '</div></div>';
+}
+function panel(){
+  var rows = [['09:00','晨會','work'],['10:30','客戶訪談','work'],['12:00','午餐約','trip'],['14:00','錄影','work']];
+  return '<div class="panel"><div class="ph"><div><span class="pt">11/16 週一</span><span class="pc">4 件</span><div class="ps">農曆十月初八</div></div><span class="x">' + ICON.x + '</span></div>' +
+    '<div class="row head" style="--c:' + CAT.trip + '"><span class="tm">12:00</span><span class="tt">午餐約</span></div>' +
+    rows.filter(function(r){ return r[1] !== '午餐約'; }).map(function(r){
+      return '<div class="row"><span class="tm">' + r[0] + '</span><i class="sq" style="background:' + DOT[r[2]] + '"></i><span class="tt">' + r[1] + '</span></div>'; }).join('') +
+    '<div class="btn sec">新增行程</div></div>';
+}
+function dow(){ return '<div class="dow">' + '日一二三四五六'.split('').map(function(d){ return '<div>' + d + '</div>'; }).join('') + '</div>'; }
+
+function screenMonth(){
+  return header() + tabs(0) + chips() + dow() + collapsed(0) + collapsed(1) + expanded(2, false, false) + expanded(3, false, false) + expanded(4, false, false);
+}
+function screenDay(){
+  return header() + tabs(3) + dow() + collapsed(0) + collapsed(1) + expanded(2, true, true) + panel() + expanded(3, true, false);
+}
+function screenList(){
+  var h = header() + tabs(1) + '<div class="mini">' + dow() + '<div class="wk" style="margin-top:6px">';
+  for (var i = 0; i < 35; i++) {
+    var evs = EV[i] || [], c = 'mc', st = '';
+    if (i >= T0 && i <= T1) { c += ' bandc'; var a = (i === T0 || i % 7 === 0) ? '10px' : '0', b = (i === T1 || i % 7 === 6) ? '10px' : '0'; st = 'background:' + CAT.trip + ';border-radius:' + a + ' ' + b + ' ' + b + ' ' + a; h += '<div class="' + c + '" style="' + st + '">' + label(i) + '</div>'; continue; }
+    if (evs.length) { c += i < TODAY ? ' pastfill' : ' fill'; st = i < TODAY ? '' : 'background:' + CAT[evs[0][1]]; }
+    else if (i < TODAY) c += ' past';
+    if (i === TODAY) c += ' today';
+    h += '<div class="' + c + '"><span style="' + st + '">' + label(i) + '</span></div>';
+  }
+  h += '</div></div><h3 class="sec">接下來</h3>';
+  [['16','週一','work','週會','還有 交稿、寄件','2 天後'],['17','週二','med','回診','還有 剪片','3 天後'],['19','週四','trip','聚餐','','5 天後'],['25','週三','med','複診','','11 天後']].forEach(function(u){
+    h += '<div class="up"><span class="blk" style="background:' + CAT[u[2]] + '"><b>' + u[0] + '</b><span>' + u[1] + '</span></span><span class="mid"><b>' + u[3] + '</b><span>' + u[4] + '</span></span><span class="aw">' + u[5] + '</span></div>';
+  });
+  h += '<div class="up"><span class="blk" style="background:' + CAT.trip + '"><b style="font-size:17px">11/27</b><span>到 12/4</span></span><span class="mid"><b>去旅行</b><span>8 天</span></span><span class="aw">13 天後</span></div>';
+  return h;
+}
+function screenSettings(){
+  function sect(t, rows, foot){ return '<div class="sect"><h4>' + t + '</h4><div class="box">' + rows.join('') + '</div>' + (foot ? '<div class="foot">' + foot + '</div>' : '') + '</div>'; }
+  function pick(l, v, dot){ return '<div class="srow">' + (dot ? '<i class="sq" style="border-radius:5px;background:' + dot + '"></i>' : '') + '<span class="grow">' + l + '</span><span class="pick">' + v + ' ⌄</span></div>'; }
+  return '<div class="nav"><span></span><span class="ib txt">完成</span></div><div class="big">設定</div>' +
+    sect('顯示', [pick('一週從哪天開始', '週日'), '<div class="srow"><span class="grow">顯示農曆與節氣</span><span class="tog"></span></div>']) +
+    sect('行事曆', [pick('工作', '工作', '#8E5BD9'), pick('個人', '未分類', '#3B82F6'), pick('台灣節日', '節日層', '#E0564A'), pick('家人共用', '不顯示', '#34A853')], '這裡只改蒜日子的顯示方式，不會動到系統行事曆。') +
+    '<div class="empty"><span class="ic">' + ICON.cal + '</span><b>讀不到行事曆</b><p>蒜日子沒有行事曆權限，所以畫不出任何行程。</p><span class="btn pri cmp">前往設定</span></div>';
+}
+
+var SCREENS = [['月曆 · 彈性週', screenMonth], ['點開一天 · 主事件', screenDay], ['清單', screenList], ['設定與空狀態', screenSettings]];
+
+function render(){
+  document.body.className = state.mode;
+  var t = THEMES[state.theme], n = NEUTRAL[state.mode], p = t[state.mode];
+  var vars = { canvas: CANVAS[t.canvas][state.mode], surface:n.surface, muted:n.muted, sep:n.sep, text:n.text, text2:n.text2, text3:n.text3, destructive:n.destructive, sh1:n.sh1, accent:p.accent, onAccent:p.onAccent, strong:p.strong, soft:p.soft };
+  var pal = PALETTES[state.pal][state.mode] || PALETTES[state.pal].light;
+  KEYS.forEach(function(k){ vars[k + '-bg'] = pal[k][0]; vars[k + '-fg'] = pal[k][1]; vars[k + '-dot'] = pal[k][2]; });
+  var style = Object.keys(vars).map(function(k){ return '--' + k + ':' + vars[k]; }).join(';');
+  document.getElementById('stage').innerHTML = SCREENS.map(function(s){
+    return '<div class="col"><h2>' + s[0] + '</h2><div class="phone" style="' + style + '"><div class="scroll">' + s[1]() + '</div></div></div>'; }).join('');
+  seg('themeSeg', Object.keys(THEMES).map(function(k){ return [k, '<i class="sw" style="background:' + THEMES[k].light.accent + '"></i>' + THEMES[k].label]; }), 'theme');
+  seg('modeSeg', [['light','淺色'],['dark','深色']], 'mode');
+  seg('palSeg', Object.keys(PALETTES).map(function(k){ return [k, PALETTES[k].label]; }), 'pal');
+}
+function seg(id, items, key){
+  var el = document.getElementById(id);
+  el.innerHTML = items.map(function(it){ return '<button aria-pressed="' + (state[key] === it[0]) + '" data-v="' + it[0] + '">' + it[1] + '</button>'; }).join('');
+  Array.prototype.forEach.call(el.children, function(b){ b.onclick = function(){ state[key] = b.dataset.v; render(); }; });
+}
+render();
+</script>
+</body>
+</html>

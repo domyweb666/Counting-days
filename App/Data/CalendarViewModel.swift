@@ -265,8 +265,14 @@ final class CalendarViewModel {
 
     // MARK: 顯示用
 
+    /// 類別色塊的底色
     func color(_ categoryID: String) -> Color {
-        Color(hex: settings.value.category(id: categoryID).colorHex) ?? Theme.fallbackCategory
+        Theme.category(hex: settings.value.category(id: categoryID).colorHex).fill
+    }
+
+    /// 壓在類別色塊上的字色
+    func onColor(_ categoryID: String) -> Color {
+        Theme.category(hex: settings.value.category(id: categoryID).colorHex).on
     }
 
     private func lunarText(_ date: Date) -> String {
