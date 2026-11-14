@@ -6,12 +6,15 @@
 
 ## 目前狀態
 
-只有設計與規格，還沒有程式。
+第一版的程式已經寫完，還沒有在 iPhone 上實際跑過。這台開發機是 Windows，編譯要靠 GitHub Actions 的 macOS 機器。
 
 | 路徑 | 內容 |
 |---|---|
 | `docs/SPEC.md` | 完整規格：資訊層級、四種呈現方式、點一天展開、系統行事曆同步、節日層、版本範圍 |
 | `design/` | 設計畫布的原始檔（六張畫板），說明見 `design/README.md` |
+| `Core/` | 核心邏輯與單元測試，不依賴 iPhone |
+| `App/` | SwiftUI 畫面、系統行事曆讀寫、設定儲存 |
+| `project.yml` | XcodeGen 的專案描述，雲端建置時產生 Xcode 專案 |
 
 ## 核心規則（細節見規格）
 

@@ -1,0 +1,40 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-tests:
+    name: 核心邏輯測試
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: swift test
+        run: swift test --package-path Core
+
+  app-build:
+    name: 編譯 iOS app（模擬器，不簽章）
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安裝 XcodeGen
+        run: brew install xcodegen
+      - name: 產生 Xcode 專案
+        run: xcodegen generate
+      - name: 編譯
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project SuanRiZi.xcodeproj \
+            -scheme SuanRiZi \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tail -n 200
