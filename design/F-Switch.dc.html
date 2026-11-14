@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>可切換呈現方式的月曆</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+<style>
+body{margin:0}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 60px 8px 16px; background: #F4F5F7; color: #14171C; font-family: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif; display: flex; flex-direction: column; gap: 10px">
+
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 0 8px">
+<div style="display: flex; align-items: baseline; gap: 8px">
+<h1 style="margin: 0; font-size: 34px; font-weight: 900; line-height: 44px">4月</h1>
+<span style="font-size: 15px; font-weight: 500; color: #5B6370">2029</span>
+</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<button onClick="{{ goToday }}" style="height: 44px; padding: 0 16px; border: 0; border-radius: 22px; background: #FFFFFF; color: #14171C; font-size: 15px; font-weight: 700">今天</button>
+<button aria-label="新增行程" style="width: 44px; height: 44px; border: 0; border-radius: 22px; background: #14171C; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M10 3v14M3 10h14"></path></svg>
+</button>
+</div>
+</div>
+
+<div style="display: flex; gap: 2px; background: #FFFFFF; border-radius: 24px; padding: 2px; margin: 0 4px">
+<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+<button aria-pressed="{{ t.pressed }}" onClick="{{ t.pick }}" style="flex: 1; height: 44px; border: 0; border-radius: 22px; font-size: 14px; font-weight: 700; background: {{ t.bg }}; color: {{ t.fg }}">{{ t.label }}</button>
+</sc-for>
+</div>
+
+<div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px">
+
+<sc-if value="{{ isGrid }}" hint-placeholder-val="{{ true }}">
+<div style="flex: none; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; font-size: 12px; font-weight: 500; color: #5B6370; text-align: center; padding: 2px 0">
+<div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+</div>
+<sc-for list="{{ weeks }}" as="w" hint-placeholder-count="6">
+<sc-if value="{{ w.collapsed }}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; flex: none; align-items: center">
+<sc-for list="{{ w.days }}" as="d" hint-placeholder-count="7">
+<button onClick="{{ d.pick }}" aria-label="{{ d.aria }}" style="width: 100%; min-height: 44px; border: 0; background: transparent; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px">
+<span style="min-width: 28px; height: 24px; box-sizing: border-box; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: {{ d.numFg }}; background: {{ d.numBg }}; border: 2px solid {{ d.ring }}">{{ d.label }}</span>
+<span style="display: flex; gap: 2px; min-height: 6px">
+<sc-for list="{{ d.dots }}" as="p" hint-placeholder-count="0"><span style="width: 6px; height: 6px; border-radius: 3px; background: {{ p.c }}"></span></sc-for>
+</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ w.expanded }}" hint-placeholder-val="{{ true }}">
+<div style="flex: none; background: #FFFFFF; border-radius: 14px; padding: 6px 0 10px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px">
+<sc-for list="{{ w.days }}" as="d" hint-placeholder-count="7">
+<button onClick="{{ d.pick }}" aria-label="{{ d.aria }}" style="width: 100%; height: 34px; border: 0; background: transparent; padding: 0; display: flex; align-items: center; justify-content: center">
+<span style="min-width: 30px; height: 30px; box-sizing: border-box; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: {{ d.labelFs }}; background: {{ d.numBg }}; color: {{ d.numFg }}; border: 3px solid {{ d.ring }}">{{ d.label }}</span>
+</button>
+</sc-for>
+</div>
+<sc-if value="{{ w.hasBand }}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px">
+<div style="height: 36px; box-sizing: border-box; background: #1D4ED8; color: #FFFFFF; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; grid-column: {{ w.bandCol }}; border-radius: {{ w.bandRadius }}">
+<span style="font-size: 16px; font-weight: 900">去旅行</span>
+<span style="font-size: 13px; font-weight: 700">{{ w.bandRight }}</span>
+</div>
+</div>
+</sc-if>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px">
+<sc-for list="{{ w.days }}" as="d" hint-placeholder-count="7">
+<button onClick="{{ d.pick }}" aria-label="{{ d.aria }}" tabIndex="-1" style="width: 100%; border: 0; background: transparent; display: flex; flex-direction: column; justify-content: flex-start; gap: 3px; padding: 0 1px; min-width: 0">
+<sc-if value="{{ d.showAll }}" hint-placeholder-val="{{ false }}">
+<sc-for list="{{ d.chips }}" as="c" hint-placeholder-count="0">
+<span style="display: block; border-radius: 7px; padding: 5px 3px; font-size: 13px; font-weight: 700; line-height: 17px; text-align: center; background: {{ c.bg }}; color: {{ c.fg }}">{{ c.label }}</span>
+</sc-for>
+</sc-if>
+<sc-if value="{{ d.showHead }}" hint-placeholder-val="{{ false }}">
+<span style="display: block; border-radius: 7px; padding: 6px 3px; font-size: 14px; font-weight: 700; line-height: 18px; text-align: center; background: {{ d.headBg }}; color: {{ d.headFg }}">{{ d.headLabel }}</span>
+<span style="display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; min-height: 8px">
+<sc-for list="{{ d.pips }}" as="p" hint-placeholder-count="0"><span style="width: 8px; height: 8px; border-radius: 2px; background: {{ p.c }}"></span></sc-for>
+</span>
+</sc-if>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ w.showDet }}" hint-placeholder-val="{{ false }}">
+<div style="flex: none; margin: 0 4px; background: #FFFFFF; border-radius: 16px; padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 6px; border: 2px solid #1D4ED8">
+<div style="display: flex; align-items: center; justify-content: space-between; padding-left: 4px">
+<span style="display: flex; align-items: baseline; gap: 8px"><span style="font-size: 19px; font-weight: 900">{{ w.det.title }}</span><span style="font-size: 13px; font-weight: 700; color: #454C57">{{ w.det.count }}</span></span>
+<button onClick="{{ w.det.close }}" aria-label="收合" style="width: 44px; height: 44px; border: 0; border-radius: 22px; background: #F4F5F7; color: #14171C; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"></path></svg></button>
+</div>
+<sc-if value="{{ w.det.isEmpty }}" hint-placeholder-val="{{ false }}">
+<div style="padding: 0 6px 6px; font-size: 15px; font-weight: 500; color: #454C57">這天沒有行程</div>
+</sc-if>
+<sc-for list="{{ w.det.rows }}" as="r" hint-placeholder-count="0">
+<div style="display: flex; align-items: center; gap: 8px; padding: 0 8px; border-radius: 10px; min-height: {{ r.h }}; background: {{ r.bg }}; color: {{ r.fg }}">
+<span style="width: 42px; flex: none; font-size: 13px; font-weight: 700; color: {{ r.tfg }}">{{ r.time }}</span>
+<span style="width: 10px; height: 10px; flex: none; border-radius: 3px; background: {{ r.sq }}"></span>
+<span style="font-weight: {{ r.fw }}; font-size: {{ r.fs }}">{{ r.title }}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</sc-for>
+</sc-if>
+
+<sc-if value="{{ isC }}" hint-placeholder-val="{{ false }}">
+<sc-for list="{{ weeks }}" as="w" hint-placeholder-count="6">
+<sc-if value="{{ w.cEmpty }}" hint-placeholder-val="{{ false }}">
+<div style="flex: none; display: flex; background: #FFFFFF; border-radius: 12px; margin: 0 4px">
+<sc-for list="{{ w.days }}" as="d" hint-placeholder-count="7">
+<button onClick="{{ d.pick }}" aria-label="{{ d.aria }}" style="flex: 1; min-height: 48px; border: 0; background: transparent; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center">
+<span style="min-width: 28px; height: 24px; box-sizing: border-box; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: {{ d.numFg }}; background: {{ d.numBg }}; border: 2px solid {{ d.ring }}">{{ d.label }}</span>
+<span style="font-size: 11px; font-weight: 500; line-height: 14px; color: #5B6370">{{ d.dow }}</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ w.cFull }}" hint-placeholder-val="{{ true }}">
+<div style="flex: none; display: flex; gap: 4px; min-height: 64px; margin: 0 4px">
+<sc-for list="{{ w.cItems }}" as="it" hint-placeholder-count="7">
+<sc-if value="{{ it.isNarrow }}" hint-placeholder-val="{{ true }}">
+<button onClick="{{ it.pick }}" aria-label="{{ it.aria }}" style="width: 30px; flex: none; border: 0; background: transparent; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px">
+<span style="min-width: 28px; height: 28px; box-sizing: border-box; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; background: {{ it.numBg }}; color: {{ it.numFg }}; border: 2px solid {{ it.ring }}">{{ it.num }}</span>
+<span style="font-size: 11px; font-weight: 500; color: #5B6370">{{ it.dow }}</span>
+</button>
+</sc-if>
+<sc-if value="{{ it.isCard }}" hint-placeholder-val="{{ false }}">
+<button onClick="{{ it.pick }}" style="flex: 2; min-width: 0; border: 0; text-align: left; border-radius: 12px; padding: 8px 10px; display: flex; flex-direction: column; justify-content: center; gap: 3px; background: {{ it.bg }}; color: {{ it.fg }}; box-shadow: {{ it.sh }}">
+<span style="font-size: 12px; font-weight: 700">{{ it.dateLabel }}</span>
+<sc-for list="{{ it.lines }}" as="l" hint-placeholder-count="1">
+<span style="display: flex; align-items: baseline; gap: 6px; line-height: 22px; font-size: {{ l.fs }}; font-weight: {{ l.fw }}"><span style="width: 9px; height: 9px; flex: none; border-radius: 3px; background: {{ l.sq }}"></span><span style="min-width: 0">{{ l.title }}</span></span>
+</sc-for>
+</button>
+</sc-if>
+<sc-if value="{{ it.isCompact }}" hint-placeholder-val="{{ false }}">
+<button onClick="{{ it.pick }}" style="flex: 1; min-width: 0; border: 0; background: #FFFFFF; color: #14171C; border-radius: 12px; padding: 6px 3px 8px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px; box-shadow: {{ it.sh }}">
+<span style="font-size: 12px; font-weight: 700">{{ it.dateLabel }}</span>
+<span style="align-self: stretch; border-radius: 7px; padding: 5px 2px; font-size: 13px; font-weight: 700; line-height: 17px; text-align: center; background: {{ it.headBg }}; color: {{ it.headFg }}">{{ it.headLabel }}</span>
+<span style="display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; min-height: 8px">
+<sc-for list="{{ it.pips }}" as="p" hint-placeholder-count="0"><span style="width: 8px; height: 8px; border-radius: 2px; background: {{ p.c }}"></span></sc-for>
+</span>
+</button>
+</sc-if>
+<sc-if value="{{ it.isTrip }}" hint-placeholder-val="{{ false }}">
+<button onClick="{{ it.pick }}" style="min-width: 0; border: 0; text-align: left; background: #1D4ED8; color: #FFFFFF; padding: 8px 12px; display: flex; flex-direction: column; justify-content: center; gap: 2px; flex: {{ it.flex }}; border-radius: {{ it.radius }}">
+<span style="font-size: 13px; font-weight: 700">{{ it.range }}</span>
+<span style="font-size: 22px; font-weight: 900; line-height: 28px">{{ it.title }}</span>
+</button>
+</sc-if>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ w.showDet }}" hint-placeholder-val="{{ false }}">
+<div style="flex: none; margin: 0 4px; background: #FFFFFF; border-radius: 16px; padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 6px; border: 2px solid #1D4ED8">
+<div style="display: flex; align-items: center; justify-content: space-between; padding-left: 4px">
+<span style="display: flex; align-items: baseline; gap: 8px"><span style="font-size: 19px; font-weight: 900">{{ w.det.title }}</span><span style="font-size: 13px; font-weight: 700; color: #454C57">{{ w.det.count }}</span></span>
+<button onClick="{{ w.det.close }}" aria-label="收合" style="width: 44px; height: 44px; border: 0; border-radius: 22px; background: #F4F5F7; color: #14171C; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"></path></svg></button>
+</div>
+<sc-if value="{{ w.det.isEmpty }}" hint-placeholder-val="{{ false }}">
+<div style="padding: 0 6px 6px; font-size: 15px; font-weight: 500; color: #454C57">這天沒有行程</div>
+</sc-if>
+<sc-for list="{{ w.det.rows }}" as="r" hint-placeholder-count="0">
+<div style="display: flex; align-items: center; gap: 8px; padding: 0 8px; border-radius: 10px; min-height: {{ r.h }}; background: {{ r.bg }}; color: {{ r.fg }}">
+<span style="width: 42px; flex: none; font-size: 13px; font-weight: 700; color: {{ r.tfg }}">{{ r.time }}</span>
+<span style="width: 10px; height: 10px; flex: none; border-radius: 3px; background: {{ r.sq }}"></span>
+<span style="font-weight: {{ r.fw }}; font-size: {{ r.fs }}">{{ r.title }}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</sc-for>
+</sc-if>
+
+<sc-if value="{{ isB }}" hint-placeholder-val="{{ false }}">
+<div style="flex: none; background: #FFFFFF; border-radius: 18px; padding: 10px 8px 12px; margin: 0 4px; display: flex; flex-direction: column; gap: 6px">
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); font-size: 12px; font-weight: 500; color: #5B6370; text-align: center">
+<div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 4px">
+<sc-for list="{{ cells }}" as="c" hint-placeholder-count="42">
+<button onClick="{{ c.pick }}" aria-label="{{ c.aria }}" style="width: 100%; height: 38px; border: 0; background: transparent; padding: 0; display: flex; align-items: center; justify-content: center">
+<span style="height: 36px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: {{ c.fs }}; width: {{ c.w }}; background: {{ c.bg }}; color: {{ c.fg }}; border-radius: {{ c.r }}; border: {{ c.bd }}">{{ c.label }}</span>
+</button>
+</sc-for>
+</div>
+</div>
+<sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+<div style="flex: none; margin: 0 4px; background: #FFFFFF; border-radius: 16px; padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 6px; border: 2px solid #1D4ED8">
+<div style="display: flex; align-items: center; justify-content: space-between; padding-left: 4px">
+<span style="display: flex; align-items: baseline; gap: 8px"><span style="font-size: 19px; font-weight: 900">{{ det.title }}</span><span style="font-size: 13px; font-weight: 700; color: #454C57">{{ det.count }}</span></span>
+<button onClick="{{ det.close }}" aria-label="收合" style="width: 44px; height: 44px; border: 0; border-radius: 22px; background: #F4F5F7; color: #14171C; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"></path></svg></button>
+</div>
+<sc-if value="{{ det.isEmpty }}" hint-placeholder-val="{{ false }}">
+<div style="padding: 0 6px 6px; font-size: 15px; font-weight: 500; color: #454C57">這天沒有行程</div>
+</sc-if>
+<sc-for list="{{ det.rows }}" as="r" hint-placeholder-count="0">
+<div style="display: flex; align-items: center; gap: 8px; padding: 0 8px; border-radius: 10px; min-height: {{ r.h }}; background: {{ r.bg }}; color: {{ r.fg }}">
+<span style="width: 42px; flex: none; font-size: 13px; font-weight: 700; color: {{ r.tfg }}">{{ r.time }}</span>
+<span style="width: 10px; height: 10px; flex: none; border-radius: 3px; background: {{ r.sq }}"></span>
+<span style="font-weight: {{ r.fw }}; font-size: {{ r.fs }}">{{ r.title }}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<h2 style="flex: none; margin: 6px 8px 0; font-size: 15px; font-weight: 700; color: #454C57">接下來</h2>
+<sc-for list="{{ upcoming }}" as="u" hint-placeholder-count="3">
+<button onClick="{{ u.pick }}" style="flex: none; border: 0; text-align: left; color: #14171C; background: #FFFFFF; border-radius: 16px; padding: 10px; margin: 0 4px; display: flex; align-items: center; gap: 12px">
+<span style="width: 60px; height: 60px; flex: none; border-radius: 12px; color: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; background: {{ u.blockBg }}">
+<span style="font-weight: 900; line-height: 28px; font-size: {{ u.bigFs }}">{{ u.big }}</span>
+<span style="font-size: 12px; font-weight: 700; line-height: 16px">{{ u.small }}</span>
+</span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 20px; font-weight: 900; line-height: 28px">{{ u.title }}</span>
+<sc-if value="{{ u.hasSub }}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; font-weight: 500; line-height: 18px; color: #454C57">{{ u.sub }}</span>
+</sc-if>
+</span>
+<span style="flex: none; font-size: 15px; font-weight: 700; color: #454C57">{{ u.away }}</span>
+</button>
+</sc-for>
+</sc-if>
+
+</div>
+
+<div style="flex: none; display: flex; align-items: center; gap: 12px; padding: 0 8px; font-size: 12px; font-weight: 500; color: #454C57">
+<span style="display: flex; align-items: center; gap: 5px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #6D28D9"></span>工作</span>
+<span style="display: flex; align-items: center; gap: 5px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #1D4ED8"></span>行程</span>
+<span style="display: flex; align-items: center; gap: 5px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #C2410C"></span>看診</span>
+<span style="display: flex; align-items: center; gap: 5px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #0F766E"></span>辦事</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"defaultMode":{"editor":"enum","options":["A","B","C","D"],"default":"A"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+state = { mode: '', sel: -1 };
+renderVals() {
+var self = this;
+var mode = this.state.mode || this.props.defaultMode || 'A';
+var sel = typeof this.state.sel === 'number' ? this.state.sel : -1;
+var INK = '#14171C', GREY = '#5B6370', PBG = '#E3E6EB', PFG = '#454C57', WHITE = '#FFFFFF', SEL = '#1D4ED8';
+var CAT = { work: '#6D28D9', trip: '#1D4ED8', med: '#C2410C', errand: '#0F766E' };
+var DOW = ['日', '一', '二', '三', '四', '五', '六'];
+var TODAY = 13, T0 = 30, T1 = 37;
+var EV = [
+{ d: 1, t: '', title: '領包裹', s: '領包裹', cat: 'errand' },
+{ d: 9, t: '', title: '找朋友', s: '找朋友', cat: 'errand' },
+{ d: 10, t: '', title: '健檢', s: '健檢', cat: 'med' },
+{ d: 10, t: '', title: '領證件', s: '領證件', cat: 'errand' },
+{ d: 15, t: '09:00', title: '晨會', s: '晨會', cat: 'work' },
+{ d: 15, t: '10:30', title: '客戶訪談', s: '訪談', cat: 'work' },
+{ d: 15, t: '12:00', title: '午餐約', s: '午餐', cat: 'trip' },
+{ d: 15, t: '14:00', title: '錄影', s: '錄影', cat: 'work', pin: true },
+{ d: 15, t: '19:00', title: '取件', s: '取件', cat: 'errand' },
+{ d: 16, t: '10:00', title: '週會', s: '週會', cat: 'work' },
+{ d: 16, t: '15:00', title: '交稿', s: '交稿', cat: 'work', pin: true },
+{ d: 16, t: '17:30', title: '寄件', s: '寄件', cat: 'errand' },
+{ d: 17, t: '09:00', title: '晨會', s: '晨會', cat: 'work' },
+{ d: 17, t: '10:00', title: '寫腳本', s: '腳本', cat: 'work' },
+{ d: 17, t: '14:00', title: '剪片', s: '剪片', cat: 'work' },
+{ d: 17, t: '18:30', title: '聚餐', s: '聚餐', cat: 'trip' },
+{ d: 17, t: '20:00', title: '直播', s: '直播', cat: 'work', pin: true },
+{ d: 18, t: '09:30', title: '回診', s: '回診', cat: 'med' },
+{ d: 18, t: '14:00', title: '週會', s: '週會', cat: 'work' },
+{ d: 19, t: '19:00', title: '聚餐', s: '聚餐', cat: 'trip' },
+{ d: 25, t: '', title: '複診', s: '複診', cat: 'med' },
+{ d: 29, t: '', title: '填寫入境資料', s: '填入境資料', cat: 'errand' }
+];
+function pickHead(evs) {
+var i;
+for (i = 0; i < evs.length; i++) { if (evs[i].pin) return evs[i]; }
+for (i = 0; i < evs.length; i++) { if (evs[i].cat === 'med' || evs[i].cat === 'trip') return evs[i]; }
+return evs.length ? evs[0] : null;
+}
+function picker(i) {
+return function () { self.setState({ sel: self.state.sel === i ? -1 : i }); };
+}
+var days = [];
+for (var i = 0; i < 42; i++) {
+(function (i) {
+var evs = EV.filter(function (e) { return e.d === i; });
+var past = i < TODAY, today = i === TODAY;
+var head = pickHead(evs);
+var rest = evs.filter(function (e) { return e !== head; });
+var num = i < 30 ? i + 1 : i - 29;
+var md = (i < 30 ? '4/' : '5/') + num;
+var inTrip = i >= T0 && i <= T1;
+days.push({
+i: i, num: num, md: md, label: i === 30 ? '5/1' : String(num), labelFs: i === 30 ? '12px' : '15px',
+dow: DOW[i % 7], past: past, today: today, evs: evs, head: head, rest: rest, inTrip: inTrip,
+isSel: sel === i, ring: sel === i ? SEL : 'transparent', pick: picker(i),
+aria: md + ' 週' + DOW[i % 7] + '，' + (evs.length + (inTrip ? 1 : 0)) + ' 件',
+numBg: today ? INK : 'transparent', numFg: today ? WHITE : (past ? GREY : INK),
+chips: evs.map(function (e) { return { label: e.s, bg: past ? PBG : CAT[e.cat], fg: past ? PFG : WHITE }; }),
+headLabel: head ? head.s : '', headBg: head ? (past ? PBG : CAT[head.cat]) : 'transparent', headFg: past ? PFG : WHITE,
+pips: rest.map(function (e) { return { c: past ? GREY : CAT[e.cat] }; }),
+dots: evs.map(function (e) { return { c: CAT[e.cat] }; }),
+showAll: mode === 'A', showHead: mode === 'D' && !!head
+});
+})(i);
+}
+var det = { title: '', count: '', isEmpty: false, rows: [], close: function () { self.setState({ sel: -1 }); } };
+if (sel >= 0 && sel < 42) {
+var sd = days[sel];
+var rows = [];
+if (sd.inTrip) {
+rows.push({ time: '全天', title: '去旅行 · 第 ' + (sd.i - T0 + 1) + ' 天', h: '44px', bg: CAT.trip, fg: WHITE, tfg: WHITE, sq: WHITE, fw: '900', fs: '19px' });
+}
+sd.evs.forEach(function (e) {
+var isHead = e === sd.head;
+if (isHead) {
+rows.push({ time: e.t, title: e.title, h: '44px', bg: sd.past ? PBG : CAT[e.cat], fg: sd.past ? PFG : WHITE, tfg: sd.past ? PFG : WHITE, sq: sd.past ? PFG : WHITE, fw: '900', fs: '19px' });
+} else {
+rows.push({ time: e.t, title: e.title, h: '34px', bg: 'transparent', fg: sd.past ? PFG : INK, tfg: PFG, sq: sd.past ? GREY : CAT[e.cat], fw: '700', fs: '15px' });
+}
+});
+det.title = sd.md + ' 週' + sd.dow;
+det.count = rows.length ? rows.length + ' 件' : '';
+det.isEmpty = rows.length === 0;
+det.rows = rows;
+}
+var weeks = [];
+for (var w = 0; w < 6; w++) {
+(function (w) {
+var ds = days.slice(w * 7, w * 7 + 7);
+var any = ds.some(function (d) { return d.evs.length > 0; });
+var trip = ds.filter(function (d) { return d.inTrip; });
+var hasBand = trip.length > 0;
+var allPast = w * 7 + 6 < TODAY;
+var collapsed = allPast || (!any && !hasBand);
+var s = hasBand ? trip[0].i % 7 : 0, e = hasBand ? trip[trip.length - 1].i % 7 : 0;
+var startsHere = hasBand && trip[0].i === T0, endsHere = hasBand && trip[trip.length - 1].i === T1;
+function radius(r) { var a = startsHere ? r : '0', b = endsHere ? r : '0'; return a + ' ' + b + ' ' + b + ' ' + a; }
+var evDays = ds.filter(function (d) { return d.evs.length > 0 && !d.inTrip; }).length;
+var compact = evDays >= 4;
+var items = [];
+ds.forEach(function (d) {
+var base = { isNarrow: false, isCard: false, isCompact: false, isTrip: false, pick: d.pick, aria: d.aria, sh: d.isSel ? 'inset 0 0 0 3px ' + SEL : 'none' };
+if (d.inTrip) {
+if (d === trip[0]) {
+var last = trip[trip.length - 1];
+base.isTrip = true; base.flex = String(trip.length);
+base.range = d.label + ' 週' + d.dow + ' → ' + last.num + ' 週' + last.dow;
+base.title = (endsHere && !startsHere) ? '去旅行 · 回程' : '去旅行';
+base.radius = radius('12px');
+items.push(base);
+}
+return;
+}
+if (d.evs.length) {
+if (compact) {
+base.isCompact = true; base.dateLabel = d.num + ' ' + d.dow;
+base.headLabel = d.headLabel; base.headBg = d.headBg; base.headFg = d.headFg; base.pips = d.pips;
+} else {
+base.isCard = true; base.dateLabel = d.num + ' 週' + d.dow;
+base.bg = d.past ? PBG : WHITE; base.fg = d.past ? PFG : INK;
+base.lines = d.evs.map(function (ev) {
+return { title: ev.title, sq: d.past ? GREY : CAT[ev.cat], fs: ev === d.head ? '17px' : '14px', fw: ev === d.head ? '900' : '700' };
+});
+}
+items.push(base);
+return;
+}
+base.isNarrow = true; base.num = d.label; base.dow = d.dow; base.numBg = d.numBg; base.numFg = d.numFg; base.ring = d.ring;
+items.push(base);
+});
+weeks.push({
+days: ds, collapsed: collapsed, expanded: !collapsed, hasBand: hasBand,
+bandCol: (s + 1) + ' / ' + (e + 2), bandRadius: radius('10px'), bandRight: startsHere ? '共 8 天' : '8 日回',
+cEmpty: !any && !hasBand, cFull: any || hasBand, cItems: items,
+showDet: sel >= 0 && Math.floor(sel / 7) === w, det: det
+});
+})(w);
+}
+var cells = days.map(function (d) {
+var c = { label: d.label, fs: d.i === 30 ? '13px' : '15px', w: '36px', bg: 'transparent', fg: d.past ? GREY : INK, r: '10px', bd: '0 solid transparent', pick: d.pick, aria: d.aria };
+if (d.inTrip) {
+var a = (d.i === T0 || d.i % 7 === 0) ? '10px' : '0', b = (d.i === T1 || d.i % 7 === 6) ? '10px' : '0';
+c.w = '100%'; c.bg = CAT.trip; c.fg = WHITE; c.r = a + ' ' + b + ' ' + b + ' ' + a;
+} else if (d.head) {
+c.bg = d.past ? PBG : CAT[d.head.cat]; c.fg = d.past ? PFG : WHITE;
+}
+if (d.today) { c.r = '18px'; c.bd = '3px solid ' + INK; }
+if (d.isSel) { c.bd = '3px solid ' + (d.inTrip ? WHITE : SEL); }
+return c;
+});
+var upcoming = [];
+days.forEach(function (d) {
+if (d.i < TODAY) return;
+var away = d.i === TODAY ? '今天' : (d.i - TODAY) + ' 天後';
+if (d.i === T0) {
+upcoming.push({ blockBg: CAT.trip, big: '5/1', bigFs: '18px', small: '到 5/8', title: '去旅行', hasSub: true, sub: '8 天 · 5/2 起住 示範旅館', away: away, pick: d.pick });
+}
+if (d.evs.length && !d.inTrip) {
+upcoming.push({
+blockBg: CAT[d.head.cat], big: String(d.num), bigFs: '24px', small: '週' + d.dow, title: d.head.title,
+hasSub: d.rest.length > 0, sub: '還有 ' + d.rest.map(function (e) { return e.title; }).join('、'), away: away, pick: d.pick
+});
+}
+});
+var TABS = [['A', 'A 彈性週'], ['B', 'B 清單'], ['C', 'C 週條'], ['D', 'D 主事件']];
+var tabs = TABS.map(function (t) {
+var on = mode === t[0];
+return { label: t[1], bg: on ? INK : 'transparent', fg: on ? WHITE : PFG, pressed: on ? 'true' : 'false', pick: function () { self.setState({ mode: t[0] }); } };
+});
+return {
+tabs: tabs, weeks: weeks, cells: cells, upcoming: upcoming, det: det, hasSel: sel >= 0,
+isGrid: mode === 'A' || mode === 'D', isB: mode === 'B', isC: mode === 'C',
+goToday: function () { self.setState({ sel: TODAY }); }
+};
+}
+}
+</script>
+</body>
+</html>
