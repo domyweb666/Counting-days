@@ -58,6 +58,8 @@ final class CalendarViewModel {
     var topWeekID: Date?
     /// 清單方式的小月曆顯示哪個月
     private(set) var listMonth: Date
+    /// 時間軸從哪一天開始排（週檢視會再對齊到一週的開頭）
+    private(set) var timelineAnchor: Date
 
     @ObservationIgnored private var lunarCache: [Date: String] = [:]
 
@@ -73,6 +75,7 @@ final class CalendarViewModel {
         windowStart = Self.shift(month, months: -3, cal)
         windowEnd = Self.shift(month, months: 13, cal)
         listMonth = month
+        timelineAnchor = b.today
         topWeekID = b.startOfWeek(b.today)
     }
 
@@ -124,9 +127,34 @@ final class CalendarViewModel {
 
     /// 標題顯示的月份
     var titleDate: Date {
-        if settings.value.mode == .list { return listMonth }
-        let top = topWeekID ?? builder.startOfWeek(today)
-        return builder.addDays(top, 10)
+        switch viewKind {
+        case .agenda:
+            return today
+        case .week, .threeDay, .day:
+            let days = timelineDays
+            return days.isEmpty ? today : days[days.count / 2]
+        case .month:
+            if settings.value.mode == .list { return listMonth }
+            let top = topWeekID ?? builder.startOfWeek(today)
+            return builder.addDays(top, 10)
+        }
+    }
+
+    var viewKind: ViewKind { settings.value.view }
+
+    /// 時間軸現在排的那幾天
+    var timelineDays: [Date] {
+        guard let count = viewKind.dayCount else { return [] }
+        let start = count == 7 ? builder.startOfWeek(timelineAnchor) : timelineAnchor
+        return (0..<count).map { builder.addDays(start, $0) }
+    }
+
+    /// 新增行程時預設帶入哪一天
+    var focusDate: Date {
+        if let selected, viewKind == .month { return selected }
+        let days = timelineDays
+        if days.isEmpty || days.contains(today) { return today }
+        return days[0]
     }
 
     var titleMonthText: String { "\(calendar.component(.month, from: titleDate))月" }
@@ -224,7 +252,33 @@ final class CalendarViewModel {
         ensureWindow(contains: day)
         if select { selected = day }
         listMonth = Self.monthStart(day, calendar)
+        timelineAnchor = day
         topWeekID = builder.startOfWeek(day)
+    }
+
+    /// 時間軸往前、往後翻一段（一段就是目前排的天數）
+    func shiftTimeline(_ pages: Int) {
+        guard let count = viewKind.dayCount else { return }
+        let next = builder.addDays(timelineAnchor, pages * count)
+        ensureWindow(contains: next)
+        timelineAnchor = next
+    }
+
+    /// 切到「天」檢視看某一天
+    func openDay(_ date: Date) {
+        let day = calendar.startOfDay(for: date)
+        ensureWindow(contains: day)
+        timelineAnchor = day
+        settings.update { $0.view = .day }
+    }
+
+    /// 從搜尋結果或倒數日點過來：月曆與時間軸直接跳到那一天；時間表改開那一天的「天」檢視
+    func show(_ date: Date) {
+        if viewKind == .agenda {
+            openDay(date)
+        } else {
+            jump(to: date)
+        }
     }
 
     func goToday() {

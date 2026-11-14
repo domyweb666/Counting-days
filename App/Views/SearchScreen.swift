@@ -35,7 +35,7 @@ struct SearchScreen: View {
                             ForEach(Array(results.enumerated()), id: \.element.id) { index, event in
                                 if index > 0 { Hairline() }
                                 Button {
-                                    vm.jump(to: event.start)
+                                    vm.show(event.start)
                                     dismiss()
                                 } label: {
                                     row(event)

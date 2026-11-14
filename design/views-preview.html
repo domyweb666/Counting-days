@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>蒜日子 時間表與時間軸預覽</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; background: #E9E7E1; color: #1D1D1F; }
+body.dark { background: #2A2A2C; color: #F5F5F7; }
+.bar { position: sticky; top: 0; z-index: 5; display: flex; gap: 12px 20px; align-items: center; padding: 12px 16px; background: inherit; border-bottom: 1px solid rgba(128,128,128,.3); }
+.bar b { font-size: 13px; margin-right: 6px; opacity: .7; }
+.seg { display: inline-flex; background: rgba(128,128,128,.18); border-radius: 999px; padding: 3px; }
+.seg button { border: 0; background: transparent; color: inherit; font: inherit; font-size: 14px; font-weight: 600; padding: 8px 14px; border-radius: 999px; cursor: pointer; min-height: 36px; }
+.seg button[aria-pressed="true"] { background: #1D1D1F; color: #fff; }
+body.dark .seg button[aria-pressed="true"] { background: #F5F5F7; color: #1D1D1F; }
+.stage { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; padding: 20px 16px 24px; }
+.col { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.col h2 { margin: 0; font-size: 14px; font-weight: 600; opacity: .75; }
+.col p { margin: 0; max-width: 390px; font-size: 13px; line-height: 1.6; opacity: .8; }
+.note { max-width: 860px; margin: 0 auto; padding: 0 16px 40px; font-size: 14px; line-height: 1.7; opacity: .85; }
+
+.phone { width: 390px; max-width: calc(100vw - 32px); height: 800px; border-radius: 40px; overflow: hidden; background: var(--canvas); color: var(--text); box-shadow: 0 12px 32px rgba(0,0,0,.22); display: flex; flex-direction: column; padding-top: 54px; }
+.top { padding: 0 20px; display: flex; flex-direction: column; gap: 12px; flex: none; }
+.hdr { display: flex; align-items: center; gap: 8px; }
+.hdr .t { font-size: 34px; font-weight: 700; line-height: 41px; white-space: nowrap; }
+.hdr .y { font-size: 15px; color: var(--text2); margin-left: 6px; }
+.grow { flex: 1; }
+.ib { width: 44px; height: 44px; border-radius: 999px; background: var(--surface); color: var(--accent); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 18px var(--sh1); flex: none; }
+.ib.txt { width: auto; padding: 0 16px; font-size: 16px; font-weight: 600; color: var(--strong); }
+.ib.pri { background: var(--accent); color: var(--onAccent); }
+.ib svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.tabs { display: flex; gap: 4px; background: var(--surface); border-radius: 999px; padding: 4px; box-shadow: 0 4px 18px var(--sh1); }
+.tabs span { flex: 1; text-align: center; font-size: 15px; font-weight: 600; line-height: 36px; border-radius: 999px; }
+.tabs span.on { background: var(--soft); color: var(--strong); }
+.scroll { flex: 1; overflow-y: auto; margin-top: 12px; }
+
+/* 時間表 */
+.ag { padding: 0 20px 32px; display: flex; flex-direction: column; gap: 12px; }
+.ag .wk { font-size: 12px; font-weight: 500; color: var(--text2); margin: 4px 0 -4px 56px; }
+.ag .mon { font-size: 22px; font-weight: 700; margin: 12px 0 0 4px; }
+.ag .day { display: flex; gap: 12px; align-items: flex-start; }
+.ag .dl { width: 44px; flex: none; display: flex; flex-direction: column; align-items: center; padding-top: 6px; }
+.ag .dl small { font-size: 12px; font-weight: 500; color: var(--text2); }
+.ag .dl b { width: 36px; height: 36px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; }
+.ag .dl.today small { color: var(--strong); }
+.ag .dl.today b { background: var(--accent); color: var(--onAccent); }
+.ag .box { flex: 1; min-width: 0; background: var(--surface); border-radius: 20px; padding: 0 16px; }
+.ag .row { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 0; }
+.ag .row + .row { border-top: 1px solid var(--sep); }
+.ag .tm { width: 44px; font-size: 13px; color: var(--text2); flex: none; line-height: 16px; }
+.ag .tt { font-size: 17px; line-height: 22px; }
+.ag .tt small { display: block; font-size: 13px; color: var(--text2); }
+.ag .band { border-radius: 12px; padding: 0 12px; min-height: 44px; display: flex; align-items: center; font-size: 16px; font-weight: 600; margin: 8px -8px; }
+.ag .band + .row { border-top: 0; }
+.ag .none { font-size: 15px; color: var(--text2); min-height: 52px; display: flex; align-items: center; }
+.sq { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+
+/* 時間軸 */
+.tl { padding: 0 8px 0; display: flex; flex-direction: column; flex: 1; min-height: 0; margin-top: 12px; }
+.tl .heads { display: flex; padding-left: 40px; flex: none; }
+.tl .hd { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding-bottom: 6px; }
+.tl .hd small { font-size: 12px; font-weight: 500; color: var(--text2); }
+.tl .hd b { min-width: 32px; height: 32px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 600; }
+.tl .hd.today small { color: var(--strong); }
+.tl .hd.today b { background: var(--accent); color: var(--onAccent); }
+.tl .allday { display: flex; padding-left: 40px; flex: none; min-height: 28px; position: relative; margin-bottom: 6px; }
+.tl .allday .lab { position: absolute; left: 0; top: 6px; width: 36px; text-align: right; font-size: 11px; color: var(--text2); }
+.tl .allday .slot { flex: 1; padding: 0 1px; }
+.tl .allday .ad { height: 26px; border-radius: 8px; font-size: 12px; font-weight: 600; display: flex; align-items: center; padding: 0 6px; white-space: nowrap; overflow: hidden; }
+.tl .body { flex: 1; overflow-y: auto; background: var(--surface); border-radius: 20px 20px 0 0; }
+.tl .grid { position: relative; display: flex; padding-left: 40px; }
+.tl .hr { position: absolute; left: 0; right: 0; border-top: 1px solid var(--sep); }
+.tl .hr span { position: absolute; left: 0; top: -8px; width: 34px; text-align: right; font-size: 11px; color: var(--text2); background: var(--surface); }
+.tl .dc { flex: 1; position: relative; border-left: 1px solid var(--sep); }
+.tl .ev { position: absolute; border-radius: 8px; padding: 3px 5px; overflow: hidden; font-size: 13px; font-weight: 600; line-height: 16px; border: 1px solid var(--surface); }
+.tl .ev small { display: block; font-size: 11px; font-weight: 500; opacity: .85; }
+.tl.w7 .ev { font-size: 11px; line-height: 14px; padding: 2px 2px; }
+.tl.w7 .ev small { display: none; }
+.tl.w7 .hd b { min-width: 28px; height: 28px; font-size: 15px; }
+.tl .now { position: absolute; left: 0; right: 0; height: 2px; background: var(--accent); z-index: 2; }
+.tl .now::before { content: ""; position: absolute; left: -4px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+</style>
+</head>
+<body>
+<div class="bar"><div><b>外觀</b><span class="seg" id="modeSeg"></span></div></div>
+<div class="stage" id="stage"></div>
+<p class="note">網頁示意，鼠尾草配降彩類別色。行程是示範用的假資料，今天設在 11/15（週日）上午 10:20。時間軸只畫了早上 7 點到晚上 10 點，實際會是整天可捲。四支手機可以各自上下捲動。上面那排「月／時間表／3 天／天」是我提議的新入口；「週」只是為了讓你比較才放進來。</p>
+
+<script>
+var NEUTRAL = {
+  light: { canvas:'#F5F5F7', surface:'#FFFFFF', sep:'#E5E1D8', text:'#1D1D1F', text2:'#66666D', sh1:'rgba(25,22,20,.06)', accent:'#4F6B57', onAccent:'#FFFFFF', strong:'#3F5746', soft:'#E3ECE5' },
+  dark:  { canvas:'#000000', surface:'#1C1C1E', sep:'#38383A', text:'#F5F5F7', text2:'#A1A1A8', sh1:'rgba(0,0,0,.06)', accent:'#9DC2A5', onAccent:'#12251A', strong:'#BFD9C4', soft:'#22322A' }
+};
+var CATS = {
+  light: { work:['#6F5F8F','#FFFFFF'], trip:['#4B6C8F','#FFFFFF'], med:['#A65F45','#FFFFFF'], errand:['#7A6A3A','#FFFFFF'] },
+  dark:  { work:['#A99BD0','#1D1D1F'], trip:['#8FB0D4','#1D1D1F'], med:['#DB9C84','#1D1D1F'], errand:['#C2B078','#1D1D1F'] }
+};
+var mode = 'light';
+var DOW = '日一二三四五六';
+var H0 = 7, H1 = 22, HH = 56;   // 顯示 7–22 點，一小時 56px
+var NOW = 10 + 20 / 60;
+
+// d: 11 月幾號；s、e：開始與結束（小時）
+var EV = [
+  { d:15, s:11.5, e:13, t:'家庭聚餐', c:'trip' },
+  { d:16, s:9, e:9.5, t:'晨會', c:'work' },
+  { d:16, s:10.5, e:12, t:'客戶訪談', c:'work' },
+  { d:16, s:12, e:13, t:'午餐約', c:'trip' },
+  { d:16, s:14, e:16, t:'錄影：十二月說書', c:'work' },
+  { d:16, s:14.5, e:15.5, t:'牙醫回診', c:'med' },
+  { d:16, s:19, e:19.5, t:'取件', c:'errand' },
+  { d:17, s:10, e:11, t:'週會', c:'work' },
+  { d:17, s:15, e:17, t:'交稿：電子報', c:'work' },
+  { d:17, s:17.5, e:18, t:'寄件', c:'errand' },
+  { d:18, s:9.5, e:10.5, t:'回診', c:'med' },
+  { d:18, s:14, e:15, t:'週會', c:'work' },
+  { d:19, s:19, e:21, t:'聚餐', c:'trip' },
+  { d:20, s:16, e:17, t:'填寫入境申請表', c:'errand' }
+];
+var ALLDAY = [{ from:19, to:20, t:'出差高雄', c:'trip' }];
+
+function hm(h){ var m = Math.round((h % 1) * 60); return (h < 10 ? '0' : '') + Math.floor(h) + ':' + (m < 10 ? '0' : '') + m; }
+function bg(c){ return 'background:var(--' + c + '-bg);color:var(--' + c + '-fg)'; }
+var ICON = {
+  search:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>',
+  gear:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>',
+  plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>'
+};
+function topBar(on, tabs){
+  return '<div class="top"><div class="hdr"><span class="t">11月</span><span class="y">2026</span><span class="grow"></span>' +
+    '<span class="ib">' + ICON.search + '</span><span class="ib">' + ICON.gear + '</span><span class="ib txt">今天</span><span class="ib pri">' + ICON.plus + '</span></div>' +
+    '<div class="tabs">' + tabs.map(function(t){ return '<span' + (t === on ? ' class="on"' : '') + '>' + t + '</span>'; }).join('') + '</div></div>';
+}
+
+function agenda(){
+  var h = '<div class="scroll"><div class="ag">';
+  function day(d, label, dowi, rows, today){
+    return '<div class="day"><div class="dl' + (today ? ' today' : '') + '"><small>週' + DOW[dowi] + '</small><b>' + label + '</b></div><div class="box">' + rows + '</div></div>';
+  }
+  function rows(d){
+    var out = ALLDAY.filter(function(a){ return d >= a.from && d <= a.to; }).map(function(a){
+      return '<div class="band" style="' + bg(a.c) + '">' + a.t + ' · 第 ' + (d - a.from + 1) + ' 天，共 ' + (a.to - a.from + 1) + ' 天</div>'; }).join('');
+    out += EV.filter(function(e){ return e.d === d; }).map(function(e){
+      return '<div class="row"><span class="tm">' + hm(e.s) + '<br>' + hm(e.e) + '</span><i class="sq" style="background:var(--' + e.c + '-bg)"></i><span class="tt">' + e.t + '</span></div>'; }).join('');
+    return out;
+  }
+  h += '<div class="wk">11 月 15 – 21 日</div>';
+  for (var d = 15; d <= 20; d++) h += day(d, d, d - 15, rows(d), d === 15);
+  h += '<div class="wk">11 月 22 – 28 日</div>';
+  h += day(26, 26, 4, '<div class="row"><span class="tm">14:00<br>15:00</span><i class="sq" style="background:var(--med-bg)"></i><span class="tt">牙醫洗牙<small>示範牙醫診所</small></span></div>');
+  h += '<div class="mon">12月</div><div class="wk">11 月 29 日 – 12 月 5 日</div>';
+  h += day(1, 1, 2, '<div class="band" style="' + bg('trip') + '">去旅行 · 第 1 天，共 8 天</div><div class="row"><span class="tm">20:00<br>22:30</span><i class="sq" style="background:var(--trip-bg)"></i><span class="tt">班機<small>桃園機場第一航廈</small></span></div>');
+  h += day(2, 2, 3, '<div class="band" style="' + bg('trip') + '">去旅行 · 第 2 天，共 8 天</div>');
+  return h + '</div></div>';
+}
+
+// 同一天重疊的行程並排
+function layout(evs){
+  evs = evs.slice().sort(function(a, b){ return a.s - b.s; });
+  var cols = [];
+  evs.forEach(function(e){
+    var i = 0;
+    while (cols[i] && cols[i] > e.s) i++;
+    cols[i] = e.e; e.col = i;
+  });
+  evs.forEach(function(e){
+    e.n = 1;
+    evs.forEach(function(o){ if (o !== e && o.s < e.e && o.e > e.s) e.n = Math.max(e.n, Math.max(o.col, e.col) + 1); });
+  });
+  return evs;
+}
+function timeline(days, cls){
+  var h = '<div class="tl ' + cls + '"><div class="heads">';
+  days.forEach(function(d){ h += '<div class="hd' + (d === 15 ? ' today' : '') + '"><small>' + (days.length > 3 ? '' : '週') + DOW[d - 15] + '</small><b>' + d + '</b></div>'; });
+  h += '</div><div class="allday"><span class="lab">全天</span>';
+  days.forEach(function(d){
+    var a = ALLDAY.filter(function(x){ return d >= x.from && d <= x.to; })[0];
+    h += '<div class="slot">' + (a ? '<div class="ad" style="' + bg(a.c) + '">' + a.t + '</div>' : '') + '</div>';
+  });
+  h += '</div><div class="body"><div class="grid" style="height:' + (H1 - H0) * HH + 'px">';
+  for (var hr = H0; hr < H1; hr++) h += '<div class="hr" style="top:' + (hr - H0) * HH + 'px">' + (hr > H0 ? '<span>' + (hr < 10 ? '0' : '') + hr + ':00</span>' : '') + '</div>';
+  days.forEach(function(d){
+    h += '<div class="dc">';
+    if (d === 15) h += '<div class="now" style="top:' + (NOW - H0) * HH + 'px"></div>';
+    layout(EV.filter(function(e){ return e.d === d; })).forEach(function(e){
+      var w = 100 / e.n;
+      h += '<div class="ev" style="' + bg(e.c) + ';top:' + (e.s - H0) * HH + 'px;height:' + Math.max((e.e - e.s) * HH, 22) + 'px;left:' + e.col * w + '%;width:' + w + '%">' + e.t + (e.e - e.s >= 0.75 ? '<small>' + hm(e.s) + '–' + hm(e.e) + '</small>' : '') + '</div>';
+    });
+    h += '</div>';
+  });
+  return h + '</div></div></div>';
+}
+
+var TABS = ['月', '時間表', '3 天', '天'];
+var SCREENS = [
+  ['時間表', '每件事一列、有起訖時間，一路往下捲。跨日行程在每一天寫「第 N 天，共 N 天」。沒事的日子直接跳過。', function(){ return topBar('時間表', TABS) + agenda(); }],
+  ['3 天', '一欄約 110 pt，標題放得下 6、7 個字。重疊的行程並排（看 16 號下午）。', function(){ return topBar('3 天', TABS) + timeline([15, 16, 17], 'w3'); }],
+  ['天', '一欄佔滿，標題完整顯示。適合看某一天有沒有空檔。', function(){ return topBar('天', TABS) + timeline([16], 'w1'); }],
+  ['週（我不建議加）', '一欄剩 47 pt，一行只放得下 3、4 個字。請看 16、17、20 號的標題被切成什麼樣。', function(){ return topBar('週', ['月', '時間表', '週', '天']) + timeline([15, 16, 17, 18, 19, 20, 21], 'w7'); }]
+];
+
+function render(){
+  document.body.className = mode;
+  var n = NEUTRAL[mode], c = CATS[mode], vars = {};
+  Object.keys(n).forEach(function(k){ vars[k] = n[k]; });
+  Object.keys(c).forEach(function(k){ vars[k + '-bg'] = c[k][0]; vars[k + '-fg'] = c[k][1]; });
+  var style = Object.keys(vars).map(function(k){ return '--' + k + ':' + vars[k]; }).join(';');
+  document.getElementById('stage').innerHTML = SCREENS.map(function(s){
+    return '<div class="col"><h2>' + s[0] + '</h2><div class="phone" style="' + style + '">' + s[2]() + '</div><p>' + s[1] + '</p></div>'; }).join('');
+  var el = document.getElementById('modeSeg');
+  el.innerHTML = [['light','淺色'],['dark','深色']].map(function(it){ return '<button aria-pressed="' + (mode === it[0]) + '" data-v="' + it[0] + '">' + it[1] + '</button>'; }).join('');
+  Array.prototype.forEach.call(el.children, function(b){ b.onclick = function(){ mode = b.dataset.v; render(); }; });
+}
+render();
+</script>
+</body>
+</html>

@@ -105,6 +105,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var shortNames: [String: String]
     /// 倒數日（事件系列識別碼，依加入順序）
     public var countdowns: [String]
+    /// 最上層的檢視：月、時間表、週、3 天、天
+    public var view: ViewKind
+    /// 月曆樣式
     public var mode: DisplayMode
     public var weekStartsOnMonday: Bool
     public var showLunar: Bool
@@ -128,6 +131,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         pinned: Set<String> = [],
         shortNames: [String: String] = [:],
         countdowns: [String] = [],
+        view: ViewKind = .month,
         mode: DisplayMode = .flex,
         weekStartsOnMonday: Bool = false,
         showLunar: Bool = true,
@@ -141,6 +145,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.pinned = pinned
         self.shortNames = shortNames
         self.countdowns = countdowns
+        self.view = view
         self.mode = mode
         self.weekStartsOnMonday = weekStartsOnMonday
         self.showLunar = showLunar
@@ -159,6 +164,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         pinned = try c.decodeIfPresent(Set<String>.self, forKey: .pinned) ?? d.pinned
         shortNames = try c.decodeIfPresent([String: String].self, forKey: .shortNames) ?? d.shortNames
         countdowns = try c.decodeIfPresent([String].self, forKey: .countdowns) ?? d.countdowns
+        view = try c.decodeIfPresent(ViewKind.self, forKey: .view) ?? d.view
         mode = try c.decodeIfPresent(DisplayMode.self, forKey: .mode) ?? d.mode
         weekStartsOnMonday = try c.decodeIfPresent(Bool.self, forKey: .weekStartsOnMonday) ?? d.weekStartsOnMonday
         showLunar = try c.decodeIfPresent(Bool.self, forKey: .showLunar) ?? d.showLunar

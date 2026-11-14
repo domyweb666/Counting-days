@@ -258,6 +258,66 @@ final class CalendarCoreTests: XCTestCase {
         XCTAssertEqual(cards.count, 4)
     }
 
+    // MARK: 時間軸
+
+    func testTimeBlocksSideBySideWhenOverlapping() {
+        let d = date(2026, 11, 16)
+        let events = [ev("a", "錄影", d.addingTimeInterval(14 * 3600), hours: 2),
+                      ev("b", "牙醫", d.addingTimeInterval(14.5 * 3600), hours: 1, cal: "M"),
+                      ev("c", "取件", d.addingTimeInterval(19 * 3600), hours: 0.5, cal: "E"),
+                      ev("r", "吃藥", d.addingTimeInterval(8 * 3600), hours: 0.25, cal: "M", recurring: true, daily: true),
+                      allDay("x", "繳稅", d, days: 1, cal: "E")]
+        let b = builder(today: date(2026, 11, 14))
+        let day = b.weeks(from: d, to: d, events: events)[0].days[1]
+        let blocks = Dictionary(uniqueKeysWithValues: b.timeBlocks(for: day).map { ($0.id, $0) })
+        XCTAssertEqual(blocks.count, 4)
+        XCTAssertEqual([blocks["a"]!.startMinute, blocks["a"]!.endMinute], [840, 960])
+        XCTAssertEqual([blocks["a"]!.column, blocks["a"]!.columnCount], [0, 2])
+        XCTAssertEqual([blocks["b"]!.column, blocks["b"]!.columnCount], [1, 2])
+        XCTAssertEqual([blocks["c"]!.column, blocks["c"]!.columnCount], [0, 1])
+        // 15 分鐘的例行事件也排進時間軸，畫成最少 30 分鐘高
+        XCTAssertEqual([blocks["r"]!.startMinute, blocks["r"]!.endMinute], [480, 510])
+        // 全天行程不進時間軸
+        XCTAssertNil(blocks["x"])
+        XCTAssertEqual(b.allDayEvents(for: day).map(\.id), ["x"])
+        XCTAssertEqual(b.endTimeText(events[0]), "16:00")
+    }
+
+    func testTimeBlocksReuseColumnAndClipAtMidnight() {
+        let d = date(2026, 11, 16)
+        let events = [ev("a", "長會議", d.addingTimeInterval(9 * 3600), hours: 3),
+                      ev("b", "插進來", d.addingTimeInterval(9.5 * 3600), hours: 1),
+                      ev("c", "再插", d.addingTimeInterval(11 * 3600), hours: 1),
+                      ev("late", "跨年", d.addingTimeInterval(23.75 * 3600), hours: 2)]
+        let b = builder(today: date(2026, 11, 14))
+        let day = b.weeks(from: d, to: d, events: events)[0].days[1]
+        let blocks = Dictionary(uniqueKeysWithValues: b.timeBlocks(for: day).map { ($0.id, $0) })
+        // b 結束後，c 接回第 1 欄；三件同一群，都分成兩欄
+        XCTAssertEqual([blocks["a"]!.column, blocks["b"]!.column, blocks["c"]!.column], [0, 1, 1])
+        XCTAssertEqual(blocks["c"]!.columnCount, 2)
+        // 跨過午夜的只畫到 24:00，而且至少 30 分鐘高
+        XCTAssertEqual([blocks["late"]!.startMinute, blocks["late"]!.endMinute], [1410, 1440])
+        XCTAssertEqual(blocks["late"]!.columnCount, 1)
+    }
+
+    func testAgendaDays() {
+        let events = [ev("old", "過去", date(2026, 11, 10, 10)),
+                      ev("b", "週會", date(2026, 11, 16, 10)),
+                      allDay("t", "去旅行", date(2026, 11, 27), days: 2)]
+        let b = builder(today: date(2026, 11, 14))
+        let weeks = b.weeks(from: date(2026, 11, 1), to: date(2026, 11, 30), events: events)
+        let days = b.agendaDays(in: weeks).map(\.date)
+        // 今天沒事也列；過去的不列；跨日行程每一天都列
+        XCTAssertEqual(days, [date(2026, 11, 14), date(2026, 11, 16), date(2026, 11, 27), date(2026, 11, 28)])
+    }
+
+    func testViewKindDecodeDefault() throws {
+        let s = try JSONDecoder().decode(AppSettings.self, from: #"{"mode":"C"}"#.data(using: .utf8)!)
+        XCTAssertEqual(s.view, .month)
+        XCTAssertEqual(ViewKind.week.dayCount, 7)
+        XCTAssertNil(ViewKind.agenda.dayCount)
+    }
+
     // MARK: 農曆與節氣
 
     func testSolarTerms() {

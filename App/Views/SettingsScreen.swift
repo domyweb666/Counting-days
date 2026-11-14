@@ -40,6 +40,18 @@ struct SettingsScreen: View {
 
     private var displaySection: some View {
         SectionCard(title: "顯示") {
+            SettingsRow(label: "月曆樣式") {
+                Menu {
+                    Picker("月曆樣式", selection: settings.binding(\.mode)) {
+                        ForEach(DisplayMode.allCases, id: \.self) { m in
+                            Text(m.label).tag(m)
+                        }
+                    }
+                } label: {
+                    PickerCapsule(text: settings.value.mode.label)
+                }
+            }
+            Hairline()
             SettingsRow(label: "一週從哪天開始") {
                 Menu {
                     Picker("一週從哪天開始", selection: settings.binding(\.weekStartsOnMonday)) {

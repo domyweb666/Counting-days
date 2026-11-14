@@ -29,6 +29,7 @@ struct CalendarScreen: View {
     @State private var showShortName = false
 
     private var vm: CalendarViewModel { app.vm }
+    /// 月曆樣式（在設定裡選）
     private var mode: DisplayMode { app.settings.value.mode }
 
     private var actions: CalendarActions {
@@ -111,7 +112,7 @@ struct CalendarScreen: View {
             CircleIconButton(systemName: "gearshape", label: "設定") { sheet = .settings }
             PillTextButton(title: "今天") { vm.goToday() }
             CircleIconButton(systemName: "plus", label: "新增行程", primary: true) {
-                sheet = .newEvent(vm.selected ?? vm.today)
+                sheet = .newEvent(vm.focusDate)
             }
         }
         .padding(.horizontal, inset)
@@ -119,10 +120,10 @@ struct CalendarScreen: View {
 
     private var modeTabs: some View {
         HStack(spacing: DT.Space.s1) {
-            ForEach(DisplayMode.allCases, id: \.self) { m in
-                let on = m == mode
+            ForEach(ViewKind.allCases, id: \.self) { m in
+                let on = m == app.settings.value.view
                 Button {
-                    app.settings.update { $0.mode = m }
+                    app.settings.update { $0.view = m }
                 } label: {
                     Text(m.label)
                         .dFont(DT.TypeScale.callout)
@@ -147,7 +148,7 @@ struct CalendarScreen: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: DT.Space.s2) {
                 ForEach(vm.countdowns) { item in
-                    Button { vm.jump(to: item.date) } label: {
+                    Button { vm.show(item.date) } label: {
                         HStack(spacing: DT.Space.s2) {
                             RoundedRectangle(cornerRadius: 3)
                                 .fill(vm.color(item.categoryID))
@@ -171,12 +172,19 @@ struct CalendarScreen: View {
 
     @ViewBuilder
     private var content: some View {
-        if mode == .list {
-            ListModeView(vm: vm, actions: actions)
-        } else {
-            VStack(spacing: DT.Space.s2) {
-                if mode != .strips { weekdayHeader }
-                weekScroll
+        switch app.settings.value.view {
+        case .agenda:
+            AgendaView(vm: vm, actions: actions)
+        case .week, .threeDay, .day:
+            DayGridView(vm: vm, actions: actions)
+        case .month:
+            if mode == .list {
+                ListModeView(vm: vm, actions: actions)
+            } else {
+                VStack(spacing: DT.Space.s2) {
+                    if mode != .strips { weekdayHeader }
+                    weekScroll
+                }
             }
         }
     }
