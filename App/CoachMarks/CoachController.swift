@@ -12,8 +12,11 @@ final class CoachController {
     private(set) var demoIndex = 0
     /// 每要求開始一次加一。根畫面看到這個數字變了，就做準備再開始。
     private(set) var startRequests = 0
-    /// 使用者在設定按了「重看教學」，還沒真的開始
+    /// 使用者點了小卡或在設定按了「重看教學」，還沒真的開始
     private(set) var pendingStart = false
+    /// 看完、跳過，或把月曆上那張小卡關掉，都算看過。
+    /// 存一份在這裡，畫面才會在它變的時候跟著重畫；手機裡那份只在開機時讀一次。
+    private(set) var hasCompleted: Bool
 
     @ObservationIgnored private let defaults: UserDefaults
     /// 步驟大改時把版本號加一，看過舊版的人會再看一次
@@ -22,6 +25,7 @@ final class CoachController {
     init(steps: [CoachStep] = CoachTour.steps, defaults: UserDefaults = .standard) {
         self.steps = steps
         self.defaults = defaults
+        self.hasCompleted = defaults.bool(forKey: Self.completedKey)
     }
 
     var current: CoachStep? {
@@ -38,12 +42,20 @@ final class CoachController {
     /// 引導的狀態一變這串字就變，畫面靠它知道要換範例月曆的樣子
     var stateKey: String { "\(isActive)-\(index)-\(demoIndex)" }
 
-    var hasCompleted: Bool { defaults.bool(forKey: Self.completedKey) }
+    /// 引導不會自己開始：剛給完權限的人要先看到自己的行程。
+    /// 使用者點了月曆上的小卡，或在設定按「重看教學」才開始。
+    var shouldStart: Bool { pendingStart }
 
-    /// 沒看過，或使用者要求重看
-    var shouldStart: Bool { pendingStart || !hasCompleted }
+    /// 月曆上那張「第一次用？」的小卡要不要出現：沒看過，而且引導沒有在跑、也沒有正要開始
+    var showsIntroCard: Bool { !hasCompleted && !isActive && !pendingStart }
 
-    /// 設定頁的「重看教學」
+    /// 小卡的 ✕：不看引導，之後也不再問。想看可以到設定按「重看教學」。
+    func dismissIntroCard() {
+        guard !isActive else { return }
+        markCompleted()
+    }
+
+    /// 月曆上的小卡，或設定頁的「重看教學」
     func requestStart() {
         guard !isActive else { return }
         pendingStart = true
@@ -94,6 +106,11 @@ final class CoachController {
     private func finish() {
         isActive = false
         demoIndex = 0
+        markCompleted()
+    }
+
+    private func markCompleted() {
+        hasCompleted = true
         defaults.set(true, forKey: Self.completedKey)
     }
 }

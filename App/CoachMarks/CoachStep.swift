@@ -146,7 +146,7 @@ enum CoachTour {
 
 /// 引導的所有數值集中在這裡
 enum CoachStyle {
-    /// 進入主畫面後多久開始
+    /// 使用者要求開始之後，等多久才開始（讓設定頁先關好）
     static let startDelay: Double = 0.4
     /// 目標元件一直沒出現時，等多久自動跳下一步
     static let missingTargetWait: Double = 2.5

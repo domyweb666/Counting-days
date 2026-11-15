@@ -1,5 +1,5 @@
 {
-  "station": "self-review",
+  "station": "audit-immediate",
   "updated_at": "2026-11-16T09:00:00+08:00",
   "updated_by": "vibe-traffic-control",
   "pieces": {
@@ -65,7 +65,7 @@
       "approved": true
     }
   ],
-  "pending_immediate_verify": [],
+  "pending_immediate_verify": ["18"],
   "skipped_gates": [
     "grill-me",
     "prd",
