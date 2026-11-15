@@ -79,6 +79,7 @@ struct CalendarScreen: View {
             vm.autoDetectHolidaysIfNeeded()
             vm.rebuild()
         }
+        .task { await settleFirstScroll() }
         .onChange(of: app.store.changeToken) { vm.rebuild() }
         .onChange(of: app.settings.value) { vm.rebuild() }
         // 驗到購買（或退款）之後，顯示幾個倒數日會變
@@ -100,6 +101,25 @@ struct CalendarScreen: View {
             Button("取消", role: .cancel) {}
         } message: {
             Text(shortNameTarget?.title ?? "")
+        }
+    }
+
+    /// 剛進月曆時，行程還沒載進來就先指定了捲動位置，上面那些收成一行的週高度還沒確定，
+    /// 結果會差半列，今天那一週的日期被星期列蓋住。等排好之後再指定一次。
+    /// 位置要「有變」才會捲，所以先清掉再放回去（跟引導切回月曆時同一個做法，等的時間也共用）。
+    private func settleFirstScroll() async {
+        let week = vm.topWeekID
+        do {
+            try await Task.sleep(for: .seconds(CoachStyle.recenterDelay))
+            // 這段時間使用者自己捲了，就不要把他拉回去
+            guard vm.topWeekID == week else { return }
+            vm.topWeekID = nil
+            try await Task.sleep(for: .seconds(CoachStyle.recenterGap))
+            guard vm.topWeekID == nil else { return }
+            vm.topWeekID = week
+        } catch {
+            // 只有畫面離開、工作被取消才會到這裡，不用再捲
+            return
         }
     }
 
