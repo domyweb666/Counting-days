@@ -19,13 +19,7 @@ struct SuanRiZiApp: App {
 /// 依行事曆權限決定顯示哪一頁
 struct RootView: View {
     @Environment(AppModel.self) private var app
-    @Environment(CoachController.self) private var coach
     @Environment(\.scenePhase) private var scenePhase
-
-    /// 拿到權限、或使用者按了「重看教學」時會變，引導跟著重新判斷要不要開始
-    private var coachStartKey: String {
-        "\(app.store.status == .fullAccess)-\(coach.startRequests)"
-    }
 
     var body: some View {
         Group {
@@ -41,26 +35,11 @@ struct RootView: View {
         .overlayPreferenceValue(CoachTargetKey.self) { anchors in
             CoachOverlay(anchors: anchors)
         }
-        .task(id: coachStartKey) {
-            await startCoachIfNeeded()
-        }
+        .modifier(CoachDirector())
         .onChange(of: scenePhase) { _, phase in
             // 使用者可能剛從「設定」改完權限回來
             if phase == .active { app.store.refreshStatus() }
         }
-    }
-
-    /// 第一次進月曆、或從設定要求重看時，開始新手引導
-    private func startCoachIfNeeded() async {
-        guard app.store.status == .fullAccess, coach.shouldStart else { return }
-        try? await Task.sleep(for: .seconds(CoachStyle.startDelay))
-        guard !Task.isCancelled, app.store.status == .fullAccess else { return }
-        // 收起鍵盤
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        // 四步照亮的元件都在「月」檢視，今天那一格要在畫面上
-        app.settings.update { $0.view = .month }
-        app.vm.jump(to: app.vm.today, select: false)
-        coach.begin()
     }
 }
 

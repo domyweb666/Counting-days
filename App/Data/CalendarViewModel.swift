@@ -54,6 +54,8 @@ final class CalendarViewModel {
     private(set) var windowEnd: Date
 
     var selected: Date?
+    /// 新手引導期間改吃這份範例行程，不讀系統行事曆。平常是 nil。
+    var demoEvents: [CalEvent]?
     /// 捲動位置：畫面最上面那一週
     var topWeekID: Date?
     /// 清單方式的小月曆顯示哪個月
@@ -173,10 +175,10 @@ final class CalendarViewModel {
             countdowns = []
             return
         }
-        let events = store.events(from: windowStart, to: windowEnd)
+        let events = demoEvents ?? store.events(from: windowStart, to: windowEnd)
         weeks = builder.weeks(from: windowStart, to: builder.addDays(windowEnd, -1), events: events)
         upcoming = builder.upcoming(in: weeks)
-        countdowns = makeCountdowns()
+        countdowns = demoEvents == nil ? makeCountdowns() : []
         if previousToday != builder.today, selected == previousToday {
             selected = nil
         }

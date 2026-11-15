@@ -8,6 +8,9 @@ struct CoachOverlay: View {
 
     let anchors: [String: Anchor<CGRect>]
 
+    /// 說明卡上緣在螢幕上的位置。一張張看的時候，洞的下緣要停在它上面。
+    @State private var cardTop: CGFloat = 0
+
     var body: some View {
         ZStack {
             if let step = coach.current {
@@ -16,9 +19,10 @@ struct CoachOverlay: View {
                     CoachSpotlight(
                         step: step,
                         target: anchors[step.targetID].map { proxy[$0] },
+                        clipBottom: step.isDemo && cardTop > 0 ? cardTop - CoachStyle.demoGap : nil,
                         dim: scheme == .dark ? CoachStyle.dimDark : CoachStyle.dimLight,
                         reduceMotion: reduceMotion,
-                        onMissing: { coach.next() }
+                        onMissing: { coach.skipStep() }
                     )
                 }
                 .ignoresSafeArea()
@@ -26,6 +30,7 @@ struct CoachOverlay: View {
 
                 // 跳過按鈕與說明卡留在安全區域裡
                 GeometryReader { proxy in
+                    let atTop = cardAtTop(step, target: anchors[step.targetID].map { proxy[$0] }, height: proxy.size.height)
                     VStack(spacing: 0) {
                         HStack {
                             Spacer(minLength: 0)
@@ -33,17 +38,28 @@ struct CoachOverlay: View {
                         }
                         .padding(.top, CoachStyle.skipTop)
                         .padding(.trailing, CoachStyle.skipTrailing)
-                        Spacer(minLength: DT.Space.s3)
+                        if !atTop { Spacer(minLength: DT.Space.s3) }
                         CoachCard(
                             step: step,
                             index: coach.index,
                             total: coach.steps.count,
+                            demoItems: coach.demoItems,
+                            demoIndex: coach.demoIndex,
                             maxHeight: proxy.size.height * CoachStyle.cardMaxHeightRatio,
                             reduceMotion: reduceMotion,
-                            onNext: { coach.next() }
+                            onNext: { coach.next() },
+                            onSelectDemo: { coach.selectDemo($0) },
+                            onSkipStep: { coach.skipStep() }
                         )
+                        .onGeometryChange(for: CGFloat.self) { geo in
+                            geo.frame(in: .global).minY
+                        } action: { top in
+                            cardTop = top
+                        }
                         .padding(.horizontal, CoachStyle.cardMargin)
+                        .padding(.top, atTop ? DT.Space.s2 : 0)
                         .padding(.bottom, DT.Space.s3)
+                        if atTop { Spacer(minLength: 0) }
                     }
                 }
                 .accessibilityAddTraits(.isModal)
@@ -51,7 +67,15 @@ struct CoachOverlay: View {
             }
         }
         .animation(.easeOut(duration: CoachStyle.fade), value: coach.isActive)
-        .sensoryFeedback(.selection, trigger: coach.index)
+        .sensoryFeedback(.selection, trigger: coach.stateKey)
+    }
+
+    /// 卡片預設在下面。洞會碰到卡片、或那一步要在洞下面畫選單時，改放上面。
+    private func cardAtTop(_ step: CoachStep, target: CGRect?, height: CGFloat) -> Bool {
+        if step.kind == .fakeMenu { return true }
+        if step.isDemo { return false }
+        guard let target else { return false }
+        return target.maxY + step.holePadding > height - CoachStyle.cardEstimatedHeight
     }
 
     private var skipButton: some View {
@@ -74,11 +98,13 @@ struct CoachOverlay: View {
     }
 }
 
-/// 黑幕、洞、光暈。整片攔截觸控，洞裡面也點不到。
+/// 黑幕、洞、光暈。整片攔截觸控；只有「換你點點看」那一步，洞裡面點得到。
 private struct CoachSpotlight: View {
     let step: CoachStep
     /// 目標元件在螢幕上的位置；還沒出現時是 nil
     let target: CGRect?
+    /// 洞的下緣最低到哪裡（一張張看的時候，停在說明卡上面）
+    let clipBottom: CGFloat?
     let dim: Double
     let reduceMotion: Bool
     let onMissing: () -> Void
@@ -88,25 +114,47 @@ private struct CoachSpotlight: View {
     /// 減少動態效果時用：先把洞蓋掉，換好位置再露出來
     @State private var covered = false
     @State private var swapTask: Task<Void, Never>?
+    @State private var menuShown = false
 
     private var wanted: CGRect? {
-        target.map { $0.insetBy(dx: -step.holePadding, dy: -step.holePadding) }
+        guard var rect = target?.insetBy(dx: -step.holePadding, dy: -step.holePadding) else { return nil }
+        if let clipBottom {
+            rect.size.height = max(0, min(rect.size.height, clipBottom - rect.origin.y))
+        }
+        return rect
     }
 
     var body: some View {
         ZStack {
             SpotlightShape(hole: hole, cornerRadius: step.holeCornerRadius, inverted: true)
                 .fill(Color.black.opacity(dim), style: FillStyle(eoFill: true))
+                .allowsHitTesting(false)
             SpotlightShape(hole: hole, cornerRadius: step.holeCornerRadius, inverted: false)
                 .fill(Color.black.opacity(dim))
                 .opacity(covered ? 1 : 0)
+                .allowsHitTesting(false)
             SpotlightShape(hole: hole, cornerRadius: step.holeCornerRadius, inverted: false)
                 .stroke(Theme.accent, lineWidth: CoachStyle.glowWidth)
                 .shadow(color: Theme.accent.opacity(CoachStyle.glowOpacity), radius: CoachStyle.glowRadius)
                 .opacity(hasTarget && !covered ? 1 : 0)
+                .allowsHitTesting(false)
+            // 攔觸控的那一層。平常整片都攔；「換你點點看」那一步把洞留空，點得到下面的元件。
+            Color.clear
+                .contentShape(
+                    SpotlightShape(hole: step.kind == .tap ? hole : .zero,
+                                   cornerRadius: step.holeCornerRadius, inverted: true),
+                    eoFill: true
+                )
+                .onTapGesture {}
+            if step.kind == .fakeMenu, hasTarget {
+                CoachFakeMenu()
+                    .frame(width: CoachStyle.fakeMenuWidth)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .offset(x: hole.minX + CoachStyle.fakeMenuInset, y: hole.maxY + CoachStyle.fakeMenuGap)
+                    .opacity(menuShown ? 1 : 0)
+                    .allowsHitTesting(false)
+            }
         }
-        .contentShape(Rectangle())
-        .onTapGesture {}
         .accessibilityHidden(true)
         .onAppear {
             // 第一次出現跟著整層淡入，洞直接就位
@@ -121,6 +169,16 @@ private struct CoachSpotlight: View {
             try? await Task.sleep(for: .seconds(CoachStyle.missingTargetWait))
             guard !Task.isCancelled, !hasTarget else { return }
             onMissing()
+        }
+        .task(id: step.id) {
+            // 長按選單的示意晚一點才出現，先讓人看到被照亮的是哪一列
+            menuShown = false
+            guard step.kind == .fakeMenu else { return }
+            if !reduceMotion {
+                try? await Task.sleep(for: .seconds(CoachStyle.fakeMenuDelay))
+                guard !Task.isCancelled else { return }
+            }
+            withAnimation(.easeIn(duration: CoachStyle.cardFadeIn)) { menuShown = true }
         }
         .onDisappear { swapTask?.cancel() }
     }
@@ -157,6 +215,27 @@ private struct CoachSpotlight: View {
             covered = false
             withAnimation(CoachStyle.holeSpring) { hole = rect }
         }
+    }
+}
+
+/// 長按選單的示意。iPhone 自己的長按選單沒辦法由程式打開，所以畫一個樣子接近的。
+private struct CoachFakeMenu: View {
+    private let items = ["置頂為當天主事件", "設定短名", "加入倒數日", "編輯"]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.offset) { index, title in
+                if index > 0 { Hairline() }
+                Text(title)
+                    .dFont(DT.TypeScale.callout)
+                    .foregroundStyle(Theme.ink)
+                    .padding(.horizontal, DT.Space.s3)
+                    .frame(maxWidth: .infinity, minHeight: DT.Size.touch, alignment: .leading)
+            }
+        }
+        .padding(.horizontal, DT.Space.s1)
+        .background(RoundedRectangle(cornerRadius: DT.Radius.md).fill(Theme.card))
+        .domyShadow(DT.Elevation.level2)
     }
 }
 

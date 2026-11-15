@@ -30,6 +30,7 @@ struct DayPanel: View {
                     DetailRowView(vm: vm, row: row, isPast: day.isPast)
                 }
                 .buttonStyle(PressStyle())
+                .coachTarget(CoachTargetID.firstRow, when: index == 0)
                 .contextMenu { menu(for: row) }
             }
             if !rows.isEmpty, !longPressHintDone {
@@ -45,6 +46,7 @@ struct DayPanel: View {
         .padding(.bottom, DT.Space.s4)
         .background(RoundedRectangle(cornerRadius: DT.Radius.xl).fill(Theme.card))
         .overlay(RoundedRectangle(cornerRadius: DT.Radius.xl).strokeBorder(Theme.accent, lineWidth: 2))
+        .coachTarget(CoachTargetID.dayPanel)
         .padding(.horizontal, DT.Space.s1)
     }
 
