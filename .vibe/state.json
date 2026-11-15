@@ -1,10 +1,10 @@
 {
-  "station": "audit-batch",
-  "updated_at": "2026-11-16T00:30:00+08:00",
-  "updated_by": "vibe-security-gate",
+  "station": "decompose",
+  "updated_at": "2026-11-16T02:25:30+08:00",
+  "updated_by": "vibe-traffic-control",
   "pieces": {
-    "todo": 3,
-    "machine_verified": 8,
+    "todo": 13,
+    "machine_verified": 13,
     "human_verified": 0
   },
   "chunks": [
@@ -28,9 +28,46 @@
       "machine_done": 1,
       "human_verified": false,
       "approved": true
+    },
+    {
+      "name": "手機驗收修正與設定簡化（第 12、13 片）",
+      "total": 2,
+      "machine_done": 2,
+      "human_verified": false,
+      "approved": true
+    },
+    {
+      "name": "主題與內購（第 14 到 16 片）",
+      "total": 3,
+      "machine_done": 3,
+      "human_verified": false,
+      "approved": true
+    },
+    {
+      "name": "E 第一次打開，先看到自己的行程（第 17、18 片）",
+      "total": 2,
+      "machine_done": 0,
+      "human_verified": false,
+      "approved": true
+    },
+    {
+      "name": "F 付錢之前，看得到也看得懂（第 19 到 22 片）",
+      "total": 4,
+      "machine_done": 0,
+      "human_verified": false,
+      "approved": true
+    },
+    {
+      "name": "G 完整版多三樣（第 23 到 26 片）",
+      "total": 4,
+      "machine_done": 0,
+      "human_verified": false,
+      "approved": true
     }
   ],
-  "pending_immediate_verify": [],
+  "pending_immediate_verify": [
+    "16"
+  ],
   "skipped_gates": [
     "grill-me",
     "prd",
