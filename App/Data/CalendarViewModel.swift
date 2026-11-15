@@ -210,12 +210,12 @@ final class CalendarViewModel {
         return items.sorted { $0.days < $1.days }
     }
 
-    /// 第一次拿到權限時，把訂閱的節日行事曆自動設成節日層
+    /// 第一次拿到權限時，把名稱像節日的行事曆自動設成節日層。
+    /// 只看名稱不看類型：從 Google 帳號同步進來的節日行事曆不算「訂閱」，以前會漏掉。
     func autoDetectHolidaysIfNeeded() {
         guard store.hasAccess, !settings.value.didAutoDetectHolidays else { return }
         let ids = store.calendars
             .filter { cal in
-                guard cal.type == .subscription else { return false }
                 let t = cal.title
                 return t.contains("節日") || t.contains("假日") || t.localizedCaseInsensitiveContains("holiday")
             }

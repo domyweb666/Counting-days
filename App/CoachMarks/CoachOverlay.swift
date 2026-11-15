@@ -117,7 +117,7 @@ private struct CoachSpotlight: View {
     @State private var menuShown = false
 
     private var wanted: CGRect? {
-        guard var rect = target?.insetBy(dx: -step.holePadding, dy: -step.holePadding) else { return nil }
+        guard var rect = target?.insetBy(dx: -(step.holePaddingX ?? step.holePadding), dy: -step.holePadding) else { return nil }
         if let clipBottom {
             rect.size.height = max(0, min(rect.size.height, clipBottom - rect.origin.y))
         }

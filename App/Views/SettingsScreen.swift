@@ -6,6 +6,7 @@ struct SettingsScreen: View {
     @Environment(AppModel.self) private var app
     @Environment(CoachController.self) private var coach
     @Environment(\.dismiss) private var dismiss
+    @State private var showCategories = false
 
     private var settings: SettingsStore { app.settings }
 
@@ -24,9 +25,9 @@ struct SettingsScreen: View {
                     Text(message).dFont(DT.TypeScale.footnote).foregroundStyle(Theme.destructive)
                 }
                 displaySection
-                weatherSection
+                // 天氣還沒做完，開了也不會有東西，先不放 weatherSection。做完第 8 片再放回來。
                 calendarSection
-                categorySection
+                categoryLink
                 countdownSection
                 aboutSection
             }
@@ -36,6 +37,9 @@ struct SettingsScreen: View {
         }
         .background(Theme.bg.ignoresSafeArea())
         .tint(Theme.accent)
+        .sheet(isPresented: $showCategories) {
+            CategorySettingsScreen()
+        }
     }
 
     // MARK: 顯示
@@ -52,6 +56,7 @@ struct SettingsScreen: View {
                 } label: {
                     PickerCapsule(text: settings.value.mode.label)
                 }
+                .buttonStyle(.plain)
             }
             Hairline()
             SettingsRow(label: "一週從哪天開始") {
@@ -63,6 +68,7 @@ struct SettingsScreen: View {
                 } label: {
                     PickerCapsule(text: settings.value.weekStartsOnMonday ? "週一" : "週日")
                 }
+                .buttonStyle(.plain)
             }
             Hairline()
             SettingsRow(label: "顯示農曆與節氣") {
@@ -107,6 +113,7 @@ struct SettingsScreen: View {
                     } label: {
                         PickerCapsule(text: city?.name ?? "選擇縣市")
                     }
+                    .buttonStyle(.plain)
                     .accessibilityLabel("縣市：\(city?.name ?? "還沒選")")
                 }
             }
@@ -119,7 +126,7 @@ struct SettingsScreen: View {
         let calendars = app.store.calendars
         return SectionCard(
             title: "行事曆",
-            footer: "每一本行事曆可以歸到一個類別、當成節日層，或是不顯示。這裡只改蒜日子的顯示方式，不會動到系統行事曆。"
+            footer: "每一本行事曆歸一個類別，月曆上就用那個類別的顏色。也可以當成節日，或是不顯示。這裡只改蒜日子的顯示方式，不會動到系統行事曆。"
         ) {
             if calendars.isEmpty {
                 SettingsRow(label: "這支手機還沒有任何行事曆") { EmptyView() }
@@ -131,29 +138,24 @@ struct SettingsScreen: View {
         }
     }
 
-    // MARK: 類別
+    // MARK: 類別（收在第二頁）
 
-    private var categorySection: some View {
-        let categories = settings.value.categories
-        return SectionCard(
-            title: "類別",
-            footer: "開啟「優先」的類別，在同一天有多件事時會優先當主事件。類別至少要留一個。"
-        ) {
-            ForEach(Array(categories.enumerated()), id: \.element.id) { index, cat in
-                if index > 0 { Hairline() }
-                CategoryRow(settings: settings, categoryID: cat.id, canDelete: categories.count > 1)
-            }
-            Hairline()
+    private var categoryLink: some View {
+        SectionCard(footer: "改類別的名稱、顏色，或指定哪一類優先當主事件。") {
             Button {
-                settings.update {
-                    $0.categories.append(EventCategory(id: UUID().uuidString, name: "新類別", colorHex: "#66666D"))
-                }
+                showCategories = true
             } label: {
-                Text("新增類別")
-                    .dFont(DT.TypeScale.body)
-                    .foregroundStyle(Theme.strong)
-                    .frame(maxWidth: .infinity, minHeight: DT.Size.row, alignment: .leading)
-                    .contentShape(Rectangle())
+                HStack(spacing: DT.Space.s3) {
+                    Text("類別與顏色")
+                        .dFont(DT.TypeScale.body)
+                        .foregroundStyle(Theme.ink)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.sub)
+                }
+                .frame(minHeight: DT.Size.row)
+                .contentShape(Rectangle())
             }
             .buttonStyle(PressStyle())
         }
@@ -213,6 +215,64 @@ struct SettingsScreen: View {
     }
 }
 
+/// 設定的第二頁：類別的名稱、顏色、優先
+struct CategorySettingsScreen: View {
+    @Environment(AppModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
+
+    private var settings: SettingsStore { app.settings }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: DT.Space.s6) {
+                HStack {
+                    Spacer()
+                    PillTextButton(title: "完成") { dismiss() }
+                }
+                Text("類別與顏色")
+                    .dFont(DT.TypeScale.largeTitle)
+                    .foregroundStyle(Theme.ink)
+                    .accessibilityAddTraits(.isHeader)
+                if let message = settings.errorMessage {
+                    Text(message).dFont(DT.TypeScale.footnote).foregroundStyle(Theme.destructive)
+                }
+                categorySection
+            }
+            .padding(.horizontal, DT.Size.screenMargin)
+            .padding(.top, DT.Space.s4)
+            .padding(.bottom, DT.Space.s8)
+        }
+        .background(Theme.bg.ignoresSafeArea())
+        .tint(Theme.accent)
+    }
+
+    private var categorySection: some View {
+        let categories = settings.value.categories
+        return SectionCard(
+            title: nil,
+            footer: "點左邊的圓圈改顏色，點名稱可以改字。開啟「優先」的類別，在同一天有多件事時會優先當主事件。類別至少要留一個。"
+        ) {
+            ForEach(Array(categories.enumerated()), id: \.element.id) { index, cat in
+                if index > 0 { Hairline() }
+                CategoryRow(settings: settings, categoryID: cat.id, canDelete: categories.count > 1)
+            }
+            Hairline()
+            Button {
+                settings.update {
+                    $0.categories.append(EventCategory(id: UUID().uuidString, name: "新類別", colorHex: "#66666D"))
+                }
+            } label: {
+                Text("新增類別")
+                    .dFont(DT.TypeScale.body)
+                    .foregroundStyle(Theme.strong)
+                    .frame(maxWidth: .infinity, minHeight: DT.Size.row, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PressStyle())
+        }
+    }
+}
+
 /// 設定列：左邊標題，右邊放開關、選單或文字。列本身保持中性。
 struct SettingsRow<Trailing: View>: View {
     let label: String
@@ -248,7 +308,11 @@ struct CalendarRoleRow: View {
 
     private static let holidayTag = "__holiday__"
     private static let hiddenTag = "__hidden__"
-    private static let noneTag = "__none__"
+
+    /// 沒指定類別的行事曆會歸到哪一類。跟 Classifier 的規則一致：有「行程」就是行程，否則第一個。
+    private var defaultCategoryID: String {
+        settings.value.category(id: AppSettings.fallbackCategoryID).id
+    }
 
     private var currentTag: String {
         let id = calendar.calendarIdentifier
@@ -256,14 +320,13 @@ struct CalendarRoleRow: View {
         if s.hiddenCalendarIDs.contains(id) { return Self.hiddenTag }
         if s.holidayCalendarIDs.contains(id) { return Self.holidayTag }
         if let cat = s.calendarCategory[id], s.categories.contains(where: { $0.id == cat }) { return cat }
-        return Self.noneTag
+        return defaultCategoryID
     }
 
     private var currentText: String {
         switch currentTag {
         case Self.hiddenTag: return "不顯示"
-        case Self.holidayTag: return "節日層"
-        case Self.noneTag: return "未分類"
+        case Self.holidayTag: return "節日"
         default: return settings.value.category(id: currentTag).name
         }
     }
@@ -280,7 +343,6 @@ struct CalendarRoleRow: View {
                     switch tag {
                     case Self.hiddenTag: s.hiddenCalendarIDs.insert(id)
                     case Self.holidayTag: s.holidayCalendarIDs.insert(id)
-                    case Self.noneTag: break
                     default: s.calendarCategory[id] = tag
                     }
                 }
@@ -292,16 +354,16 @@ struct CalendarRoleRow: View {
         SettingsRow(label: calendar.title, dotColor: Color(cgColor: calendar.cgColor)) {
             Menu {
                 Picker(calendar.title, selection: role) {
-                    Text("未分類（當成行程）").tag(Self.noneTag)
                     ForEach(settings.value.categories) { cat in
                         Text(cat.name).tag(cat.id)
                     }
-                    Text("節日層").tag(Self.holidayTag)
+                    Text("節日（日期下的小字）").tag(Self.holidayTag)
                     Text("不顯示").tag(Self.hiddenTag)
                 }
             } label: {
                 PickerCapsule(text: currentText)
             }
+            .buttonStyle(.plain)
             .accessibilityLabel("\(calendar.title)：\(currentText)")
         }
     }
@@ -366,6 +428,7 @@ struct CategoryRow: View {
                         .frame(width: DT.Space.s8, height: DT.Size.touch)
                         .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .accessibilityLabel("更多")
             }
         }

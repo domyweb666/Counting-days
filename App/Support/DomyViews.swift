@@ -24,6 +24,7 @@ struct CircleIconButton: View {
     let systemName: String
     let label: String
     var primary = false
+    var size: CGFloat = DT.Size.iconButton
     let action: () -> Void
 
     var body: some View {
@@ -31,7 +32,7 @@ struct CircleIconButton: View {
             Image(systemName: systemName)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(primary ? Theme.onAccent : Theme.accent)
-                .frame(width: DT.Size.iconButton, height: DT.Size.iconButton)
+                .frame(width: size, height: size)
                 .background(Circle().fill(primary ? Theme.accent : Theme.card))
                 .domyShadow(DT.Elevation.level1)
         }

@@ -49,6 +49,8 @@ struct CoachDirector: ViewModifier {
             vm.jump(to: vm.today, select: false)
         }
 
+        // 套用這一步之前畫面是不是月曆。不是的話，等一下月曆會整個重建。
+        let wasMonth = app.settings.value.view == .month
         var view = ViewKind.month
         var mode = DisplayMode.flex
         switch step.kind {
@@ -73,6 +75,30 @@ struct CoachDirector: ViewModifier {
         let wanted: Date? = step.showsDayPanel ? vm.today : nil
         if vm.selected != wanted { vm.selected = wanted }
         vm.rebuild()
+        if view == .month, !wasMonth { recenterOnToday(stateKey: coach.stateKey) }
+    }
+
+    /// 從別的檢視切回月曆時，月曆是重新建的，不一定停在今天那一週。
+    /// 今天不在畫面上，後面幾步就沒有東西可以照亮，所以這裡把它捲回來。
+    private func recenterOnToday(stateKey: String) {
+        let vm = app.vm
+        vm.jump(to: vm.today, select: false)
+        let week = vm.topWeekID
+        Task { @MainActor in
+            // 月曆剛重建時指定的位置不一定會被採用，等它排好再指定一次。
+            // 位置要「有變」才會捲，所以先清掉再放回去。
+            do {
+                try await Task.sleep(for: .seconds(CoachStyle.recenterDelay))
+                guard coach.stateKey == stateKey else { return }
+                vm.topWeekID = nil
+                try await Task.sleep(for: .seconds(CoachStyle.recenterGap))
+                guard coach.stateKey == stateKey else { return }
+                vm.topWeekID = week
+            } catch {
+                // 只有工作被取消才會到這裡，不用再捲
+                return
+            }
+        }
     }
 
     /// 引導結束：範例行程拿掉，設定還原成使用者原本的
