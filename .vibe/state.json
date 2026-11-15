@@ -1,11 +1,11 @@
 {
-  "station": "audit-immediate",
-  "updated_at": "2026-11-16T10:30:00+08:00",
+  "station": "spec-standards",
+  "updated_at": "2026-11-16T11:30:00+08:00",
   "updated_by": "vibe-traffic-control",
   "pieces": {
     "todo": 13,
     "machine_verified": 15,
-    "human_verified": 13
+    "human_verified": 15
   },
   "chunks": [
     {
@@ -47,7 +47,7 @@
       "name": "E 第一次打開，先看到自己的行程（第 17、18 片）",
       "total": 2,
       "machine_done": 2,
-      "human_verified": false,
+      "human_verified": true,
       "approved": true
     },
     {
@@ -65,9 +65,7 @@
       "approved": true
     }
   ],
-  "pending_immediate_verify": [
-    "18"
-  ],
+  "pending_immediate_verify": [],
   "skipped_gates": [
     "grill-me",
     "prd",
