@@ -47,7 +47,8 @@ final class SettingsStore {
     // MARK: 主題的付費與試看
 
     /// 有沒有買完整版。由 `PurchaseStore` 告知，只放在記憶體，不存檔；還沒被告知之前是沒買。
-    @ObservationIgnored private var isUnlocked = false
+    /// 月曆樣式、倒數日的畫面也要在這個值變的時候重畫，所以沒有排除在觀察之外。
+    private var isUnlocked = false
 
     /// 正在試看的付費主題。只放在記憶體，不存檔。
     private(set) var previewThemeID: String?
@@ -78,6 +79,56 @@ final class SettingsStore {
         guard previewThemeID != nil else { return }
         previewThemeID = nil
         applyTheme()
+    }
+
+    // MARK: 完整版的另外三樣：月曆樣式、倒數日、類別自訂顏色
+    // 能不能用都問 Core 的 `FullVersionAccess`，這裡只把「買了沒」帶進去。
+
+    /// 正在試看的付費月曆樣式。只放在記憶體，不存檔。
+    private(set) var previewingMode: DisplayMode?
+
+    /// 月曆實際要畫成哪一種樣式。引導期間照引導指定的演，四種都要演得出來。
+    var effectiveMode: DisplayMode {
+        if isPreviewing { return value.mode }
+        return FullVersionAccess.effectiveMode(selected: value.mode, previewing: previewingMode, isUnlocked: isUnlocked)
+    }
+
+    /// 正式選一種月曆樣式。沒買的付費樣式選不進設定，回傳 false。
+    @discardableResult
+    func selectMode(_ mode: DisplayMode) -> Bool {
+        guard FullVersionAccess.canApply(mode, isUnlocked: isUnlocked) else { return false }
+        previewingMode = nil
+        update { $0.mode = mode }
+        return true
+    }
+
+    /// 試看一種月曆樣式：只改畫面，不存檔。離開樣式頁時要呼叫 `endModePreview`。
+    func previewMode(_ mode: DisplayMode) {
+        previewingMode = mode
+    }
+
+    func endModePreview() {
+        guard previewingMode != nil else { return }
+        previewingMode = nil
+    }
+
+    /// 還能不能再加一個倒數日
+    var canAddCountdown: Bool {
+        FullVersionAccess.canAddCountdown(currentCount: value.countdowns.count, isUnlocked: isUnlocked)
+    }
+
+    /// 月曆上實際顯示的倒數日
+    var visibleCountdowns: [String] {
+        FullVersionAccess.visibleCountdowns(value.countdowns, isUnlocked: isUnlocked)
+    }
+
+    var canUseCustomCategoryColor: Bool {
+        FullVersionAccess.canUseCustomCategoryColor(isUnlocked: isUnlocked)
+    }
+
+    /// 存下來的設定有沒有用到付費的東西（開 app 時決定要不要先等購買驗完）
+    var usesPaidContent: Bool {
+        FullVersionAccess.usesPaidContent(value)
     }
 
     // MARK: 新手引導的範例設定
@@ -141,7 +192,10 @@ final class SettingsStore {
         }
     }
 
-    func toggleCountdown(_ seriesID: String) {
+    /// 加入或移出倒數日。沒買的人加到上限就加不進去，回傳 false；移出永遠可以。
+    @discardableResult
+    func toggleCountdown(_ seriesID: String) -> Bool {
+        if !value.countdowns.contains(seriesID), !canAddCountdown { return false }
         update {
             if let i = $0.countdowns.firstIndex(of: seriesID) {
                 $0.countdowns.remove(at: i)
@@ -149,6 +203,7 @@ final class SettingsStore {
                 $0.countdowns.append(seriesID)
             }
         }
+        return true
     }
 
     func removeCategory(_ id: String) {

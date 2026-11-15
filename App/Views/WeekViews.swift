@@ -6,6 +6,8 @@ struct CalendarActions {
     var open: (CalEvent) -> Void
     var add: (Date) -> Void
     var shortName: (CalEvent) -> Void
+    /// 碰到要完整版才能用的東西，請畫面打開「完整版」頁
+    var needFullVersion: (FullVersionReason) -> Void
 }
 
 /// 日期數字：今天是產品色實心圓，被選的有產品色外框

@@ -138,7 +138,12 @@ enum CoachTour {
     static func demoItems(for kind: CoachKind) -> [CoachDemoItem] {
         switch kind {
         case .demoViews: return views.map { CoachDemoItem(name: $0.label, caption: caption(for: $0)) }
-        case .demoStyles: return styles.map { CoachDemoItem(name: $0.label, caption: caption(for: $0)) }
+        case .demoStyles:
+            // 付費的樣式照樣演給人看，只在說明後面標出來；引導裡不放購買鈕
+            return styles.map { style in
+                let note = FullVersionAccess.isFree(style) ? "" : "（完整版）"
+                return CoachDemoItem(name: style.label, caption: caption(for: style) + note)
+            }
         case .plain, .tap, .fakeMenu: return []
         }
     }

@@ -12,6 +12,10 @@ final class PurchaseStore {
     static let productID = "com.domyweb.countingdays.full"
 
     private(set) var isUnlocked = false
+    /// 開 app 之後有沒有問過 App Store 一次。第一個畫面靠它決定要不要先等，才不會先閃一下沒買的樣子。
+    private(set) var hasChecked = false
+    /// 第一個畫面最多等多久（秒）。等不到就照沒買的畫，之後驗到再換。
+    static let launchWait: Double = 2
     private(set) var product: Product?
     private(set) var isBusy = false
     /// 正在抓商品資料。抓不到時畫面上有「再試一次」，抓的途中先不給按。
@@ -62,6 +66,7 @@ final class PurchaseStore {
         }
         if unlocked != isUnlocked { isUnlocked = unlocked }
         onChange(unlocked)
+        if !hasChecked { hasChecked = true }
     }
 
     func loadProduct() async {
