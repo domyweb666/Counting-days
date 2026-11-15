@@ -138,7 +138,7 @@ final class CalendarViewModel {
             let days = timelineDays
             return days.isEmpty ? today : days[days.count / 2]
         case .month:
-            if settings.value.mode == .list { return listMonth }
+            if settings.effectiveMode == .list { return listMonth }
             let top = topWeekID ?? builder.startOfWeek(today)
             return builder.addDays(top, 10)
         }
@@ -214,7 +214,7 @@ final class CalendarViewModel {
     }
 
     private func makeCountdowns() -> [CountdownItem] {
-        let ids = settings.value.countdowns
+        let ids = settings.visibleCountdowns
         guard !ids.isEmpty,
               let end = calendar.date(byAdding: .year, value: 2, to: today) else { return [] }
         let hidden = settings.value.hiddenCalendarIDs

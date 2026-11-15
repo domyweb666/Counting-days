@@ -8,6 +8,7 @@ enum SheetKind: Identifiable {
     case settings
     case search
     case monthPicker
+    case fullVersion(FullVersionReason)
 
     var id: String {
         switch self {
@@ -16,6 +17,7 @@ enum SheetKind: Identifiable {
         case .settings: return "settings"
         case .search: return "search"
         case .monthPicker: return "month"
+        case .fullVersion(let reason): return "full" + reason.rawValue
         }
     }
 }
@@ -31,7 +33,7 @@ struct CalendarScreen: View {
 
     private var vm: CalendarViewModel { app.vm }
     /// 月曆樣式（在設定裡選）
-    private var mode: DisplayMode { app.settings.value.mode }
+    private var mode: DisplayMode { app.settings.effectiveMode }
 
     private var actions: CalendarActions {
         CalendarActions(
@@ -41,7 +43,8 @@ struct CalendarScreen: View {
                 shortNameTarget = event
                 shortNameText = app.settings.value.shortNames[event.seriesID] ?? ""
                 showShortName = true
-            }
+            },
+            needFullVersion: { sheet = .fullVersion($0) }
         )
     }
 
@@ -78,6 +81,8 @@ struct CalendarScreen: View {
         }
         .onChange(of: app.store.changeToken) { vm.rebuild() }
         .onChange(of: app.settings.value) { vm.rebuild() }
+        // 驗到購買（或退款）之後，顯示幾個倒數日會變
+        .onChange(of: app.purchase.isUnlocked) { vm.rebuild() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { vm.rebuild() }
         }
@@ -284,6 +289,8 @@ struct CalendarScreen: View {
             MonthPickerSheet(initial: vm.titleDate) { date in
                 vm.jump(to: date, select: false)
             }
+        case .fullVersion(let reason):
+            FullVersionSheet(reason: reason)
         }
     }
 }

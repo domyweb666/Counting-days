@@ -8,6 +8,7 @@ struct SettingsScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showCategories = false
     @State private var showThemes = false
+    @State private var showModes = false
 
     private var settings: SettingsStore { app.settings }
 
@@ -70,17 +71,28 @@ struct SettingsScreen: View {
                 ThemeSettingsScreen()
             }
             Hairline()
-            SettingsRow(label: "月曆樣式") {
-                Menu {
-                    Picker("月曆樣式", selection: settings.binding(\.mode)) {
-                        ForEach(DisplayMode.allCases, id: \.self) { m in
-                            Text(m.label).tag(m)
-                        }
-                    }
-                } label: {
-                    PickerCapsule(text: settings.value.mode.label)
+            // 有兩種樣式要完整版，可以先試看，所以跟主題一樣收在第二頁
+            Button {
+                showModes = true
+            } label: {
+                HStack(spacing: DT.Space.s3) {
+                    Text("月曆樣式")
+                        .dFont(DT.TypeScale.body)
+                        .foregroundStyle(Theme.ink)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(settings.effectiveMode.label)
+                        .dFont(DT.TypeScale.body)
+                        .foregroundStyle(Theme.sub)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.sub)
                 }
-                .buttonStyle(.plain)
+                .frame(minHeight: DT.Size.row)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PressStyle())
+            .sheet(isPresented: $showModes) {
+                DisplayModeSettingsScreen()
             }
             Hairline()
             SettingsRow(label: "一週從哪天開始") {
@@ -191,7 +203,7 @@ struct SettingsScreen: View {
     private var countdownSection: some View {
         let ids = settings.value.countdowns
         if !ids.isEmpty {
-            SectionCard(title: "倒數日", footer: "在某一天的時間表裡長按行程，可以加入倒數日。") {
+            SectionCard(title: "倒數日", footer: countdownFooter) {
                 ForEach(Array(ids.enumerated()), id: \.element) { index, id in
                     if index > 0 { Hairline() }
                     SettingsRow(label: app.store.title(forSeries: id) ?? "（找不到這個行程）") {
@@ -210,6 +222,13 @@ struct SettingsScreen: View {
                 }
             }
         }
+    }
+
+    private var countdownFooter: String {
+        let base = "在某一天的時間表裡長按行程，可以加入倒數日。"
+        // 退款之後超過上限的不刪，只是月曆上先不顯示
+        guard settings.visibleCountdowns.count < settings.value.countdowns.count else { return base }
+        return base + "免費版在月曆上只顯示最上面 \(FullVersionAccess.freeCountdownLimit) 個，其餘留在這裡，解鎖完整版後會回來。"
     }
 
     private var aboutSection: some View {
@@ -244,6 +263,8 @@ struct CategorySettingsScreen: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
 
+    @State private var showFullVersion = false
+
     private var settings: SettingsStore { app.settings }
 
     var body: some View {
@@ -268,22 +289,34 @@ struct CategorySettingsScreen: View {
         }
         .background(Theme.bg.ignoresSafeArea())
         .tint(Theme.accent)
+        .sheet(isPresented: $showFullVersion) {
+            FullVersionSheet(reason: .categoryColor)
+        }
     }
 
     private var categorySection: some View {
         let categories = settings.value.categories
         return SectionCard(
             title: nil,
-            footer: "點左邊的圓圈改顏色，點名稱可以改字。開啟「優先」的類別，在同一天有多件事時會優先當主事件。類別至少要留一個。"
+            footer: "點左邊的圓圈改顏色，點名稱可以改字。前四個顏色會跟著主題換。開啟「優先」的類別，在同一天有多件事時會優先當主事件。類別至少要留一個。"
         ) {
             ForEach(Array(categories.enumerated()), id: \.element.id) { index, cat in
                 if index > 0 { Hairline() }
-                CategoryRow(settings: settings, categoryID: cat.id, canDelete: categories.count > 1)
+                CategoryRow(
+                    settings: settings,
+                    categoryID: cat.id,
+                    canDelete: categories.count > 1,
+                    // 驗到購買之後這一列要重畫，所以多讀一次畫面看得到變化的那個值
+                    canUseCustomColor: app.purchase.isUnlocked && settings.canUseCustomCategoryColor,
+                    needFullVersion: { showFullVersion = true }
+                )
             }
             Hairline()
             Button {
                 settings.update {
-                    $0.categories.append(EventCategory(id: UUID().uuidString, name: "新類別", colorHex: "#66666D"))
+                    // 新類別先用第一個預設色，會跟著主題換
+                    let hex = FullVersionAccess.presetCategoryHexes.first ?? AppSettings.defaultCategories[0].colorHex
+                    $0.categories.append(EventCategory(id: UUID().uuidString, name: "新類別", colorHex: hex))
                 }
             } label: {
                 Text("新增類別")
@@ -356,7 +389,7 @@ struct ThemeSettingsScreen: View {
                 vm: app.vm,
                 week: week,
                 showAll: true,
-                actions: CalendarActions(open: { _ in }, add: { _ in }, shortName: { _ in })
+                actions: CalendarActions(open: { _ in }, add: { _ in }, shortName: { _ in }, needFullVersion: { _ in })
             )
             Text("範例行程")
                 .dFont(DT.TypeScale.caption)
@@ -408,6 +441,152 @@ struct ThemeSettingsScreen: View {
             guard await purchase.purchase() else { return }
             if let wanted { settings.selectTheme(wanted) }
         }
+    }
+}
+
+/// 設定的第二頁：選月曆樣式。上面一塊範例月曆照選的樣式畫；付費的兩種可以先試看，離開這一頁就換回去。
+struct DisplayModeSettingsScreen: View {
+    @Environment(AppModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
+
+    /// 預覽用的那一週，進這一頁時算一次
+    @State private var previewWeek: WeekModel?
+
+    private var settings: SettingsStore { app.settings }
+    private var purchase: PurchaseStore { app.purchase }
+    private var current: DisplayMode { settings.effectiveMode }
+
+    private var footer: String {
+        if purchase.isUnlocked { return "引導裡也看得到這四種樣式。" }
+        return "上鎖的樣式可以點一下試看，離開這一頁就會換回原本那種。"
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // 這一段不跟著捲，點哪一種都看得到預覽
+            VStack(alignment: .leading, spacing: DT.Space.s4) {
+                HStack {
+                    Spacer()
+                    PillTextButton(title: "完成") { dismiss() }
+                }
+                Text("月曆樣式")
+                    .dFont(DT.TypeScale.largeTitle)
+                    .foregroundStyle(Theme.ink)
+                    .accessibilityAddTraits(.isHeader)
+                if let previewWeek { preview(previewWeek) }
+            }
+            .padding(.horizontal, DT.Size.screenMargin)
+            .padding(.top, DT.Space.s4)
+            .padding(.bottom, DT.Space.s3)
+            ScrollView {
+                VStack(alignment: .leading, spacing: DT.Space.s6) {
+                    SectionCard(footer: footer) {
+                        ForEach(Array(DisplayMode.allCases.enumerated()), id: \.element) { index, mode in
+                            if index > 0 { Hairline() }
+                            row(mode)
+                        }
+                    }
+                    FullVersionOffer {
+                        // 付款視窗跳出來時這一頁可能先收到離開通知，所以先記下正在試看哪一種
+                        let wanted = settings.previewingMode
+                        Task {
+                            guard await purchase.purchase() else { return }
+                            if let wanted { settings.selectMode(wanted) }
+                        }
+                    }
+                }
+                .padding(.horizontal, DT.Size.screenMargin)
+                .padding(.top, DT.Space.s2)
+                .padding(.bottom, DT.Space.s8)
+            }
+        }
+        .background(Theme.bg.ignoresSafeArea())
+        .tint(Theme.accent)
+        .onAppear { previewWeek = app.vm.themePreviewWeek() }
+        .task { await purchase.loadProduct() }
+        // 試看只在這一頁有效，離開就換回去
+        .onDisappear { settings.endModePreview() }
+    }
+
+    /// 買了或免費的直接套用；沒買的付費樣式只試看
+    private func pick(_ mode: DisplayMode) {
+        if !settings.selectMode(mode) {
+            settings.previewMode(mode)
+        }
+    }
+
+    private func row(_ mode: DisplayMode) -> some View {
+        let isSelected = mode == current
+        let isLocked = !FullVersionAccess.canApply(mode, isUnlocked: purchase.isUnlocked)
+        return Button {
+            pick(mode)
+        } label: {
+            HStack(spacing: DT.Space.s3) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(mode.label)
+                        .dFont(DT.TypeScale.headline)
+                        .foregroundStyle(Theme.ink)
+                    Text(CoachTour.caption(for: mode))
+                        .dFont(DT.TypeScale.footnote)
+                        .foregroundStyle(Theme.sub)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if isLocked && isSelected {
+                    Text("試看中")
+                        .dFont(DT.TypeScale.footnote)
+                        .foregroundStyle(Theme.strong)
+                } else if isLocked {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.sub)
+                        .frame(width: 20)
+                } else {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Theme.accent)
+                        .frame(width: 20)
+                        .opacity(isSelected ? 1 : 0)
+                }
+            }
+            .padding(.vertical, DT.Space.s2)
+            .frame(minHeight: DT.Size.row)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressStyle())
+        .accessibilityLabel("\(mode.label)，\(CoachTour.caption(for: mode))\(isLocked ? "，未解鎖" : "")\(isLocked && isSelected ? "，試看中" : "")")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    /// 一週的範例月曆，照現在選的（或試看中的）樣式畫。只是樣子，點不到。
+    private func preview(_ week: WeekModel) -> some View {
+        let noActions = CalendarActions(open: { _ in }, add: { _ in }, shortName: { _ in }, needFullVersion: { _ in })
+        return VStack(alignment: .trailing, spacing: DT.Space.s1) {
+            switch current {
+            case .flex:
+                ExpandedWeek(vm: app.vm, week: week, showAll: true, actions: noActions)
+            case .head:
+                ExpandedWeek(vm: app.vm, week: week, showAll: false, actions: noActions)
+            case .strips:
+                StripWeek(vm: app.vm, week: week, actions: noActions)
+            case .list:
+                // 清單樣式是小月曆加下面的行程卡，這裡只畫小月曆的一列
+                HStack(spacing: 0) {
+                    ForEach(Array(week.days.enumerated()), id: \.element.id) { col, day in
+                        MiniCell(vm: app.vm, week: week, col: col, day: day)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(.vertical, DT.Space.s3)
+                .background(RoundedRectangle(cornerRadius: DT.Radius.xl).fill(Theme.card))
+            }
+            Text("範例行程")
+                .dFont(DT.TypeScale.caption)
+                .foregroundStyle(Theme.sub)
+        }
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("月曆樣式預覽：用範例行程畫的一週，會跟著你點的樣式換")
     }
 }
 
@@ -577,6 +756,17 @@ struct CategoryRow: View {
     let settings: SettingsStore
     let categoryID: String
     let canDelete: Bool
+    let canUseCustomColor: Bool
+    let needFullVersion: () -> Void
+
+    /// 選色的那一排有沒有打開
+    @State private var showColors = false
+    /// 選色那一排每個色點的大小
+    private static let swatch: CGFloat = 28
+
+    private var colorHex: String {
+        index.map { settings.value.categories[$0].colorHex } ?? ""
+    }
 
     private var index: Int? {
         settings.value.categories.firstIndex { $0.id == categoryID }
@@ -610,9 +800,73 @@ struct CategoryRow: View {
     }
 
     var body: some View {
+        VStack(spacing: 0) {
+            mainRow
+            if showColors { colorRow }
+        }
+        .padding(.vertical, DT.Space.s1)
+    }
+
+    /// 選色：先列預設的幾色（會跟著主題換），最後是自訂顏色。沒買的人自訂那一格是鎖頭。
+    private var colorRow: some View {
+        HStack(spacing: DT.Space.s1) {
+            ForEach(FullVersionAccess.presetCategoryHexes, id: \.self) { hex in
+                let isCurrent = hex.caseInsensitiveCompare(colorHex) == .orderedSame
+                Button {
+                    change { $0.colorHex = hex }
+                } label: {
+                    Circle()
+                        .fill(Theme.category(hex: hex).fill)
+                        .frame(width: Self.swatch, height: Self.swatch)
+                        .overlay {
+                            if isCurrent {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(Theme.category(hex: hex).on)
+                            }
+                        }
+                        .frame(width: DT.Size.touch, height: DT.Size.touch)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PressStyle())
+                .accessibilityLabel("預設顏色")
+                .accessibilityAddTraits(isCurrent ? .isSelected : [])
+            }
+            Spacer(minLength: 0)
+            if canUseCustomColor {
+                ColorPicker("自訂顏色", selection: color, supportsOpacity: false)
+                    .labelsHidden()
+                    .frame(minWidth: DT.Size.touch, minHeight: DT.Size.touch)
+            } else {
+                Button(action: needFullVersion) {
+                    HStack(spacing: DT.Space.s1) {
+                        Image(systemName: "lock.fill").font(.system(size: 13, weight: .semibold))
+                        Text("自訂顏色").dFont(DT.TypeScale.footnote)
+                    }
+                    .foregroundStyle(Theme.sub)
+                    .frame(minHeight: DT.Size.touch)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(PressStyle())
+                .accessibilityLabel("自訂顏色，要完整版")
+            }
+        }
+        .padding(.bottom, DT.Space.s1)
+    }
+
+    private var mainRow: some View {
         HStack(spacing: DT.Space.s3) {
-            ColorPicker("顏色", selection: color, supportsOpacity: false)
-                .labelsHidden()
+            Button {
+                showColors.toggle()
+            } label: {
+                Circle()
+                    .fill(Theme.category(hex: colorHex).fill)
+                    .frame(width: Self.swatch, height: Self.swatch)
+                    .frame(width: DT.Size.touch, height: DT.Size.touch)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PressStyle())
+            .accessibilityLabel("改顏色")
             TextField("類別名稱", text: name)
                 .dFont(DT.TypeScale.body)
                 .foregroundStyle(Theme.ink)
@@ -636,7 +890,6 @@ struct CategoryRow: View {
                 .accessibilityLabel("更多")
             }
         }
-        .padding(.vertical, DT.Space.s1)
         .frame(minHeight: DT.Size.row)
     }
 }

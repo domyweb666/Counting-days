@@ -19,16 +19,33 @@ struct SuanRiZiApp: App {
 struct RootView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.scenePhase) private var scenePhase
+    /// 等購買驗證等太久，不等了
+    @State private var stoppedWaiting = false
+
+    /// 存下來的設定用到付費的東西，而購買還沒驗完：先不畫，免得已經買的人看到一瞬間沒買的樣子
+    private var isWaitingForPurchase: Bool {
+        app.settings.usesPaidContent && !app.purchase.hasChecked && !stoppedWaiting
+    }
 
     var body: some View {
         Group {
-            switch app.store.status {
-            case .fullAccess:
-                CalendarScreen()
-            case .notDetermined:
-                PermissionIntroView()
-            default:
-                PermissionDeniedView()
+            if isWaitingForPurchase {
+                // 跟啟動畫面同一個底色，看起來像還在開。這裡還不知道該用哪款主題，所以不拿 Theme 的顏色。
+                Color(uiColor: .systemBackground)
+                    .ignoresSafeArea()
+                    .task {
+                        try? await Task.sleep(for: .seconds(PurchaseStore.launchWait))
+                        stoppedWaiting = true
+                    }
+            } else {
+                switch app.store.status {
+                case .fullAccess:
+                    CalendarScreen()
+                case .notDetermined:
+                    PermissionIntroView()
+                default:
+                    PermissionDeniedView()
+                }
             }
         }
         // 放在畫面裡讀主色，換主題時才會跟著重畫

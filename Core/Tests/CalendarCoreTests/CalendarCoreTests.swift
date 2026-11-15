@@ -401,6 +401,52 @@ final class CalendarCoreTests: XCTestCase {
         XCTAssertEqual(ThemeAccess.effectiveThemeID(selected: "sage", previewing: nil, isUnlocked: false), "sage")
     }
 
+    func testCountdownLimitWithoutPurchase() {
+        XCTAssertTrue(FullVersionAccess.canAddCountdown(currentCount: 0, isUnlocked: false))
+        XCTAssertTrue(FullVersionAccess.canAddCountdown(currentCount: 2, isUnlocked: false))
+        // 第四個起要完整版
+        XCTAssertFalse(FullVersionAccess.canAddCountdown(currentCount: 3, isUnlocked: false))
+        XCTAssertTrue(FullVersionAccess.canAddCountdown(currentCount: 3, isUnlocked: true))
+        XCTAssertTrue(FullVersionAccess.canAddCountdown(currentCount: 50, isUnlocked: true))
+    }
+
+    func testCountdownsAfterRefundShowFirstThree() {
+        let ids = ["a", "b", "c", "d", "e"]
+        // 退款或還沒驗到：只顯示最早加入的三個，順序不變
+        XCTAssertEqual(FullVersionAccess.visibleCountdowns(ids, isUnlocked: false), ["a", "b", "c"])
+        XCTAssertEqual(FullVersionAccess.visibleCountdowns(ids, isUnlocked: true), ids)
+        XCTAssertEqual(FullVersionAccess.visibleCountdowns(["a"], isUnlocked: false), ["a"])
+    }
+
+    func testDisplayModeLock() {
+        XCTAssertTrue(FullVersionAccess.canApply(.flex, isUnlocked: false))
+        XCTAssertTrue(FullVersionAccess.canApply(.list, isUnlocked: false))
+        XCTAssertFalse(FullVersionAccess.canApply(.strips, isUnlocked: false))
+        XCTAssertFalse(FullVersionAccess.canApply(.head, isUnlocked: false))
+        XCTAssertTrue(FullVersionAccess.canApply(.head, isUnlocked: true))
+        // 選了付費樣式但沒買（退款、還沒驗到）：畫面退回彈性週
+        XCTAssertEqual(FullVersionAccess.effectiveMode(selected: .strips, previewing: nil, isUnlocked: false), .flex)
+        XCTAssertEqual(FullVersionAccess.effectiveMode(selected: .strips, previewing: nil, isUnlocked: true), .strips)
+        XCTAssertEqual(FullVersionAccess.effectiveMode(selected: .list, previewing: nil, isUnlocked: false), .list)
+        // 試看中：沒買也看得到；試看結束回到原本那種
+        XCTAssertEqual(FullVersionAccess.effectiveMode(selected: .flex, previewing: .head, isUnlocked: false), .head)
+        XCTAssertEqual(FullVersionAccess.effectiveMode(selected: .flex, previewing: nil, isUnlocked: false), .flex)
+    }
+
+    func testCustomCategoryColorNeedsPurchase() {
+        XCTAssertFalse(FullVersionAccess.canUseCustomCategoryColor(isUnlocked: false))
+        XCTAssertTrue(FullVersionAccess.canUseCustomCategoryColor(isUnlocked: true))
+        XCTAssertEqual(FullVersionAccess.presetCategoryHexes.count, 4)
+    }
+
+    func testUsesPaidContent() {
+        XCTAssertFalse(FullVersionAccess.usesPaidContent(AppSettings()))
+        XCTAssertTrue(FullVersionAccess.usesPaidContent(AppSettings(themeID: "hongdou")))
+        XCTAssertTrue(FullVersionAccess.usesPaidContent(AppSettings(mode: .head)))
+        XCTAssertFalse(FullVersionAccess.usesPaidContent(AppSettings(countdowns: ["a", "b", "c"])))
+        XCTAssertTrue(FullVersionAccess.usesPaidContent(AppSettings(countdowns: ["a", "b", "c", "d"])))
+    }
+
     func testWeatherCitySettingRoundTrips() throws {
         var s = AppSettings()
         s.weatherEnabled = true

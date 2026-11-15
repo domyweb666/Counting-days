@@ -127,9 +127,14 @@ struct DayPanel: View {
                 actions.shortName(row.event)
             }
         }
-        Button(s.countdowns.contains(id) ? "移出倒數日" : "加入倒數日", systemImage: "hourglass") {
+        let isCountdown = s.countdowns.contains(id)
+        // 沒買的人放滿三個之後，這一項換成鎖頭，點了去「完整版」頁
+        let isLocked = !isCountdown && !vm.settings.canAddCountdown
+        Button(isCountdown ? "移出倒數日" : "加入倒數日", systemImage: isLocked ? "lock.fill" : "hourglass") {
             longPressHintDone = true
-            vm.settings.toggleCountdown(id)
+            if !vm.settings.toggleCountdown(id) {
+                actions.needFullVersion(.countdown)
+            }
         }
         Button("編輯", systemImage: "pencil") {
             longPressHintDone = true

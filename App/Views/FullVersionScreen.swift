@@ -10,14 +10,17 @@ struct FullVersionOffer: View {
 
     /// 完整版現在包含的東西。加了新的付費功能要回來補一行。
     static let features = [
-        "六款主題"
+        "六款主題",
+        "週條、主事件兩種月曆樣式",
+        "倒數日不限數量",
+        "類別可以自訂顏色"
     ]
 
     private var purchase: PurchaseStore { app.purchase }
 
     var body: some View {
         if purchase.isUnlocked {
-            Text("已解鎖完整版，六款主題都可以用。")
+            Text("已解鎖完整版：" + Self.features.joined(separator: "、") + "，都可以用。")
                 .dFont(DT.TypeScale.footnote)
                 .foregroundStyle(Theme.sub)
                 .padding(.horizontal, DT.Space.s4)
@@ -93,5 +96,57 @@ struct FullVersionOffer: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(PressStyle())
+    }
+}
+
+/// 為什麼來到「完整版」頁。主題和月曆樣式在自己那一頁就能買，不會開這一頁。
+enum FullVersionReason: String {
+    case countdown
+    case categoryColor
+
+    var text: String {
+        switch self {
+        case .countdown:
+            return "免費版可以放 \(FullVersionAccess.freeCountdownLimit) 個倒數日，再多要完整版。"
+        case .categoryColor:
+            return "免費版從預設的幾個顏色裡挑，自訂顏色要完整版。"
+        }
+    }
+}
+
+/// 獨立的「完整版」頁：從倒數日、類別顏色碰到鎖時打開。
+/// 最上面一句說為什麼來到這裡，下面是跟主題頁共用的那一塊。
+struct FullVersionSheet: View {
+    @Environment(AppModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
+    let reason: FullVersionReason
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: DT.Space.s6) {
+                HStack {
+                    Spacer()
+                    PillTextButton(title: "完成") { dismiss() }
+                }
+                Text("完整版")
+                    .dFont(DT.TypeScale.largeTitle)
+                    .foregroundStyle(Theme.ink)
+                    .accessibilityAddTraits(.isHeader)
+                if !app.purchase.isUnlocked {
+                    Text(reason.text)
+                        .dFont(DT.TypeScale.body)
+                        .foregroundStyle(Theme.ink)
+                }
+                FullVersionOffer {
+                    Task { await app.purchase.purchase() }
+                }
+            }
+            .padding(.horizontal, DT.Size.screenMargin)
+            .padding(.top, DT.Space.s4)
+            .padding(.bottom, DT.Space.s8)
+        }
+        .background(Theme.bg.ignoresSafeArea())
+        .tint(Theme.accent)
+        .task { await app.purchase.loadProduct() }
     }
 }
