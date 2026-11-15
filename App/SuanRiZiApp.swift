@@ -69,7 +69,7 @@ struct PermissionIntroView: View {
             if let message = app.store.lastError {
                 Text(message).dFont(DT.TypeScale.footnote).foregroundStyle(Theme.destructive)
             }
-            WideButton(title: asking ? "等你在視窗上選擇…" : "允許讀取行事曆") {
+            WideButton(title: asking ? "等你在視窗上選擇…" : "繼續") {
                 asking = true
                 Task {
                     await app.store.requestAccess()
