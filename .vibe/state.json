@@ -1,7 +1,7 @@
 {
   "station": "audit-batch",
-  "updated_at": "2026-11-15T21:30:00+08:00",
-  "updated_by": "vibe-traffic-control",
+  "updated_at": "2026-11-16T00:30:00+08:00",
+  "updated_by": "vibe-security-gate",
   "pieces": {
     "todo": 3,
     "machine_verified": 8,
@@ -36,7 +36,6 @@
     "prd",
     "blueprint",
     "spec-standards",
-    "plan-readback",
-    "security-gate-A"
+    "plan-readback"
   ]
 }
