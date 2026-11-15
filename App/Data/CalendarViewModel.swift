@@ -29,12 +29,14 @@ final class AppModel {
     let store: EventStore
     let settings: SettingsStore
     let vm: CalendarViewModel
+    let purchase: PurchaseStore
 
     init() {
         let store = EventStore()
         let settings = SettingsStore()
         self.store = store
         self.settings = settings
+        self.purchase = PurchaseStore(onChange: { settings.setUnlocked($0) })
         self.vm = CalendarViewModel(store: store, settings: settings)
     }
 }

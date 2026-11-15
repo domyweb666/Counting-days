@@ -34,9 +34,50 @@ final class SettingsStore {
 
     /// 把設定裡選的主題套到畫面上。`value` 每次被換掉之後都要呼叫。
     private func applyTheme() {
-        let next = ThemePalette.find(value.themeID)
+        let id = ThemeAccess.effectiveThemeID(
+            selected: value.themeID,
+            previewing: previewThemeID,
+            isUnlocked: isUnlocked
+        )
+        let next = ThemePalette.find(id)
         guard next.id != ThemeState.shared.palette.id else { return }
         ThemeState.shared.palette = next
+    }
+
+    // MARK: 主題的付費與試看
+
+    /// 有沒有買完整版。由 `PurchaseStore` 告知，只放在記憶體，不存檔；還沒被告知之前是沒買。
+    @ObservationIgnored private var isUnlocked = false
+
+    /// 正在試看的付費主題。只放在記憶體，不存檔。
+    private(set) var previewThemeID: String?
+
+    func setUnlocked(_ unlocked: Bool) {
+        guard unlocked != isUnlocked else { return }
+        isUnlocked = unlocked
+        applyTheme()
+    }
+
+    /// 正式選一款主題。沒買的付費款選不進設定，回傳 false。
+    @discardableResult
+    func selectTheme(_ id: String) -> Bool {
+        guard ThemeAccess.canApply(id, isUnlocked: isUnlocked) else { return false }
+        previewThemeID = nil
+        update { $0.themeID = id }
+        applyTheme()
+        return true
+    }
+
+    /// 試看一款主題：只改畫面，不存檔。離開主題頁時要呼叫 `endThemePreview`。
+    func previewTheme(_ id: String) {
+        previewThemeID = id
+        applyTheme()
+    }
+
+    func endThemePreview() {
+        guard previewThemeID != nil else { return }
+        previewThemeID = nil
+        applyTheme()
     }
 
     // MARK: 新手引導的範例設定
