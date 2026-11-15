@@ -11,7 +11,6 @@ struct SuanRiZiApp: App {
             RootView()
                 .environment(app)
                 .environment(coach)
-                .tint(Theme.accent)
         }
     }
 }
@@ -32,6 +31,8 @@ struct RootView: View {
                 PermissionDeniedView()
             }
         }
+        // 放在畫面裡讀主色，換主題時才會跟著重畫
+        .tint(Theme.accent)
         .overlayPreferenceValue(CoachTargetKey.self) { anchors in
             CoachOverlay(anchors: anchors)
         }

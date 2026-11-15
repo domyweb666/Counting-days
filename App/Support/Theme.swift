@@ -1,3 +1,4 @@
+import Observation
 import SwiftUI
 import UIKit
 
@@ -15,6 +16,9 @@ struct CategoryPair: Sendable {
 /// 一款主題的整組顏色。每個 Color 都帶淺色、深色兩個值，跟著系統外觀切換。
 struct ThemePalette: Sendable {
     let id: String
+    /// 主題選擇頁上的名稱與一句說明
+    let name: String
+    let note: String
     let bg: Color
     let card: Color
     let muted: Color
@@ -36,6 +40,8 @@ extension ThemePalette {
     /// 鼠尾草（免費）。中性色與產品色直接指向設計系統的值。
     static let sage = ThemePalette(
         id: "sage",
+        name: "鼠尾草",
+        note: "淺灰底，鼠尾草綠",
         bg: DomyTheme.sage.canvas,
         card: DT.Neutral.surface,
         muted: DT.Neutral.surfaceMuted,
@@ -55,11 +61,188 @@ extension ThemePalette {
             0x7A6A3A: CategoryPair(light: 0x7A6A3A, dark: 0xC2B078)  // 辦事 橄欖褐
         ]
     )
+
+    // 以下六款的色碼來自主題設計稿，每一組「字壓在底色上」都算過對比。
+    // 類別色的 key 固定是設定裡存的預設色碼，順序：工作、行程、看診、辦事。
+
+    private static func c(_ light: UInt32, _ dark: UInt32) -> Color {
+        Color(domyLight: light, domyDark: dark)
+    }
+
+    static let hongdou = ThemePalette(
+        id: "hongdou",
+        name: "紅豆湯",
+        note: "米白底，豆沙紅",
+        bg: c(0xF6F1EC, 0x161111),
+        card: c(0xFFFDFB, 0x221A1A),
+        muted: c(0xEDE4DC, 0x302626),
+        separator: c(0xE6DBD2, 0x3D3131),
+        ink: c(0x2A1F1F, 0xF6EEEC),
+        sub: c(0x6B5C5A, 0xB3A3A1),
+        tertiary: c(0xA8999A, 0x6E5F5E),
+        accent: c(0x96484E, 0xE3A1A5),
+        onAccent: c(0xFFFFFF, 0x2E1215),
+        strong: c(0x7C383E, 0xF0C4C6),
+        soft: c(0xF3E1E0, 0x3D2527),
+        destructive: c(0xA3271F, 0xFF6B5E),
+        categories: [
+            0x6F5F8F: CategoryPair(light: 0x5E6A8A, dark: 0xA9B4D6),
+            0x4B6C8F: CategoryPair(light: 0x3F7470, dark: 0x8CC4BF),
+            0xA65F45: CategoryPair(light: 0xA2562F, dark: 0xE3A482),
+            0x7A6A3A: CategoryPair(light: 0x7A6A3A, dark: 0xC9B77E)
+        ]
+    )
+
+    static let qingci = ThemePalette(
+        id: "qingci",
+        name: "青瓷",
+        note: "冷白底，青綠",
+        bg: c(0xEFF4F2, 0x0C1413),
+        card: c(0xFFFFFF, 0x152120),
+        muted: c(0xE2EAE7, 0x213130),
+        separator: c(0xDAE3E0, 0x2C3F3D),
+        ink: c(0x17201F, 0xEEF5F3),
+        sub: c(0x586664, 0x9FB0AD),
+        tertiary: c(0x9AA6A4, 0x5C6D6A),
+        accent: c(0x2F6F73, 0x8FCBC9),
+        onAccent: c(0xFFFFFF, 0x0B2526),
+        strong: c(0x245A5E, 0xB9E1DF),
+        soft: c(0xDCEBEA, 0x1C3536),
+        destructive: c(0xC4372C, 0xFF6B5E),
+        categories: [
+            0x6F5F8F: CategoryPair(light: 0x5B5F97, dark: 0xA7ABE0),
+            0x4B6C8F: CategoryPair(light: 0x3A6EA5, dark: 0x8DB7E6),
+            0xA65F45: CategoryPair(light: 0xA8573F, dark: 0xE5A28B),
+            0x7A6A3A: CategoryPair(light: 0x6C7440, dark: 0xBFC78A)
+        ]
+    )
+
+    static let lanran = ThemePalette(
+        id: "lanran",
+        name: "藍染",
+        note: "灰藍底，靛藍",
+        bg: c(0xF1F3F8, 0x0B0E1A),
+        card: c(0xFFFFFF, 0x151A2B),
+        muted: c(0xE4E7F0, 0x20273D),
+        separator: c(0xDBDFEA, 0x2B334D),
+        ink: c(0x161A2B, 0xEEF0F8),
+        sub: c(0x5A6078, 0xA2A9C2),
+        tertiary: c(0x9BA0B3, 0x5E6682),
+        accent: c(0x34478C, 0xA9B8F0),
+        onAccent: c(0xFFFFFF, 0x0F1A40),
+        strong: c(0x27376F, 0xCBD5F8),
+        soft: c(0xDFE4F5, 0x1F2A52),
+        destructive: c(0xC4372C, 0xFF6B5E),
+        categories: [
+            0x6F5F8F: CategoryPair(light: 0x6B5796, dark: 0xB9A8E2),
+            0x4B6C8F: CategoryPair(light: 0x2E7482, dark: 0x8CC6D3),
+            0xA65F45: CategoryPair(light: 0xB0563A, dark: 0xEBA58D),
+            0x7A6A3A: CategoryPair(light: 0x80672B, dark: 0xD2B877)
+        ]
+    )
+
+    static let shibing = ThemePalette(
+        id: "shibing",
+        name: "柿餅",
+        note: "米色底，柿子橘",
+        bg: c(0xF8F2E9, 0x17110B),
+        card: c(0xFFFDF9, 0x231A12),
+        muted: c(0xEFE5D6, 0x32261B),
+        separator: c(0xE8DCCB, 0x403124),
+        ink: c(0x2B1E14, 0xF8EFE6),
+        sub: c(0x6E5D4E, 0xB8A796),
+        tertiary: c(0xAD9E90, 0x705F50),
+        accent: c(0xB24A1C, 0xF0A070),
+        onAccent: c(0xFFFFFF, 0x3A1503),
+        strong: c(0x8F3A14, 0xF7C3A3),
+        soft: c(0xFAE3D3, 0x432814),
+        destructive: c(0xA3271F, 0xFF6B5E),
+        categories: [
+            0x6F5F8F: CategoryPair(light: 0x5D5A8C, dark: 0xACA9DD),
+            0x4B6C8F: CategoryPair(light: 0x3C6E8A, dark: 0x8FBEDA),
+            0xA65F45: CategoryPair(light: 0x8C4A6A, dark: 0xDDA0BE),
+            0x7A6A3A: CategoryPair(light: 0x5F7040, dark: 0xB4C58F)
+        ]
+    )
+
+    static let yuni = ThemePalette(
+        id: "yuni",
+        name: "芋泥",
+        note: "淡紫灰底，芋頭紫",
+        bg: c(0xF4F2F6, 0x110E15),
+        card: c(0xFFFFFF, 0x1C1822),
+        muted: c(0xE9E5EE, 0x2A2533),
+        separator: c(0xE0DBE6, 0x373142),
+        ink: c(0x1F1A26, 0xF3EFF8),
+        sub: c(0x635C6E, 0xACA4BA),
+        tertiary: c(0xA39DAD, 0x665E73),
+        accent: c(0x6E5494, 0xC5AEEA),
+        onAccent: c(0xFFFFFF, 0x22143A),
+        strong: c(0x59427B, 0xDDCEF5),
+        soft: c(0xEAE2F4, 0x2E2444),
+        destructive: c(0xC4372C, 0xFF6B5E),
+        categories: [
+            0x6F5F8F: CategoryPair(light: 0x46688F, dark: 0x93B5DC),
+            0x4B6C8F: CategoryPair(light: 0x3E7566, dark: 0x8CC9B8),
+            0xA65F45: CategoryPair(light: 0xA85A52, dark: 0xE6A49C),
+            0x7A6A3A: CategoryPair(light: 0x806A2E, dark: 0xD1BC7C)
+        ]
+    )
+
+    static let shuimo = ThemePalette(
+        id: "shuimo",
+        name: "水墨",
+        note: "宣紙底，黑字朱點",
+        bg: c(0xF4F2ED, 0x0E0E0D),
+        card: c(0xFCFBF8, 0x1A1A18),
+        muted: c(0xE9E6DF, 0x282826),
+        separator: c(0xDEDAD1, 0x363633),
+        ink: c(0x1A1A1A, 0xF2F0EB),
+        sub: c(0x5F5C56, 0xA8A59D),
+        tertiary: c(0xA5A198, 0x62605A),
+        accent: c(0x1F1F1F, 0xF2F0EB),
+        onAccent: c(0xFFFFFF, 0x1A1A18),
+        strong: c(0x1A1A1A, 0xFFFFFF),
+        soft: c(0xE3DFD6, 0x2E2D2A),
+        destructive: c(0xC4372C, 0xFF6B5E),
+        categories: [
+            0x6F5F8F: CategoryPair(light: 0x3D4A5C, dark: 0x9FB0C8),
+            0x4B6C8F: CategoryPair(light: 0x5A6B4F, dark: 0xA9BD9C),
+            0xA65F45: CategoryPair(light: 0xA63D2F, dark: 0xEC8F80),
+            0x7A6A3A: CategoryPair(light: 0x7A6548, dark: 0xCDB592)
+        ]
+    )
+
+    /// 主題選擇頁的順序
+    static let all: [ThemePalette] = [.sage, .hongdou, .qingci, .lanran, .shibing, .yuni, .shuimo]
+
+    /// 設定裡存的名字不認得（舊版、資料壞掉）就用鼠尾草
+    static func find(_ id: String) -> ThemePalette {
+        all.first { $0.id == id } ?? .sage
+    }
+
+    /// 四個預設類別在這款主題裡的顏色，順序是工作、行程、看診、辦事
+    var categoryColors: [Color] {
+        Theme.defaultCategoryKeys
+            .compactMap { categories[$0] }
+            .map { Color(domyLight: $0.light, domyDark: $0.dark) }
+    }
+}
+
+/// 目前用哪一款主題。畫面在讀 `Theme` 的顏色時會登記到這裡，換主題後自己重畫。
+/// 只由 `SettingsStore` 依設定寫入。
+@Observable
+final class ThemeState {
+    static let shared = ThemeState()
+    var palette = ThemePalette.sage
 }
 
 enum Theme {
-    /// 目前使用的主題。現在只有鼠尾草一款。
-    static let current = ThemePalette.sage
+    /// 目前使用的主題
+    static var current: ThemePalette { ThemeState.shared.palette }
+
+    /// 預設四個類別在設定裡存的色碼：工作、行程、看診、辦事
+    static let defaultCategoryKeys: [UInt32] = [0x6F5F8F, 0x4B6C8F, 0xA65F45, 0x7A6A3A]
 
     static var bg: Color { current.bg }
     static var card: Color { current.card }

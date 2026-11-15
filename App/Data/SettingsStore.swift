@@ -18,6 +18,7 @@ final class SettingsStore {
         self.defaults = defaults
         guard let data = defaults.data(forKey: Self.key) else {
             value = AppSettings()
+            applyTheme()
             return
         }
         do {
@@ -28,6 +29,14 @@ final class SettingsStore {
             value = AppSettings()
             errorMessage = "設定檔讀取失敗，已改用預設值：\(error.localizedDescription)"
         }
+        applyTheme()
+    }
+
+    /// 把設定裡選的主題套到畫面上。`value` 每次被換掉之後都要呼叫。
+    private func applyTheme() {
+        let next = ThemePalette.find(value.themeID)
+        guard next.id != ThemeState.shared.palette.id else { return }
+        ThemeState.shared.palette = next
     }
 
     // MARK: 新手引導的範例設定
@@ -43,6 +52,7 @@ final class SettingsStore {
         var next = value
         change(&next)
         if next != value { value = next }
+        applyTheme()
     }
 
     /// 還原成引導開始前的設定
@@ -50,6 +60,7 @@ final class SettingsStore {
         guard let saved = savedBeforePreview else { return }
         savedBeforePreview = nil
         value = saved
+        applyTheme()
     }
 
     func update(_ change: (inout AppSettings) -> Void) {
@@ -57,6 +68,7 @@ final class SettingsStore {
         change(&next)
         guard next != value else { return }
         value = next
+        applyTheme()
         // 引導期間的改動都是範例，不存檔
         guard savedBeforePreview == nil else { return }
         do {
