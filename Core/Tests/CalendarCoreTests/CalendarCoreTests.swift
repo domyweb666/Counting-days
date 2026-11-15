@@ -374,6 +374,33 @@ final class CalendarCoreTests: XCTestCase {
         XCTAssertEqual(round, s)
     }
 
+    // MARK: 主題的付費判斷
+
+    func testFreeThemeAlwaysUsable() {
+        XCTAssertTrue(ThemeAccess.canApply("sage", isUnlocked: false))
+        XCTAssertEqual(ThemeAccess.effectiveThemeID(selected: "sage", previewing: nil, isUnlocked: false), "sage")
+    }
+
+    func testPaidThemeLockedWithoutPurchase() {
+        XCTAssertFalse(ThemeAccess.canApply("hongdou", isUnlocked: false))
+        // 設定裡選了付費款但沒買（退款、還沒驗到）：畫面用預設款
+        XCTAssertEqual(ThemeAccess.effectiveThemeID(selected: "hongdou", previewing: nil, isUnlocked: false), "sage")
+        // 不認得的名字也當成付費款，沒買就是預設款
+        XCTAssertEqual(ThemeAccess.effectiveThemeID(selected: "whatever", previewing: nil, isUnlocked: false), "sage")
+    }
+
+    func testPaidThemeUsableAfterPurchase() {
+        XCTAssertTrue(ThemeAccess.canApply("hongdou", isUnlocked: true))
+        XCTAssertEqual(ThemeAccess.effectiveThemeID(selected: "hongdou", previewing: nil, isUnlocked: true), "hongdou")
+    }
+
+    func testPreviewShowsOnlyWhilePreviewing() {
+        // 試看中：沒買也看得到
+        XCTAssertEqual(ThemeAccess.effectiveThemeID(selected: "sage", previewing: "shuimo", isUnlocked: false), "shuimo")
+        // 試看結束：回到原本那款
+        XCTAssertEqual(ThemeAccess.effectiveThemeID(selected: "sage", previewing: nil, isUnlocked: false), "sage")
+    }
+
     func testWeatherCitySettingRoundTrips() throws {
         var s = AppSettings()
         s.weatherEnabled = true

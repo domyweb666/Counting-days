@@ -215,7 +215,7 @@ struct SettingsScreen: View {
     private var aboutSection: some View {
         SectionCard(
             title: "關於",
-            footer: "蒜日子直接讀寫 iPhone 的系統行事曆，沒有自己的帳號，也不會把行程傳到任何伺服器。置頂、短名、類別這些設定只存在這支手機。"
+            footer: "蒜日子直接讀寫 iPhone 的系統行事曆，沒有自己的帳號，也不會把行程傳到任何伺服器。置頂、短名、類別這些設定只存在這支手機。購買完整版由 Apple 處理，蒜日子拿不到你的付款資料。"
         ) {
             SettingsRow(label: "版本") {
                 Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")
@@ -303,6 +303,13 @@ struct ThemeSettingsScreen: View {
     @Environment(\.dismiss) private var dismiss
 
     private var settings: SettingsStore { app.settings }
+    private var purchase: PurchaseStore { app.purchase }
+
+    private var footer: String {
+        let base = "深色、淺色跟著 iPhone 的外觀設定。你自己改過顏色的類別不會跟著主題換。"
+        if purchase.isUnlocked { return base }
+        return "上鎖的主題可以點一下試看，離開這一頁就會換回原本那款。" + base
+    }
 
     var body: some View {
         ScrollView {
@@ -318,14 +325,19 @@ struct ThemeSettingsScreen: View {
                 if let message = settings.errorMessage {
                     Text(message).dFont(DT.TypeScale.footnote).foregroundStyle(Theme.destructive)
                 }
-                SectionCard(footer: "深色、淺色跟著 iPhone 的外觀設定。你自己改過顏色的類別不會跟著主題換。") {
+                SectionCard(footer: footer) {
                     ForEach(Array(ThemePalette.all.enumerated()), id: \.element.id) { index, palette in
                         if index > 0 { Hairline() }
-                        ThemeRow(palette: palette, isSelected: palette.id == Theme.current.id) {
-                            settings.update { $0.themeID = palette.id }
+                        ThemeRow(
+                            palette: palette,
+                            isSelected: palette.id == Theme.current.id,
+                            isLocked: !ThemeAccess.canApply(palette.id, isUnlocked: purchase.isUnlocked)
+                        ) {
+                            pick(palette.id)
                         }
                     }
                 }
+                purchaseSection
             }
             .padding(.horizontal, DT.Size.screenMargin)
             .padding(.top, DT.Space.s4)
@@ -333,13 +345,69 @@ struct ThemeSettingsScreen: View {
         }
         .background(Theme.bg.ignoresSafeArea())
         .tint(Theme.accent)
+        .task { await purchase.loadProduct() }
+        // 試看只在這一頁有效，離開就換回去
+        .onDisappear { settings.endThemePreview() }
+    }
+
+    /// 買了或免費的直接套用；沒買的付費款只試看
+    private func pick(_ id: String) {
+        if !settings.selectTheme(id) {
+            settings.previewTheme(id)
+        }
+    }
+
+    @ViewBuilder
+    private var purchaseSection: some View {
+        if purchase.isUnlocked {
+            Text("已解鎖完整版，六款主題都可以用。")
+                .dFont(DT.TypeScale.footnote)
+                .foregroundStyle(Theme.sub)
+                .padding(.horizontal, DT.Space.s4)
+        } else {
+            VStack(spacing: DT.Space.s2) {
+                if let message = purchase.message {
+                    Text(message)
+                        .dFont(DT.TypeScale.footnote)
+                        .foregroundStyle(Theme.destructive)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, DT.Space.s4)
+                }
+                WideButton(title: purchase.priceText.map { "解鎖完整版　\($0)" } ?? "暫時無法購買") {
+                    buy()
+                }
+                .disabled(purchase.priceText == nil || purchase.isBusy)
+                .opacity(purchase.priceText == nil || purchase.isBusy ? 0.5 : 1)
+                Button {
+                    Task { await purchase.restore() }
+                } label: {
+                    Text("恢復購買")
+                        .dFont(DT.TypeScale.subheadline)
+                        .foregroundStyle(Theme.strong)
+                        .frame(maxWidth: .infinity, minHeight: DT.Size.touch)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PressStyle())
+                .disabled(purchase.isBusy)
+            }
+        }
+    }
+
+    private func buy() {
+        // 付款視窗跳出來時這一頁可能先收到離開通知，所以先記下正在試看哪一款
+        let wanted = settings.previewThemeID
+        Task {
+            guard await purchase.purchase() else { return }
+            if let wanted { settings.selectTheme(wanted) }
+        }
     }
 }
 
-/// 主題選擇頁的一列：那款主題的底色與主色、名稱、四個類別色，使用中的打勾
+/// 主題選擇頁的一列：那款主題的底色與主色、名稱、四個類別色。使用中的打勾，沒買的有鎖頭，試看中的寫「試看中」。
 struct ThemeRow: View {
     let palette: ThemePalette
     let isSelected: Bool
+    let isLocked: Bool
     let action: () -> Void
 
     var body: some View {
@@ -369,18 +437,35 @@ struct ThemeRow: View {
                             .frame(width: Theme.Grid.square, height: Theme.Grid.square)
                     }
                 }
-                Image(systemName: "checkmark")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(Theme.accent)
-                    .opacity(isSelected ? 1 : 0)
+                status
             }
             .padding(.vertical, DT.Space.s2)
             .frame(minHeight: DT.Size.row)
             .contentShape(Rectangle())
         }
         .buttonStyle(PressStyle())
-        .accessibilityLabel("\(palette.name)，\(palette.note)")
+        .accessibilityLabel("\(palette.name)，\(palette.note)\(isLocked ? "，未解鎖" : "")\(isLocked && isSelected ? "，試看中" : "")")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    @ViewBuilder
+    private var status: some View {
+        if isLocked && isSelected {
+            Text("試看中")
+                .dFont(DT.TypeScale.footnote)
+                .foregroundStyle(Theme.strong)
+        } else if isLocked {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.sub)
+                .frame(width: 20)
+        } else {
+            Image(systemName: "checkmark")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 20)
+                .opacity(isSelected ? 1 : 0)
+        }
     }
 }
 
