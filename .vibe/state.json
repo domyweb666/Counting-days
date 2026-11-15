@@ -1,10 +1,10 @@
 {
-  "station": "idle",
-  "updated_at": "2026-11-16T17:00:00+08:00",
+  "station": "audit-immediate",
+  "updated_at": "2026-11-16T22:30:00+08:00",
   "updated_by": "vibe-traffic-control",
   "pieces": {
     "todo": 13,
-    "machine_verified": 23,
+    "machine_verified": 24,
     "human_verified": 23
   },
   "chunks": [
@@ -65,7 +65,9 @@
       "approved": true
     }
   ],
-  "pending_immediate_verify": [],
+  "pending_immediate_verify": [
+    "27"
+  ],
   "skipped_gates": [
     "grill-me",
     "prd",
