@@ -14,7 +14,19 @@ final class PurchaseStore {
     private(set) var isUnlocked = false
     private(set) var product: Product?
     private(set) var isBusy = false
-    var message: String?
+    /// 正在抓商品資料。抓不到時畫面上有「再試一次」，抓的途中先不給按。
+    private(set) var isLoadingProduct = false
+    private(set) var message: String?
+    /// 這則訊息是不是在講出了問題。「沒買過」「等核准」只是告知，畫面上不用紅字。
+    private(set) var messageIsProblem = false
+
+    private static let chargedHint = "如果已經被扣款，按下面的「恢復購買」就會解鎖。"
+    private static let productMissing = "現在抓不到商品資料，可能是網路不通。按「再試一次」重新讀取。"
+
+    private func say(_ text: String?, problem: Bool) {
+        message = text
+        messageIsProblem = text != nil && problem
+    }
 
     /// 按鈕上顯示的價格。只用 App Store 回傳的字，程式裡不寫數字。
     var priceText: String? { product?.displayPrice }
@@ -53,17 +65,19 @@ final class PurchaseStore {
     }
 
     func loadProduct() async {
-        guard product == nil else { return }
+        guard product == nil, !isLoadingProduct else { return }
+        isLoadingProduct = true
+        defer { isLoadingProduct = false }
         do {
             let found = try await Product.products(for: [Self.productID])
             guard let match = found.first(where: { $0.id == Self.productID }) else {
-                message = "現在抓不到商品資料，請稍後再試。"
+                say(Self.productMissing, problem: true)
                 return
             }
             product = match
-            message = nil
+            say(nil, problem: false)
         } catch {
-            message = "商品資料讀取失敗：\(error.localizedDescription)"
+            say("商品資料讀取失敗：\(error.localizedDescription)。按「再試一次」重新讀取。", problem: true)
         }
     }
 
@@ -71,18 +85,18 @@ final class PurchaseStore {
     func purchase() async -> Bool {
         guard !isBusy else { return false }
         guard let product else {
-            message = "現在抓不到商品資料，請稍後再試。"
+            say(Self.productMissing, problem: true)
             return false
         }
         isBusy = true
         defer { isBusy = false }
-        message = nil
+        say(nil, problem: false)
         do {
             let result = try await product.purchase()
             switch result {
             case .success(let verification):
                 guard case .verified(let transaction) = verification else {
-                    message = "這筆購買沒有通過 App Store 驗證，沒有解鎖。"
+                    say("沒有完成購買：這筆交易沒有通過 App Store 驗證，沒有解鎖。" + Self.chargedHint, problem: true)
                     return false
                 }
                 await transaction.finish()
@@ -91,14 +105,14 @@ final class PurchaseStore {
             case .userCancelled:
                 return false
             case .pending:
-                message = "這筆購買還在等核准，核准後會自動解鎖。"
+                say("這筆購買還在等核准，核准後會自動解鎖。", problem: false)
                 return false
             @unknown default:
-                message = "購買沒有完成。"
+                say("沒有完成購買。" + Self.chargedHint, problem: true)
                 return false
             }
         } catch {
-            message = "購買失敗：\(error.localizedDescription)"
+            say("沒有完成購買：\(error.localizedDescription)。" + Self.chargedHint, problem: true)
             return false
         }
     }
@@ -107,16 +121,16 @@ final class PurchaseStore {
         guard !isBusy else { return }
         isBusy = true
         defer { isBusy = false }
-        message = nil
+        say(nil, problem: false)
         do {
             try await AppStore.sync()
         } catch {
-            message = "恢復購買失敗：\(error.localizedDescription)"
+            say("恢復購買沒有成功：\(error.localizedDescription)。確認網路後再按一次。", problem: true)
             return
         }
         await refresh()
         if !isUnlocked {
-            message = "這個 Apple 帳號沒有買過完整版。"
+            say("這個 Apple 帳號沒有買過完整版。", problem: false)
         }
     }
 }

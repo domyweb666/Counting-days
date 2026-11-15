@@ -386,7 +386,7 @@ struct ThemeSettingsScreen: View {
                         }
                     }
                 }
-                purchaseSection
+                FullVersionOffer(buy: buy)
             }
             .padding(.horizontal, DT.Size.screenMargin)
             .padding(.top, DT.Space.s2)
@@ -398,42 +398,6 @@ struct ThemeSettingsScreen: View {
     private func pick(_ id: String) {
         if !settings.selectTheme(id) {
             settings.previewTheme(id)
-        }
-    }
-
-    @ViewBuilder
-    private var purchaseSection: some View {
-        if purchase.isUnlocked {
-            Text("已解鎖完整版，六款主題都可以用。")
-                .dFont(DT.TypeScale.footnote)
-                .foregroundStyle(Theme.sub)
-                .padding(.horizontal, DT.Space.s4)
-        } else {
-            VStack(spacing: DT.Space.s2) {
-                if let message = purchase.message {
-                    Text(message)
-                        .dFont(DT.TypeScale.footnote)
-                        .foregroundStyle(Theme.destructive)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, DT.Space.s4)
-                }
-                WideButton(title: purchase.priceText.map { "解鎖完整版　\($0)" } ?? "暫時無法購買") {
-                    buy()
-                }
-                .disabled(purchase.priceText == nil || purchase.isBusy)
-                .opacity(purchase.priceText == nil || purchase.isBusy ? 0.5 : 1)
-                Button {
-                    Task { await purchase.restore() }
-                } label: {
-                    Text("恢復購買")
-                        .dFont(DT.TypeScale.subheadline)
-                        .foregroundStyle(Theme.strong)
-                        .frame(maxWidth: .infinity, minHeight: DT.Size.touch)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(PressStyle())
-                .disabled(purchase.isBusy)
-            }
         }
     }
 
