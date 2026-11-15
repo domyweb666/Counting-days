@@ -7,7 +7,7 @@ struct CoachDirector: ViewModifier {
     @Environment(AppModel.self) private var app
     @Environment(CoachController.self) private var coach
 
-    /// 拿到權限、或使用者按了「重看教學」時會變，跟著重新判斷要不要開始
+    /// 拿到權限、或使用者點了小卡、按了「重看教學」時會變，跟著重新判斷要不要開始
     private var startKey: String {
         "\(app.store.status == .fullAccess)-\(coach.startRequests)"
     }
@@ -27,7 +27,7 @@ struct CoachDirector: ViewModifier {
             }
     }
 
-    /// 第一次進月曆、或從設定要求重看時，開始新手引導
+    /// 使用者點了月曆上的小卡、或從設定要求重看時，開始新手引導。不會自己開始。
     private func startIfNeeded() async {
         guard app.store.status == .fullAccess, coach.shouldStart else { return }
         try? await Task.sleep(for: .seconds(CoachStyle.startDelay))

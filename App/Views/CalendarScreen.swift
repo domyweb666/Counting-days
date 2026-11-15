@@ -22,6 +22,7 @@ enum SheetKind: Identifiable {
 
 struct CalendarScreen: View {
     @Environment(AppModel.self) private var app
+    @Environment(CoachController.self) private var coach
     @Environment(\.scenePhase) private var scenePhase
     @State private var sheet: SheetKind?
     @State private var shortNameTarget: CalEvent?
@@ -52,6 +53,7 @@ struct CalendarScreen: View {
     var body: some View {
         VStack(spacing: DT.Space.s3) {
             header
+            if coach.showsIntroCard { introCard }
             if !vm.countdowns.isEmpty { countdownStrip }
             if let message = app.store.lastError ?? app.settings.errorMessage {
                 Text(message)
@@ -151,6 +153,38 @@ struct CalendarScreen: View {
         .buttonStyle(.plain)
         .accessibilityLabel("選單：切換檢視、搜尋、設定")
         .coachTarget(CoachTargetID.menu)
+    }
+
+    /// 沒看過引導的人才看得到。引導不自動開始，點這張卡才開始；按 ✕ 就不再出現。
+    private var introCard: some View {
+        HStack(spacing: 0) {
+            Button {
+                coach.requestStart()
+            } label: {
+                Text("第一次用？花一分鐘看怎麼用")
+                    .dFont(DT.TypeScale.subheadline)
+                    .foregroundStyle(Theme.ink)
+                    // 字體放大後會換行，上下留一點才不會貼到卡片邊
+                    .padding(.vertical, DT.Space.s2)
+                    .frame(maxWidth: .infinity, minHeight: DT.Size.touch, alignment: .leading)
+                    .padding(.leading, DT.Space.s4)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PressStyle())
+            Button {
+                coach.dismissIntroCard()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Theme.sub)
+                    .frame(width: DT.Size.touch, height: DT.Size.touch)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PressStyle())
+            .accessibilityLabel("關閉，不再顯示")
+        }
+        .background(RoundedRectangle(cornerRadius: DT.Radius.lg).fill(Theme.card))
+        .padding(.horizontal, inset)
     }
 
     private var countdownStrip: some View {
