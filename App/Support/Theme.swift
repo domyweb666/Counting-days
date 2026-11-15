@@ -2,36 +2,80 @@ import SwiftUI
 import UIKit
 
 // 介面的顏色、字級、間距、圓角一律來自 App/Design/DomyTokens.swift（從 domy-design 複製，不要手改）。
-// 這個檔只做兩件事：指定蒜日子的產品色，以及放月曆格子專用、設計系統沒有的值。
+// 這個檔只做兩件事：指定蒜日子用哪一款主題的顏色，以及放月曆格子專用、設計系統沒有的值。
 
 typealias DT = DomyTokens
 
-enum Theme {
-    /// 蒜日子的產品色：鼠尾草
-    static let product = DomyTheme.sage
+/// 預設類別在某一款主題裡的顏色：淺色模式與深色模式的色碼
+struct CategoryPair: Sendable {
+    let light: UInt32
+    let dark: UInt32
+}
 
-    static let bg = product.canvas
-    static let card = DT.Neutral.surface
-    static let muted = DT.Neutral.surfaceMuted
-    static let separator = DT.Neutral.separator
-    static let ink = DT.Neutral.textPrimary
-    static let sub = DT.Neutral.textSecondary
-    static let tertiary = DT.Neutral.textTertiary
-    static let accent = product.accent
-    static let onAccent = product.onAccent
-    static let strong = product.strong
-    static let soft = product.soft
-    static let destructive = DT.Neutral.destructive
+/// 一款主題的整組顏色。每個 Color 都帶淺色、深色兩個值，跟著系統外觀切換。
+struct ThemePalette: Sendable {
+    let id: String
+    let bg: Color
+    let card: Color
+    let muted: Color
+    let separator: Color
+    let ink: Color
+    let sub: Color
+    let tertiary: Color
+    let accent: Color
+    let onAccent: Color
+    let strong: Color
+    let soft: Color
+    /// 刪除、錯誤訊息、假日紅字共用
+    let destructive: Color
+    /// 四個預設類別在這款主題裡的顏色。key 是設定裡存的預設色碼（`AppSettings.defaultCategories`）。
+    let categories: [UInt32: CategoryPair]
+}
+
+extension ThemePalette {
+    /// 鼠尾草（免費）。中性色與產品色直接指向設計系統的值。
+    static let sage = ThemePalette(
+        id: "sage",
+        bg: DomyTheme.sage.canvas,
+        card: DT.Neutral.surface,
+        muted: DT.Neutral.surfaceMuted,
+        separator: DT.Neutral.separator,
+        ink: DT.Neutral.textPrimary,
+        sub: DT.Neutral.textSecondary,
+        tertiary: DT.Neutral.textTertiary,
+        accent: DomyTheme.sage.accent,
+        onAccent: DomyTheme.sage.onAccent,
+        strong: DomyTheme.sage.strong,
+        soft: DomyTheme.sage.soft,
+        destructive: DT.Neutral.destructive,
+        categories: [
+            0x6F5F8F: CategoryPair(light: 0x6F5F8F, dark: 0xA99BD0), // 工作 霧紫
+            0x4B6C8F: CategoryPair(light: 0x4B6C8F, dark: 0x8FB0D4), // 行程 灰藍
+            0xA65F45: CategoryPair(light: 0xA65F45, dark: 0xDB9C84), // 看診 陶土
+            0x7A6A3A: CategoryPair(light: 0x7A6A3A, dark: 0xC2B078)  // 辦事 橄欖褐
+        ]
+    )
+}
+
+enum Theme {
+    /// 目前使用的主題。現在只有鼠尾草一款。
+    static let current = ThemePalette.sage
+
+    static var bg: Color { current.bg }
+    static var card: Color { current.card }
+    static var muted: Color { current.muted }
+    static var separator: Color { current.separator }
+    static var ink: Color { current.ink }
+    static var sub: Color { current.sub }
+    static var tertiary: Color { current.tertiary }
+    static var accent: Color { current.accent }
+    static var onAccent: Color { current.onAccent }
+    static var strong: Color { current.strong }
+    static var soft: Color { current.soft }
+    static var destructive: Color { current.destructive }
 
     // MARK: 類別色（蒜日子自己功能的顏色，不放進 domy-design）
 
-    /// 預設四個類別的降彩實色：淺色模式的色碼 → 深色模式的色碼
-    private static let categoryDark: [UInt32: UInt32] = [
-        0x6F5F8F: 0xA99BD0, // 工作 霧紫
-        0x4B6C8F: 0x8FB0D4, // 行程 灰藍
-        0xA65F45: 0xDB9C84, // 看診 陶土
-        0x7A6A3A: 0xC2B078  // 辦事 橄欖褐
-    ]
     private static let onKnownCategory = Color(domyLight: 0xFFFFFF, domyDark: 0x1D1D1F)
     private static let fallbackCategoryHex: UInt32 = 0x4B6C8F
 
@@ -43,11 +87,11 @@ enum Theme {
     }
 
     /// 類別色塊的底色與壓在上面的字色。
-    /// 預設色在深色模式會換成較亮的版本配深色字；使用者自訂的顏色兩種模式都用同一個色、配白字。
+    /// 預設色照目前主題的那一組畫，深色模式是較亮的版本配深色字；使用者自訂的顏色兩種模式都用同一個色、配白字。
     static func category(hex: String) -> (fill: Color, on: Color) {
         let value = parseHex(hex) ?? fallbackCategoryHex
-        if let dark = categoryDark[value] {
-            return (Color(domyLight: value, domyDark: dark), onKnownCategory)
+        if let pair = current.categories[value] {
+            return (Color(domyLight: pair.light, domyDark: pair.dark), onKnownCategory)
         }
         return (Color(uiColor: UIColor(domyHex: value)), .white)
     }
