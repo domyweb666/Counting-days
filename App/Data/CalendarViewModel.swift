@@ -190,6 +190,29 @@ final class CalendarViewModel {
         }
     }
 
+    /// 主題頁的預覽：今天起七天、套上範例行程的一週。
+    /// 只算出一份拿去畫，不碰 `weeks`、`demoEvents`、`selected`，外面的月曆不受影響。
+    func themePreviewWeek() -> WeekModel? {
+        // 今天排在最左邊。照日曆的那一週排的話，週末打開時範例行程幾乎都落在下一週。
+        var previewCalendar = calendar
+        previewCalendar.firstWeekday = previewCalendar.component(.weekday, from: today)
+        let sampleSettings = AppSettings(calendarCategory: CoachDemo.calendarCategory)
+        let previewBuilder = LayoutBuilder(calendar: previewCalendar, today: today, settings: sampleSettings)
+        let lastDay = previewBuilder.addDays(today, 6)
+
+        // 引導的範例裡「台南行」排在 11 天後，進不了這七天；預覽另外放一段在第 4 到 6 天，才看得到跨日色帶
+        var events = CoachDemo.events(today: today, calendar: previewCalendar).filter { $0.id != "demo.tainan" }
+        events.append(CalEvent(
+            id: "preview.tainan",
+            title: "台南行",
+            start: previewBuilder.addDays(today, 3),
+            end: previewBuilder.addDays(today, 6).addingTimeInterval(-1),
+            isAllDay: true,
+            calendarID: "demo.trip"
+        ))
+        return previewBuilder.weeks(from: today, to: lastDay, events: events).first
+    }
+
     private func makeCountdowns() -> [CountdownItem] {
         let ids = settings.value.countdowns
         guard !ids.isEmpty,
