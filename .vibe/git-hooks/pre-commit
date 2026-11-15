@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+# 蒜日子的存檔前檢查（git pre-commit）。
+#
+# 這台電腦不能跑 Swift 工具，所以這裡只查「用文字比對就抓得到」的專案鐵律，
+# 而且只看這次要存的改動，舊程式不會被翻出來擋。
+# 規則的出處：.vibe/規矩檔.md「專案特定規矩」、.vibe/安全標準.md、docs/SPEC.md 第 5、14 節。
+#
+# 啟用：git config core.hooksPath .vibe/git-hooks
+# 這份檔案一定要是 LF 換行（.gitattributes 有鎖），CRLF 會讓 bash 跑不起來。
+
+set -u
+
+fail=0
+
+# $1 規則與原因　$2 違反的地方（可多行）　$3 怎麼改
+block() {
+    echo "[pre-commit] 擋下：$1" >&2
+    printf '%s\n' "$2" | sed 's/^/    /' >&2
+    echo "    怎麼改：$3" >&2
+    echo >&2
+    fail=1
+}
+
+git_q() { git -c core.quotepath=false "$@"; }
+
+# 平常跟上一個存檔點比。測試這份檢查時可以用 PRECOMMIT_BASE 指定跟哪個存檔點比。
+base=()
+if [ -n "${PRECOMMIT_BASE:-}" ]; then
+    base=("$PRECOMMIT_BASE")
+fi
+
+staged_files=$(git_q diff --cached --name-only --diff-filter=ACMR "${base[@]}")
+if [ -z "$staged_files" ]; then
+    exit 0
+fi
+
+# 這次新增的行，格式「檔名: 內容」。只看新增的行，原本就在的行不管。
+added() {
+    git_q diff --cached -U0 --diff-filter=ACMR "${base[@]}" -- "$@" | awk '
+        /^\+\+\+ / { f = $0; sub(/^\+\+\+ (b\/)?/, "", f); next }
+        /^\+/      { print f ": " substr($0, 2) }
+    '
+}
+
+swift_app=':(glob)App/**/*.swift'
+swift_core=':(glob)Core/**/*.swift'
+
+# 1. Core 不准依賴 iPhone 的框架
+hits=$(added ':(glob)Core/Sources/**' \
+    | grep -aE ':[[:space:]]*(@testable[[:space:]]+)?import[[:space:]]+(SwiftUI|UIKit|EventKit|EventKitUI|StoreKit)\b' || true)
+if [ -n "$hits" ]; then
+    block "Core 不准 import 畫面、行事曆、內購的框架（Core 要能單獨跑單元測試）" "$hits" \
+        "用到這些框架的程式放 App/，Core 只放判斷。"
+fi
+
+# 2. 不准記錄輸出（安全標準第 1 組：行程內容不准寫進記錄）
+hits=$(added "$swift_app" "$swift_core" \
+    | grep -aE '(^|[^A-Za-z0-9_.])(print|debugPrint|dump|NSLog|os_log)\(|[^A-Za-z0-9_]Logger\(' || true)
+if [ -n "$hits" ]; then
+    block "不准留記錄輸出（print、NSLog、Logger）" "$hits" \
+        "拿掉。要讓使用者知道的錯誤顯示在畫面上。"
+fi
+
+# 3. 不准空的 catch（規矩檔第 4 條：錯誤不准默默吞）。看整個檔，目前的程式裡沒有。
+empties=""
+while IFS= read -r f; do
+    case "$f" in
+        *.swift) ;;
+        *) continue ;;
+    esac
+    found=$(git show ":$f" 2>/dev/null | HOOK_FILE="$f" perl -0777 -ne '
+        while (/\bcatch\b[^{}\n]*\{\s*\}/g) {
+            my $line = (substr($_, 0, $-[0]) =~ tr/\n//) + 1;
+            print "$ENV{HOOK_FILE}: 第 $line 行\n";
+        }')
+    if [ -n "$found" ]; then
+        empties="${empties}${found}"$'\n'
+    fi
+done <<< "$staged_files"
+if [ -n "$empties" ]; then
+    block "不准空的 catch（錯誤被吞掉）" "${empties%$'\n'}" \
+        "在 catch 裡把錯誤顯示出來或往外丟。"
+fi
+
+# 4. 畫面檔不准寫色碼（顏色只從 Theme 拿）
+hits=$(added ':(glob)App/Views/**' ':(glob)App/CoachMarks/**' 'App/SuanRiZiApp.swift' \
+    | grep -aE '0x[0-9A-Fa-f]{6}\b|"#[0-9A-Fa-f]{6}"|Color\((red|hue|white|\.sRGB|\.displayP3)' || true)
+if [ -n "$hits" ]; then
+    block "畫面檔不准直接寫色碼" "$hits" \
+        "顏色放 App/Support/Theme.swift，畫面用 Theme.* 取。"
+fi
+
+# 5. DomyTokens.swift 是從 domy-design 複製來的，不准手改
+if printf '%s\n' "$staged_files" | grep -qx 'App/Design/DomyTokens.swift'; then
+    if [ "${DOMY_TOKENS_SYNC:-}" != "1" ]; then
+        block "App/Design/DomyTokens.swift 不准手改" "App/Design/DomyTokens.swift" \
+            "去 domy-design 改 tokens/tokens.json 再整份複製回來。確定是整份複製的，用 DOMY_TOKENS_SYNC=1 git commit 存。"
+    fi
+fi
+
+# 6. 不准加第三方套件（安全標準第 6 組：要加先問使用者）
+hits=$({
+    added 'Core/Package.swift' | grep -aE '\.package\('
+    added 'project.yml' | grep -aE '^[^:]+:[[:space:]]+(url|github):'
+} || true)
+if [ -n "$hits" ]; then
+    block "不准加第三方套件" "$hits" \
+        "先問使用者。同意之後，連同這份檢查的第 6 條一起改。"
+fi
+
+# 7. 不准加 ATS 例外（安全標準第 3 組）
+hits=$(added 'project.yml' ':(glob)**/*.plist' ':(glob)App/**' \
+    | grep -aE 'NSAllowsArbitraryLoads|NSExceptionDomains' || true)
+if [ -n "$hits" ]; then
+    block "不准加 ATS 例外（放行不加密的連線）" "$hits" \
+        "拿掉。連線一律走 HTTPS。"
+fi
+
+# 8. 「買了沒」不准存檔（安全標準第 1、4 組）
+hits=$(added "$swift_app" "$swift_core" \
+    | grep -avE '^[^:]+:[[:space:]]*//' \
+    | grep -aE 'UserDefaults|AppStorage|forKey:|FileManager|\.write\(to:|SecItem|Keychain' \
+    | grep -aiE 'unlock|purchas|entitle|premium|ispro\b|fullversion' || true)
+if [ -n "$hits" ]; then
+    block "「買了沒」不准存進檔案或設定" "$hits" \
+        "有沒有買只放在記憶體，每次從 App Store 驗證過的交易重新算（PurchaseStore）。這一行如果跟購買無關，換個不會誤會的名字。"
+fi
+
+# 9. 不准把金鑰、憑證放進來
+bad_files=$(printf '%s\n' "$staged_files" | grep -aE '\.(p8|p12|pem|cer|mobileprovision)$|(^|/)AuthKey_' || true)
+if [ -n "$bad_files" ]; then
+    block "不准把金鑰、憑證檔放進 repo" "$bad_files" \
+        "從這次存檔拿掉。上傳用的金鑰只放 GitHub Secrets。"
+fi
+hits=$(added '.' ':(exclude).vibe/git-hooks' \
+    | grep -aE -e '-----BEGIN [A-Z ]*PRIVATE KEY-----' || true)
+if [ -n "$hits" ]; then
+    block "內容裡有私鑰" "$hits" \
+        "從這次存檔拿掉。這把金鑰如果推上去過，要請使用者到 Apple 後台作廢重發。"
+fi
+
+if [ "$fail" -ne 0 ]; then
+    echo "[pre-commit] 這次沒有存檔。照上面改完再存一次。" >&2
+    echo "[pre-commit] 覺得是規則擋錯了：先問使用者，不要用 --no-verify 繞過。" >&2
+    exit 1
+fi
+
+count=$(printf '%s\n' "$staged_files" | wc -l | tr -d ' ')
+echo "[pre-commit] 規矩檢查通過（${count} 個檔）" >&2
+exit 0

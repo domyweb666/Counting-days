@@ -1,0 +1,2 @@
+# 存檔前檢查是 bash 腳本，一定要 LF 換行。這台電腦的 git 會把文字檔換成 CRLF，這裡鎖住。
+.vibe/git-hooks/* text eol=lf
