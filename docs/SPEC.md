@@ -465,7 +465,7 @@
 
 月曆樣式（第 26 片）
 
-- 免費：彈性週、清單。完整版：週條、主事件。這個分法是 AI 暫定的，使用者原本說要先試過四種再決定；改的話只動 `FullVersionAccess.freeModes` 一行和 `FullVersionOffer.features` 的字。
+- 免費：彈性週、清單。完整版：週條、主事件。AI 先暫定，使用者 2026-11-16 回「照暫定的」。之後要改只動 `FullVersionAccess.freeModes` 一行、`FullVersionOffer.features` 的字和一個單元測試。
 - 設定「顯示」區的「月曆樣式」從下拉選單改成第二頁（`DisplayModeSettingsScreen`）：上面一塊範例月曆照選的樣式畫，下面四種樣式各一列（名稱加一句說明），最下面是購買的那一塊。
 - 沒買的人點上鎖的樣式是試看：預覽和外面的月曆先換成那一種，那一列寫「試看中」，離開這一頁就換回去。試看只放在記憶體（`SettingsStore.previewingMode`），不存檔。試看中買成功會套用正在試看的那一種。
 - 月曆實際畫成哪一種由 `SettingsStore.effectiveMode` 決定。選了付費樣式但沒買（退款、還沒驗到、更新前選的）畫成彈性週，設定裡的選擇留著。
