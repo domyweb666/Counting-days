@@ -355,7 +355,25 @@ final class CalendarCoreTests: XCTestCase {
         XCTAssertEqual(s.pinned, ["a"])
         XCTAssertEqual(s.categories.count, 4)
         XCTAssertTrue(s.showLunar)
+        XCTAssertFalse(s.weatherEnabled)
+        XCTAssertNil(s.weatherCityID)
         let round = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s))
         XCTAssertEqual(round, s)
+    }
+
+    func testWeatherCitySettingRoundTrips() throws {
+        var s = AppSettings()
+        s.weatherEnabled = true
+        s.weatherCityID = "taipei"
+        let round = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s))
+        XCTAssertEqual(round, s)
+        XCTAssertEqual(WeatherCity.find(round.weatherCityID)?.name, "臺北市")
+    }
+
+    func testWeatherCityList() {
+        XCTAssertEqual(WeatherCity.all.count, 22)
+        XCTAssertEqual(Set(WeatherCity.all.map(\.id)).count, 22)
+        XCTAssertNil(WeatherCity.find(nil))
+        XCTAssertNil(WeatherCity.find("不存在"))
     }
 }

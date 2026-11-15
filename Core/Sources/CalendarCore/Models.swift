@@ -112,6 +112,10 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var weekStartsOnMonday: Bool
     public var showLunar: Bool
     public var didAutoDetectHolidays: Bool
+    /// 天氣開關，預設關
+    public var weatherEnabled: Bool
+    /// 天氣用的縣市（`WeatherCity.id`），還沒選是 nil
+    public var weatherCityID: String?
 
     public static let fallbackCategoryID = "trip"
 
@@ -135,7 +139,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
         mode: DisplayMode = .flex,
         weekStartsOnMonday: Bool = false,
         showLunar: Bool = true,
-        didAutoDetectHolidays: Bool = false
+        didAutoDetectHolidays: Bool = false,
+        weatherEnabled: Bool = false,
+        weatherCityID: String? = nil
     ) {
         self.categories = categories
         self.calendarCategory = calendarCategory
@@ -150,6 +156,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.weekStartsOnMonday = weekStartsOnMonday
         self.showLunar = showLunar
         self.didAutoDetectHolidays = didAutoDetectHolidays
+        self.weatherEnabled = weatherEnabled
+        self.weatherCityID = weatherCityID
     }
 
     // 之後版本加欄位時，舊資料少了欄位也要讀得回來，所以每個欄位都給預設值。
@@ -169,6 +177,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         weekStartsOnMonday = try c.decodeIfPresent(Bool.self, forKey: .weekStartsOnMonday) ?? d.weekStartsOnMonday
         showLunar = try c.decodeIfPresent(Bool.self, forKey: .showLunar) ?? d.showLunar
         didAutoDetectHolidays = try c.decodeIfPresent(Bool.self, forKey: .didAutoDetectHolidays) ?? d.didAutoDetectHolidays
+        weatherEnabled = try c.decodeIfPresent(Bool.self, forKey: .weatherEnabled) ?? d.weatherEnabled
+        weatherCityID = try c.decodeIfPresent(String.self, forKey: .weatherCityID)
         if categories.isEmpty { categories = d.categories }
     }
 

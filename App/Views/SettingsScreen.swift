@@ -24,6 +24,7 @@ struct SettingsScreen: View {
                     Text(message).dFont(DT.TypeScale.footnote).foregroundStyle(Theme.destructive)
                 }
                 displaySection
+                weatherSection
                 calendarSection
                 categorySection
                 countdownSection
@@ -68,6 +69,46 @@ struct SettingsScreen: View {
                 Toggle("顯示農曆與節氣", isOn: settings.binding(\.showLunar))
                     .labelsHidden()
                     .tint(Theme.accent)
+            }
+        }
+    }
+
+    // MARK: 天氣
+
+    private var weatherSection: some View {
+        let enabled = settings.value.weatherEnabled
+        let city = WeatherCity.find(settings.value.weatherCityID)
+        return SectionCard(
+            title: "天氣",
+            footer: enabled && city == nil
+                ? "選一個縣市才會顯示天氣。"
+                : "天氣還在製作中。這一版只會記住你選的縣市，不會連網。"
+        ) {
+            SettingsRow(label: "顯示天氣") {
+                Toggle("顯示天氣", isOn: settings.binding(\.weatherEnabled))
+                    .labelsHidden()
+                    .tint(Theme.accent)
+            }
+            if enabled {
+                Hairline()
+                SettingsRow(label: "縣市") {
+                    Menu {
+                        ForEach(WeatherCity.all) { item in
+                            Button {
+                                settings.update { $0.weatherCityID = item.id }
+                            } label: {
+                                if item.id == city?.id {
+                                    Label(item.name, systemImage: "checkmark")
+                                } else {
+                                    Text(item.name)
+                                }
+                            }
+                        }
+                    } label: {
+                        PickerCapsule(text: city?.name ?? "選擇縣市")
+                    }
+                    .accessibilityLabel("縣市：\(city?.name ?? "還沒選")")
+                }
             }
         }
     }

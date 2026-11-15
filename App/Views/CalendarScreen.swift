@@ -50,7 +50,6 @@ struct CalendarScreen: View {
     var body: some View {
         VStack(spacing: DT.Space.s3) {
             header
-            modeTabs
             if !vm.countdowns.isEmpty { countdownStrip }
             if let message = app.store.lastError ?? app.settings.errorMessage {
                 Text(message)
@@ -60,6 +59,7 @@ struct CalendarScreen: View {
                     .padding(.horizontal, inset)
             }
             content
+                .coachTarget(CoachTargetID.content)
         }
         .padding(.horizontal, Theme.Grid.margin)
         .padding(.top, DT.Space.s2)
@@ -109,9 +109,7 @@ struct CalendarScreen: View {
             .accessibilityLabel("\(vm.titleYearText) 年 \(vm.titleMonthText)，點一下選擇年月")
             .coachTarget(CoachTargetID.monthTitle)
             Spacer(minLength: 0)
-            CircleIconButton(systemName: "magnifyingglass", label: "搜尋") { sheet = .search }
-            CircleIconButton(systemName: "gearshape", label: "設定") { sheet = .settings }
-                .coachTarget(CoachTargetID.settings)
+            mainMenu
             PillTextButton(title: "今天") { vm.goToday() }
             CircleIconButton(systemName: "plus", label: "新增行程", primary: true) {
                 sheet = .newEvent(vm.focusDate)
@@ -120,31 +118,27 @@ struct CalendarScreen: View {
         .padding(.horizontal, inset)
     }
 
-    private var modeTabs: some View {
-        HStack(spacing: DT.Space.s1) {
-            ForEach(ViewKind.allCases, id: \.self) { m in
-                let on = m == app.settings.value.view
-                Button {
-                    app.settings.update { $0.view = m }
-                } label: {
-                    Text(m.label)
-                        .dFont(DT.TypeScale.callout)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .foregroundStyle(on ? Theme.strong : Theme.ink)
-                        .frame(maxWidth: .infinity, minHeight: DT.Size.buttonCompact)
-                        .background(Capsule().fill(on ? Theme.soft : Color.clear))
-                        .contentShape(Rectangle())
+    /// 標題列的選單鈕：五種檢視、搜尋、設定都收在這裡
+    private var mainMenu: some View {
+        Menu {
+            Picker("檢視", selection: app.settings.binding(\.view)) {
+                ForEach(ViewKind.allCases, id: \.self) { kind in
+                    Text(kind.label).tag(kind)
                 }
-                .buttonStyle(PressStyle())
-                .accessibilityAddTraits(on ? .isSelected : [])
             }
+            Divider()
+            Button("搜尋", systemImage: "magnifyingglass") { sheet = .search }
+            Button("設定", systemImage: "gearshape") { sheet = .settings }
+        } label: {
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .frame(width: DT.Size.iconButton, height: DT.Size.iconButton)
+                .background(Circle().fill(Theme.card))
+                .domyShadow(DT.Elevation.level1)
         }
-        .padding(DT.Space.s1)
-        .background(Capsule().fill(Theme.card))
-        .domyShadow(DT.Elevation.level1)
-        .coachTarget(CoachTargetID.viewTabs)
-        .padding(.horizontal, inset)
+        .accessibilityLabel("選單：切換檢視、搜尋、設定")
+        .coachTarget(CoachTargetID.menu)
     }
 
     private var countdownStrip: some View {
