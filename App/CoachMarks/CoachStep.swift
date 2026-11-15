@@ -27,6 +27,8 @@ struct CoachStep: Identifiable, Equatable {
     var showsDayPanel = false
     /// 洞比目標外擴多少
     var holePadding: CGFloat = CoachStyle.holePadding
+    /// 左右另外指定外擴多少；不給就跟 holePadding 一樣
+    var holePaddingX: CGFloat?
     /// 洞的圓角。超過洞高的一半時會自動縮成一半，所以膠囊和圓鈕給很大的值就好
     var holeCornerRadius: CGFloat = CoachStyle.holeCornerRadius
 
@@ -65,7 +67,8 @@ enum CoachTour {
             kind: .demoViews,
             title: "五種看法",
             body: "",
-            holePadding: 4
+            holePadding: CoachStyle.holePadding,
+            holePaddingX: CoachStyle.fullWidthHole
         ),
         CoachStep(
             id: "tap",
@@ -98,7 +101,8 @@ enum CoachTour {
             kind: .demoStyles,
             title: "月曆有四種樣式",
             body: "",
-            holePadding: 4
+            holePadding: CoachStyle.holePadding,
+            holePaddingX: CoachStyle.fullWidthHole
         ),
         CoachStep(
             id: "end",
@@ -158,6 +162,9 @@ enum CoachStyle {
     static let holeCornerRadius: CGFloat = 16
     /// 膠囊與圓鈕用：一定會被縮成洞高的一半
     static let roundHole: CGFloat = 999
+    /// 照亮整塊月曆區時，洞的左右開到螢幕外，只看得到上下兩條邊，
+    /// 月曆兩側才不會被框線貼住
+    static let fullWidthHole: CGFloat = 40
     static let glowWidth: CGFloat = 3
     static let glowRadius: CGFloat = 12
     static let glowOpacity: Double = 0.8
