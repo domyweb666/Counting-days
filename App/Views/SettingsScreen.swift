@@ -7,6 +7,7 @@ struct SettingsScreen: View {
     @Environment(CoachController.self) private var coach
     @Environment(\.dismiss) private var dismiss
     @State private var showCategories = false
+    @State private var showThemes = false
 
     private var settings: SettingsStore { app.settings }
 
@@ -46,6 +47,29 @@ struct SettingsScreen: View {
 
     private var displaySection: some View {
         SectionCard(title: "顯示") {
+            Button {
+                showThemes = true
+            } label: {
+                HStack(spacing: DT.Space.s3) {
+                    Text("主題")
+                        .dFont(DT.TypeScale.body)
+                        .foregroundStyle(Theme.ink)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(Theme.current.name)
+                        .dFont(DT.TypeScale.body)
+                        .foregroundStyle(Theme.sub)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.sub)
+                }
+                .frame(minHeight: DT.Size.row)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PressStyle())
+            .sheet(isPresented: $showThemes) {
+                ThemeSettingsScreen()
+            }
+            Hairline()
             SettingsRow(label: "月曆樣式") {
                 Menu {
                     Picker("月曆樣式", selection: settings.binding(\.mode)) {
@@ -270,6 +294,93 @@ struct CategorySettingsScreen: View {
             }
             .buttonStyle(PressStyle())
         }
+    }
+}
+
+/// 設定的第二頁：選主題。點一款就換，整個 app 立刻跟著變。
+struct ThemeSettingsScreen: View {
+    @Environment(AppModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
+
+    private var settings: SettingsStore { app.settings }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: DT.Space.s6) {
+                HStack {
+                    Spacer()
+                    PillTextButton(title: "完成") { dismiss() }
+                }
+                Text("主題")
+                    .dFont(DT.TypeScale.largeTitle)
+                    .foregroundStyle(Theme.ink)
+                    .accessibilityAddTraits(.isHeader)
+                if let message = settings.errorMessage {
+                    Text(message).dFont(DT.TypeScale.footnote).foregroundStyle(Theme.destructive)
+                }
+                SectionCard(footer: "深色、淺色跟著 iPhone 的外觀設定。你自己改過顏色的類別不會跟著主題換。") {
+                    ForEach(Array(ThemePalette.all.enumerated()), id: \.element.id) { index, palette in
+                        if index > 0 { Hairline() }
+                        ThemeRow(palette: palette, isSelected: palette.id == Theme.current.id) {
+                            settings.update { $0.themeID = palette.id }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, DT.Size.screenMargin)
+            .padding(.top, DT.Space.s4)
+            .padding(.bottom, DT.Space.s8)
+        }
+        .background(Theme.bg.ignoresSafeArea())
+        .tint(Theme.accent)
+    }
+}
+
+/// 主題選擇頁的一列：那款主題的底色與主色、名稱、四個類別色，使用中的打勾
+struct ThemeRow: View {
+    let palette: ThemePalette
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: DT.Space.s3) {
+                RoundedRectangle(cornerRadius: DT.Radius.md)
+                    .fill(palette.bg)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DT.Radius.md)
+                            .strokeBorder(palette.separator, lineWidth: DT.Size.hairline)
+                    )
+                    .overlay(Circle().fill(palette.accent).frame(width: 22, height: 22))
+                    .frame(width: DT.Size.touch, height: DT.Size.touch)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(palette.name)
+                        .dFont(DT.TypeScale.headline)
+                        .foregroundStyle(Theme.ink)
+                    Text(palette.note)
+                        .dFont(DT.TypeScale.footnote)
+                        .foregroundStyle(Theme.sub)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: Theme.Grid.gap) {
+                    ForEach(Array(palette.categoryColors.enumerated()), id: \.offset) { _, color in
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(color)
+                            .frame(width: Theme.Grid.square, height: Theme.Grid.square)
+                    }
+                }
+                Image(systemName: "checkmark")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Theme.accent)
+                    .opacity(isSelected ? 1 : 0)
+            }
+            .padding(.vertical, DT.Space.s2)
+            .frame(minHeight: DT.Size.row)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressStyle())
+        .accessibilityLabel("\(palette.name)，\(palette.note)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

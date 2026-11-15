@@ -116,8 +116,11 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var weatherEnabled: Bool
     /// 天氣用的縣市（`WeatherCity.id`），還沒選是 nil
     public var weatherCityID: String?
+    /// 選了哪一款主題。不認得的值，畫面那邊會當成預設那款。
+    public var themeID: String
 
     public static let fallbackCategoryID = "trip"
+    public static let defaultThemeID = "sage"
 
     public static let defaultCategories: [EventCategory] = [
         EventCategory(id: "work", name: "工作", colorHex: "#6F5F8F"),
@@ -141,7 +144,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         showLunar: Bool = true,
         didAutoDetectHolidays: Bool = false,
         weatherEnabled: Bool = false,
-        weatherCityID: String? = nil
+        weatherCityID: String? = nil,
+        themeID: String = AppSettings.defaultThemeID
     ) {
         self.categories = categories
         self.calendarCategory = calendarCategory
@@ -158,6 +162,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.didAutoDetectHolidays = didAutoDetectHolidays
         self.weatherEnabled = weatherEnabled
         self.weatherCityID = weatherCityID
+        self.themeID = themeID
     }
 
     // 之後版本加欄位時，舊資料少了欄位也要讀得回來，所以每個欄位都給預設值。
@@ -179,6 +184,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         didAutoDetectHolidays = try c.decodeIfPresent(Bool.self, forKey: .didAutoDetectHolidays) ?? d.didAutoDetectHolidays
         weatherEnabled = try c.decodeIfPresent(Bool.self, forKey: .weatherEnabled) ?? d.weatherEnabled
         weatherCityID = try c.decodeIfPresent(String.self, forKey: .weatherCityID)
+        themeID = try c.decodeIfPresent(String.self, forKey: .themeID) ?? d.themeID
         if categories.isEmpty { categories = d.categories }
     }
 

@@ -361,6 +361,19 @@ final class CalendarCoreTests: XCTestCase {
         XCTAssertEqual(round, s)
     }
 
+    func testThemeSettingDefaultsAndRoundTrips() throws {
+        // 舊版存的設定沒有主題這一欄，讀回來要是預設那款
+        let old = #"{"mode":"C"}"#.data(using: .utf8)!
+        XCTAssertEqual(try JSONDecoder().decode(AppSettings.self, from: old).themeID, AppSettings.defaultThemeID)
+
+        var s = AppSettings()
+        XCTAssertEqual(s.themeID, "sage")
+        s.themeID = "hongdou"
+        let round = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s))
+        XCTAssertEqual(round.themeID, "hongdou")
+        XCTAssertEqual(round, s)
+    }
+
     func testWeatherCitySettingRoundTrips() throws {
         var s = AppSettings()
         s.weatherEnabled = true
