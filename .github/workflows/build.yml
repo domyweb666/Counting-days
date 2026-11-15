@@ -24,6 +24,18 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: 選用 Xcode 26
+        run: |
+          # App Store Connect 只收用 iOS 26 SDK（Xcode 26 以上）建置的 app
+          app=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -n 1)
+          if [ -z "$app" ]; then
+            echo "::error::這台機器上找不到 Xcode 26。現有的版本如下："
+            ls /Applications | grep -i xcode
+            exit 1
+          fi
+          sudo xcode-select -s "$app/Contents/Developer"
+          xcodebuild -version
+
       - name: 安裝 XcodeGen
         run: brew install xcodegen
       - name: 產生 Xcode 專案
