@@ -107,9 +107,11 @@ struct CalendarScreen: View {
             }
             .buttonStyle(PressStyle())
             .accessibilityLabel("\(vm.titleYearText) 年 \(vm.titleMonthText)，點一下選擇年月")
+            .coachTarget(CoachTargetID.monthTitle)
             Spacer(minLength: 0)
             CircleIconButton(systemName: "magnifyingglass", label: "搜尋") { sheet = .search }
             CircleIconButton(systemName: "gearshape", label: "設定") { sheet = .settings }
+                .coachTarget(CoachTargetID.settings)
             PillTextButton(title: "今天") { vm.goToday() }
             CircleIconButton(systemName: "plus", label: "新增行程", primary: true) {
                 sheet = .newEvent(vm.focusDate)
@@ -141,6 +143,7 @@ struct CalendarScreen: View {
         .padding(DT.Space.s1)
         .background(Capsule().fill(Theme.card))
         .domyShadow(DT.Elevation.level1)
+        .coachTarget(CoachTargetID.viewTabs)
         .padding(.horizontal, inset)
     }
 

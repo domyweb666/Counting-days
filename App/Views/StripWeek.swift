@@ -47,6 +47,7 @@ struct StripWeek: View {
                 }
                 .buttonStyle(PressStyle())
                 .accessibilityLabel(vm.accessibilityLabel(for: day))
+                .coachTarget(CoachTargetID.today, when: day.isToday)
                 .contextMenu {
                     Button("新增行程", systemImage: "plus") { actions.add(day.date) }
                 }
@@ -63,16 +64,19 @@ struct StripWeek: View {
             Button { vm.toggle(day.date) } label: { narrow(day) }
                 .buttonStyle(PressStyle())
                 .accessibilityLabel(vm.accessibilityLabel(for: day))
+                .coachTarget(CoachTargetID.today, when: day.isToday)
                 .flex(0)
         case .card(let day):
             Button { vm.toggle(day.date) } label: { card(day) }
                 .buttonStyle(PressStyle())
                 .accessibilityLabel(vm.accessibilityLabel(for: day))
+                .coachTarget(CoachTargetID.today, when: day.isToday)
                 .flex(2)
         case .compact(let day):
             Button { vm.toggle(day.date) } label: { compact(day) }
                 .buttonStyle(PressStyle())
                 .accessibilityLabel(vm.accessibilityLabel(for: day))
+                .coachTarget(CoachTargetID.today, when: day.isToday)
                 .flex(1)
         case .trip(let seg):
             Button { vm.toggle(week.days[seg.startCol].date) } label: { trip(seg) }

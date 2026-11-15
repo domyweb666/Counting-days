@@ -7,6 +7,9 @@ struct DayPanel: View {
     let day: DayModel
     let actions: CalendarActions
 
+    /// 長按選單用過一次，或提示被關掉之後，就不再出現
+    @AppStorage("coachHint.longPress.v1.done") private var longPressHintDone = false
+
     var body: some View {
         let rows = vm.builder.detailRows(for: day)
         VStack(alignment: .leading, spacing: DT.Space.s1) {
@@ -28,6 +31,9 @@ struct DayPanel: View {
                 }
                 .buttonStyle(PressStyle())
                 .contextMenu { menu(for: row) }
+            }
+            if !rows.isEmpty, !longPressHintDone {
+                longPressHint
             }
             WideButton(title: "新增行程", kind: .secondary, systemImage: "plus") {
                 actions.add(day.date)
@@ -75,6 +81,28 @@ struct DayPanel: View {
         .padding(.bottom, DT.Space.s1)
     }
 
+    /// 長按選單在畫面上看不出來，第一次展開有行程的那天時提醒一次
+    private var longPressHint: some View {
+        HStack(spacing: DT.Space.s2) {
+            Text("長按行程可以置頂、取短名、加入倒數日")
+                .dFont(DT.TypeScale.footnote)
+                .foregroundStyle(Theme.sub)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button {
+                longPressHintDone = true
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Theme.sub)
+                    .frame(width: DT.Size.touch, height: DT.Size.touch)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PressStyle())
+            .accessibilityLabel("關閉提示")
+        }
+        .padding(.top, DT.Space.s1)
+    }
+
     private var subtitle: String {
         var parts = day.holidays
         if vm.settings.value.showLunar { parts.append(vm.lunarFullText(day.date)) }
@@ -89,16 +117,20 @@ struct DayPanel: View {
             EmptyView()
         } else if row.kind != .routine {
             Button(s.pinned.contains(id) ? "取消置頂" : "置頂為當天主事件", systemImage: "pin") {
+                longPressHintDone = true
                 vm.settings.togglePin(id)
             }
             Button("設定短名", systemImage: "textformat.size.smaller") {
+                longPressHintDone = true
                 actions.shortName(row.event)
             }
         }
         Button(s.countdowns.contains(id) ? "移出倒數日" : "加入倒數日", systemImage: "hourglass") {
+            longPressHintDone = true
             vm.settings.toggleCountdown(id)
         }
         Button("編輯", systemImage: "pencil") {
+            longPressHintDone = true
             actions.open(row.event)
         }
     }

@@ -74,6 +74,7 @@ struct CollapsedWeek: View {
                 }
                 .buttonStyle(PressStyle())
                 .accessibilityLabel(vm.accessibilityLabel(for: day))
+                .coachTarget(CoachTargetID.today, when: day.isToday)
                 .contextMenu {
                     Button("新增行程", systemImage: "plus") { actions.add(day.date) }
                 }
@@ -124,6 +125,7 @@ struct ExpandedWeek: View {
                     }
                     .buttonStyle(PressStyle())
                     .accessibilityLabel(vm.accessibilityLabel(for: day))
+                    .coachTarget(CoachTargetID.today, when: day.isToday)
                     .contextMenu {
                         Button("新增行程", systemImage: "plus") { actions.add(day.date) }
                     }

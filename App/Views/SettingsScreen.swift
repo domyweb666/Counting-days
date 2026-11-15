@@ -4,6 +4,7 @@ import CalendarCore
 
 struct SettingsScreen: View {
     @Environment(AppModel.self) private var app
+    @Environment(CoachController.self) private var coach
     @Environment(\.dismiss) private var dismiss
 
     private var settings: SettingsStore { app.settings }
@@ -154,6 +155,19 @@ struct SettingsScreen: View {
                     .dFont(DT.TypeScale.body)
                     .foregroundStyle(Theme.sub)
             }
+            Hairline()
+            Button {
+                // 引導的遮罩蓋不到彈出視窗，先關掉設定再開始
+                coach.requestStart()
+                dismiss()
+            } label: {
+                Text("重看教學")
+                    .dFont(DT.TypeScale.body)
+                    .foregroundStyle(Theme.strong)
+                    .frame(maxWidth: .infinity, minHeight: DT.Size.row, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PressStyle())
         }
     }
 }
