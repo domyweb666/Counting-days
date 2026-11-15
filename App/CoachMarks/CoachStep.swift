@@ -72,7 +72,7 @@ enum CoachStyle {
     static let glowWidth: CGFloat = 3
     static let glowRadius: CGFloat = 12
     static let glowOpacity: Double = 0.8
-    static let holeSpring = Animation.spring(response: 0.45, dampingFraction: 0.82)
+    static let holeSpring = Animation.spring(response: 0.7, dampingFraction: 0.82)
     /// 減少動態效果時，洞先蓋掉再露出來
     static let holeFadeOut: Double = 0.12
     static let holeFadeIn: Double = 0.18
@@ -87,7 +87,7 @@ enum CoachStyle {
     static let cardBodyMinHeight: CGFloat = 80
     static let avatar: CGFloat = 36
 
-    static let typeInterval: Double = 0.03
+    static let typeInterval: Double = 0.055
     static let punctuationPause: Double = 0.12
     static let punctuation: Set<Character> = ["，", "。", "、", "！", "？", "；", "："]
 
