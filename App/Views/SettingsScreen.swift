@@ -52,6 +52,7 @@ struct SettingsScreen: View {
                 } label: {
                     PickerCapsule(text: settings.value.mode.label)
                 }
+                .buttonStyle(.plain)
             }
             Hairline()
             SettingsRow(label: "一週從哪天開始") {
@@ -63,6 +64,7 @@ struct SettingsScreen: View {
                 } label: {
                     PickerCapsule(text: settings.value.weekStartsOnMonday ? "週一" : "週日")
                 }
+                .buttonStyle(.plain)
             }
             Hairline()
             SettingsRow(label: "顯示農曆與節氣") {
@@ -107,6 +109,7 @@ struct SettingsScreen: View {
                     } label: {
                         PickerCapsule(text: city?.name ?? "選擇縣市")
                     }
+                    .buttonStyle(.plain)
                     .accessibilityLabel("縣市：\(city?.name ?? "還沒選")")
                 }
             }
@@ -302,6 +305,7 @@ struct CalendarRoleRow: View {
             } label: {
                 PickerCapsule(text: currentText)
             }
+            .buttonStyle(.plain)
             .accessibilityLabel("\(calendar.title)：\(currentText)")
         }
     }
@@ -366,6 +370,7 @@ struct CategoryRow: View {
                         .frame(width: DT.Space.s8, height: DT.Size.touch)
                         .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .accessibilityLabel("更多")
             }
         }

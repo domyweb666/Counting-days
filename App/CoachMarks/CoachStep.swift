@@ -145,7 +145,10 @@ enum CoachStyle {
     /// 進入主畫面後多久開始
     static let startDelay: Double = 0.4
     /// 目標元件一直沒出現時，等多久自動跳下一步
-    static let missingTargetWait: Double = 0.6
+    static let missingTargetWait: Double = 2.5
+    /// 切回月曆後，等多久再把今天那一週捲回最上面一次；清掉與放回之間隔多久
+    static let recenterDelay: Double = 0.15
+    static let recenterGap: Double = 0.05
 
     static let dimLight: Double = 0.55
     static let dimDark: Double = 0.65

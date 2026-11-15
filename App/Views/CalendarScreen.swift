@@ -46,6 +46,8 @@ struct CalendarScreen: View {
 
     /// 標題列、切換鈕、倒數日離螢幕邊緣 20：外層已經有月曆的 8，這裡再補 12
     private let inset = DT.Size.screenMargin - Theme.Grid.margin
+    /// 右下角新增鈕的直徑
+    private let fabSize: CGFloat = 56
 
     var body: some View {
         VStack(spacing: DT.Space.s3) {
@@ -59,8 +61,11 @@ struct CalendarScreen: View {
                     .padding(.horizontal, inset)
             }
             content
+                // 捲到底時多留一段，最後一列才不會被右下角的新增鈕蓋住
+                .contentMargins(.bottom, fabSize + DT.Space.s4, for: .scrollContent)
                 .coachTarget(CoachTargetID.content)
         }
+        .overlay(alignment: .bottomTrailing) { addButton }
         .padding(.horizontal, Theme.Grid.margin)
         .padding(.top, DT.Space.s2)
         .background(Theme.bg.ignoresSafeArea())
@@ -95,6 +100,7 @@ struct CalendarScreen: View {
 
     private var header: some View {
         HStack(spacing: DT.Space.s2) {
+            mainMenu
             Button { sheet = .monthPicker } label: {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(vm.titleMonthText).dFont(DT.TypeScale.largeTitle).foregroundStyle(Theme.ink)
@@ -109,13 +115,18 @@ struct CalendarScreen: View {
             .accessibilityLabel("\(vm.titleYearText) 年 \(vm.titleMonthText)，點一下選擇年月")
             .coachTarget(CoachTargetID.monthTitle)
             Spacer(minLength: 0)
-            mainMenu
             PillTextButton(title: "今天") { vm.goToday() }
-            CircleIconButton(systemName: "plus", label: "新增行程", primary: true) {
-                sheet = .newEvent(vm.focusDate)
-            }
         }
         .padding(.horizontal, inset)
+    }
+
+    /// 右下角的新增鈕，浮在內容上面
+    private var addButton: some View {
+        CircleIconButton(systemName: "plus", label: "新增行程", primary: true, size: fabSize) {
+            sheet = .newEvent(vm.focusDate)
+        }
+        .padding(.trailing, inset)
+        .padding(.bottom, DT.Space.s4)
     }
 
     /// 標題列的選單鈕：五種檢視、搜尋、設定都收在這裡
@@ -137,6 +148,7 @@ struct CalendarScreen: View {
                 .background(Circle().fill(Theme.card))
                 .domyShadow(DT.Elevation.level1)
         }
+        .buttonStyle(.plain)
         .accessibilityLabel("選單：切換檢視、搜尋、設定")
         .coachTarget(CoachTargetID.menu)
     }
