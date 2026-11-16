@@ -14,6 +14,9 @@ final class EventStore {
     var lastError: String?
 
     @ObservationIgnored private var cache: [String: EKEvent] = [:]
+    /// 月曆照哪個時區排。跟手機不一樣時，全天行程的起訖要搬到這個時區的同一個鐘面時間。
+    /// 由 `CalendarViewModel` 每次重新查詢前告知。
+    @ObservationIgnored var displayTimeZone: TimeZone = .current
     @ObservationIgnored private var observer: NSObjectProtocol?
 
     init() {
@@ -76,12 +79,15 @@ final class EventStore {
         cache[id] = e
         let rules = e.recurrenceRules ?? []
         let title = (e.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        // 識別碼用原本的開始時間算，下面搬過的時間只拿來排月曆
+        let device = TimeZone.current
+        let floats = e.isAllDay && displayTimeZone.identifier != device.identifier
         return CalEvent(
             id: id,
             seriesID: seriesID,
             title: title.isEmpty ? "（沒有標題）" : title,
-            start: start,
-            end: end,
+            start: floats ? FloatingTime.moved(start, from: device, to: displayTimeZone) : start,
+            end: floats ? FloatingTime.moved(end, from: device, to: displayTimeZone) : end,
             isAllDay: e.isAllDay,
             calendarID: calendar.calendarIdentifier,
             location: e.location,

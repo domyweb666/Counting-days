@@ -120,6 +120,10 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var weatherCityID: String?
     /// 選了哪一款主題。不認得的值，畫面那邊會當成預設那款。
     public var themeID: String
+    /// 月曆跟著手機的時區走。預設開。
+    public var usesDeviceTimeZone: Bool
+    /// 不跟著手機時，照哪個時區排（例："Asia/Tokyo"）。還沒選過是 nil。
+    public var timeZoneID: String?
 
     public static let fallbackCategoryID = "trip"
     public static let defaultThemeID = "sage"
@@ -148,7 +152,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
         weatherEnabled: Bool = false,
         weatherCityID: String? = nil,
         themeID: String = AppSettings.defaultThemeID,
-        calendarOrder: [String] = []
+        calendarOrder: [String] = [],
+        usesDeviceTimeZone: Bool = true,
+        timeZoneID: String? = nil
     ) {
         self.categories = categories
         self.calendarCategory = calendarCategory
@@ -167,6 +173,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.weatherCityID = weatherCityID
         self.themeID = themeID
         self.calendarOrder = calendarOrder
+        self.usesDeviceTimeZone = usesDeviceTimeZone
+        self.timeZoneID = timeZoneID
     }
 
     // 之後版本加欄位時，舊資料少了欄位也要讀得回來，所以每個欄位都給預設值。
@@ -190,7 +198,15 @@ public struct AppSettings: Codable, Equatable, Sendable {
         weatherCityID = try c.decodeIfPresent(String.self, forKey: .weatherCityID)
         themeID = try c.decodeIfPresent(String.self, forKey: .themeID) ?? d.themeID
         calendarOrder = try c.decodeIfPresent([String].self, forKey: .calendarOrder) ?? d.calendarOrder
+        usesDeviceTimeZone = try c.decodeIfPresent(Bool.self, forKey: .usesDeviceTimeZone) ?? d.usesDeviceTimeZone
+        timeZoneID = try c.decodeIfPresent(String.self, forKey: .timeZoneID)
         if categories.isEmpty { categories = d.categories }
+    }
+
+    /// 月曆要照哪個時區排日期。跟著手機、還沒選過、或存的時區這支手機不認得，都用手機的。
+    public func effectiveTimeZone(device: TimeZone) -> TimeZone {
+        guard !usesDeviceTimeZone, let id = timeZoneID, let zone = TimeZone(identifier: id) else { return device }
+        return zone
     }
 
     public func category(id: String) -> EventCategory {

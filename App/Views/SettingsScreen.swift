@@ -12,6 +12,7 @@ struct SettingsScreen: View {
     @State private var detailCalendarID: String?
     @State private var showAddCalendar = false
     @State private var showCalendarOrder = false
+    @State private var showTimeZones = false
 
     private var settings: SettingsStore { app.settings }
 
@@ -30,6 +31,7 @@ struct SettingsScreen: View {
                     Text(message).dFont(DT.TypeScale.footnote).foregroundStyle(Theme.destructive)
                 }
                 displaySection
+                timeZoneSection
                 // 天氣還沒做完，開了也不會有東西，先不放 weatherSection。做完第 8 片再放回來。
                 calendarSection
                 categoryLink
@@ -115,6 +117,62 @@ struct SettingsScreen: View {
                     .labelsHidden()
                     .tint(Theme.accent)
             }
+        }
+    }
+
+    // MARK: 時區
+
+    private var timeZoneSection: some View {
+        let usesDevice = settings.value.usesDeviceTimeZone
+        let zone = settings.value.effectiveTimeZone(device: .current)
+        let usesDeviceBinding = Binding(
+            get: { settings.value.usesDeviceTimeZone },
+            set: { on in
+                settings.update { s in
+                    s.usesDeviceTimeZone = on
+                    // 第一次關掉時先帶入手機現在的時區，下面那一列才有東西可以顯示
+                    if !on, s.timeZoneID == nil { s.timeZoneID = TimeZone.current.identifier }
+                }
+            }
+        )
+        return SectionCard(
+            title: "時區",
+            footer: usesDevice
+                ? "月曆跟著 iPhone 的時區。出國時想照家裡的時間看行程，可以關掉自己選。"
+                : "月曆照這個時區排日期和時間。新增、修改行程的畫面是 iPhone 內建的，上面的時間還是照手機的時區。"
+        ) {
+            SettingsRow(label: "使用裝置時區") {
+                Toggle("使用裝置時區", isOn: usesDeviceBinding)
+                    .labelsHidden()
+                    .tint(Theme.accent)
+            }
+            Hairline()
+            Button {
+                showTimeZones = true
+            } label: {
+                HStack(spacing: DT.Space.s3) {
+                    Text("時區")
+                        .dFont(DT.TypeScale.body)
+                        .foregroundStyle(Theme.ink)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(TimeZoneSettingsScreen.name(of: zone))
+                        .dFont(DT.TypeScale.body)
+                        .foregroundStyle(Theme.sub)
+                        .lineLimit(1)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.sub)
+                }
+                .frame(minHeight: DT.Size.row)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PressStyle())
+            .disabled(usesDevice)
+            .opacity(usesDevice ? 0.5 : 1)
+            .accessibilityLabel("時區：\(TimeZoneSettingsScreen.name(of: zone))")
+        }
+        .sheet(isPresented: $showTimeZones) {
+            TimeZoneSettingsScreen()
         }
     }
 
@@ -892,6 +950,146 @@ struct CalendarDetailScreen: View {
             }
             .buttonStyle(PressStyle())
         }
+    }
+}
+
+/// 設定的第二頁：選時區。上面可以打字找（城市、時區名稱都找得到）。
+struct TimeZoneSettingsScreen: View {
+    @Environment(AppModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
+
+    /// 清單上的一列
+    struct Item: Identifiable {
+        let id: String
+        let city: String
+        let name: String
+        let offset: String
+        let seconds: Int
+    }
+
+    @State private var items: [Item] = []
+    @State private var keyword = ""
+
+    private static let locale = Locale(identifier: "zh_Hant_TW")
+
+    /// 「台北標準時間」這種名稱；手機給不出來就用時區代號
+    static func name(of zone: TimeZone) -> String {
+        zone.localizedName(for: .standard, locale: locale) ?? zone.identifier
+    }
+
+    /// 「GMT+8」「GMT+5:30」
+    static func offsetText(seconds: Int) -> String {
+        let sign = seconds < 0 ? "-" : "+"
+        let minutes = abs(seconds) / 60
+        let rest = minutes % 60
+        return "GMT\(sign)\(minutes / 60)" + (rest == 0 ? "" : String(format: ":%02d", rest))
+    }
+
+    private var shown: [Item] {
+        let key = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { return items }
+        return items.filter {
+            $0.city.localizedCaseInsensitiveContains(key)
+                || $0.name.localizedCaseInsensitiveContains(key)
+                || $0.id.localizedCaseInsensitiveContains(key)
+        }
+    }
+
+    var body: some View {
+        let currentID = app.settings.value.effectiveTimeZone(device: .current).identifier
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: DT.Space.s4) {
+                HStack {
+                    Spacer()
+                    PillTextButton(title: "完成") { dismiss() }
+                }
+                Text("時區")
+                    .dFont(DT.TypeScale.largeTitle)
+                    .foregroundStyle(Theme.ink)
+                    .accessibilityAddTraits(.isHeader)
+                TextField("找城市或時區，例如：東京", text: $keyword)
+                    .dFont(DT.TypeScale.body)
+                    .foregroundStyle(Theme.ink)
+                    .autocorrectionDisabled()
+                    .padding(.horizontal, DT.Space.s4)
+                    .frame(minHeight: DT.Size.field)
+                    .background(RoundedRectangle(cornerRadius: DT.Radius.lg).fill(Theme.card))
+            }
+            .padding(.horizontal, DT.Size.screenMargin)
+            .padding(.top, DT.Space.s4)
+            .padding(.bottom, DT.Space.s3)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    if shown.isEmpty, !items.isEmpty {
+                        Text("找不到「\(keyword)」。試試城市的名字。")
+                            .dFont(DT.TypeScale.subheadline)
+                            .foregroundStyle(Theme.sub)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, DT.Space.s4)
+                    }
+                    ForEach(shown) { item in
+                        Button {
+                            app.settings.update { $0.timeZoneID = item.id }
+                            dismiss()
+                        } label: {
+                            HStack(spacing: DT.Space.s3) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.city)
+                                        .dFont(DT.TypeScale.body)
+                                        .foregroundStyle(Theme.ink)
+                                    Text("\(item.name) · \(item.offset)")
+                                        .dFont(DT.TypeScale.footnote)
+                                        .foregroundStyle(Theme.sub)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundStyle(Theme.accent)
+                                    .opacity(item.id == currentID ? 1 : 0)
+                            }
+                            .padding(.vertical, DT.Space.s2)
+                            .frame(minHeight: DT.Size.row)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(PressStyle())
+                        .accessibilityLabel("\(item.city)，\(item.name)，\(item.offset)")
+                        .accessibilityAddTraits(item.id == currentID ? .isSelected : [])
+                        Hairline()
+                    }
+                }
+                .padding(.horizontal, DT.Size.screenMargin)
+                .padding(.bottom, DT.Space.s8)
+            }
+        }
+        .background(Theme.bg.ignoresSafeArea())
+        .tint(Theme.accent)
+        .onAppear { if items.isEmpty { items = Self.loadItems() } }
+    }
+
+    /// 手機認得的所有時區，照離 GMT 多遠排，同一個時差的照城市名排
+    private static func loadItems() -> [Item] {
+        // 城市的中文名要靠日期格式的「VVV」取，TimeZone 自己給不出來
+        let cityFormatter = DateFormatter()
+        cityFormatter.locale = locale
+        cityFormatter.dateFormat = "VVV"
+        let now = Date()
+        return TimeZone.knownTimeZoneIdentifiers
+            .compactMap { id -> Item? in
+                guard let zone = TimeZone(identifier: id) else { return nil }
+                cityFormatter.timeZone = zone
+                let seconds = zone.secondsFromGMT(for: now)
+                return Item(
+                    id: id,
+                    city: cityFormatter.string(from: now),
+                    name: name(of: zone),
+                    offset: offsetText(seconds: seconds),
+                    seconds: seconds
+                )
+            }
+            .sorted { a, b in
+                if a.seconds != b.seconds { return a.seconds < b.seconds }
+                return a.city.localizedStandardCompare(b.city) == .orderedAscending
+            }
     }
 }
 

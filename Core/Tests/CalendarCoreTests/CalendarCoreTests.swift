@@ -489,6 +489,49 @@ final class CalendarCoreTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(AppSettings.self, from: old).calendarOrder, [])
     }
 
+    // MARK: 時區
+
+    func testEffectiveTimeZone() {
+        let taipei = TimeZone(identifier: "Asia/Taipei")!
+        XCTAssertEqual(AppSettings().effectiveTimeZone(device: taipei), taipei)
+        // 開關還開著：就算選過別的時區也照手機的
+        XCTAssertEqual(AppSettings(usesDeviceTimeZone: true, timeZoneID: "Asia/Tokyo").effectiveTimeZone(device: taipei), taipei)
+        XCTAssertEqual(
+            AppSettings(usesDeviceTimeZone: false, timeZoneID: "Asia/Tokyo").effectiveTimeZone(device: taipei).identifier,
+            "Asia/Tokyo"
+        )
+        // 關了但還沒選、或存的值不認得：照手機的
+        XCTAssertEqual(AppSettings(usesDeviceTimeZone: false).effectiveTimeZone(device: taipei), taipei)
+        XCTAssertEqual(AppSettings(usesDeviceTimeZone: false, timeZoneID: "不存在/哪裡").effectiveTimeZone(device: taipei), taipei)
+    }
+
+    func testTimeZoneSettingRoundTripsAndOldSettingsStillLoad() throws {
+        let s = AppSettings(usesDeviceTimeZone: false, timeZoneID: "Asia/Tokyo")
+        let round = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s))
+        XCTAssertEqual(round, s)
+        let old = try JSONDecoder().decode(AppSettings.self, from: #"{"mode":"A"}"#.data(using: .utf8)!)
+        XCTAssertTrue(old.usesDeviceTimeZone)
+        XCTAssertNil(old.timeZoneID)
+    }
+
+    func testAllDayEventKeepsItsDateInAnotherTimeZone() {
+        let taipei = TimeZone(identifier: "Asia/Taipei")!
+        let tokyo = TimeZone(identifier: "Asia/Tokyo")!
+        var tokyoCal = Calendar(identifier: .gregorian)
+        tokyoCal.timeZone = tokyo
+        // 手機在台北，11/18 的全天行程：台北的 00:00 到 23:59:59
+        let start = date(2026, 11, 18)
+        let end = start.addingTimeInterval(86400 - 1)
+        let movedStart = FloatingTime.moved(start, from: taipei, to: tokyo)
+        let movedEnd = FloatingTime.moved(end, from: taipei, to: tokyo)
+        XCTAssertEqual(tokyoCal.component(.day, from: movedStart), 18)
+        XCTAssertEqual(tokyoCal.component(.hour, from: movedStart), 0)
+        XCTAssertEqual(tokyoCal.component(.day, from: movedEnd), 18)
+        XCTAssertEqual(tokyoCal.component(.hour, from: movedEnd), 23)
+        // 同一個時區：不動
+        XCTAssertEqual(FloatingTime.moved(start, from: taipei, to: taipei), start)
+    }
+
     func testWeatherCityList() {
         XCTAssertEqual(WeatherCity.all.count, 22)
         XCTAssertEqual(Set(WeatherCity.all.map(\.id)).count, 22)

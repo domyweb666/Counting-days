@@ -17,6 +17,16 @@ public enum Classifier {
     }
 }
 
+/// 全天行程沒有時區：6 月 1 日全天，在哪個時區看都是 6 月 1 日。
+/// 系統給的起訖是手機時區的午夜，換一個時區排月曆時，要把鐘面上的時間原封不動搬過去，
+/// 不然在東京看台北的全天行程，會從前一天晚上 11 點開始、跨到兩天。
+public enum FloatingTime {
+    public static func moved(_ date: Date, from: TimeZone, to: TimeZone) -> Date {
+        let shift = from.secondsFromGMT(for: date) - to.secondsFromGMT(for: date)
+        return date.addingTimeInterval(TimeInterval(shift))
+    }
+}
+
 /// 行事曆的顯示順序：使用者排過的照他排的；沒排過的（例如剛加進手機的）接在後面，彼此維持原本的先後。
 public enum CalendarOrder {
     /// 排第幾。不在使用者排的清單裡的，一律排最後。
