@@ -727,4 +727,110 @@ final class CalendarCoreTests: XCTestCase {
         let old = try JSONDecoder().decode(AppSettings.self, from: Data("{}".utf8))
         XCTAssertNil(old.lastEventCalendarID)
     }
+
+    // MARK: 每筆行程自己的類別、編輯既有的行程
+
+    func testOwnCategoryBeatsKeywordAndCalendar() {
+        var s = AppSettings(calendarCategory: ["CAL": "work"], keywordRules: [KeywordRule(keyword: "看牙", categoryID: "med")])
+        let e = CalEvent(id: "E1|0", seriesID: "E1", title: "看牙", start: date(2026, 11, 17, 9), end: date(2026, 11, 17, 10), calendarID: "CAL")
+        // 沒選過：關鍵字規則先，其次行事曆的預設
+        XCTAssertEqual(Classifier.categoryID(for: e, settings: s), "med")
+        s.eventCategory["E1"] = "errand"
+        XCTAssertEqual(Classifier.categoryID(for: e, settings: s), "errand")
+        // 同一本行事曆的另一筆不受影響
+        let other = CalEvent(id: "E2|0", seriesID: "E2", title: "週會", start: date(2026, 11, 17, 9), end: date(2026, 11, 17, 10), calendarID: "CAL")
+        XCTAssertEqual(Classifier.categoryID(for: other, settings: s), "work")
+        // 選的那個類別被刪掉了，就回到原本的規則
+        s.eventCategory["E1"] = "gone"
+        XCTAssertEqual(Classifier.categoryID(for: e, settings: s), "med")
+    }
+
+    func testEventCategoryRoundTripsAndOldSettingsStillLoad() throws {
+        var s = AppSettings()
+        s.eventCategory["E1"] = "med"
+        let round = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s))
+        XCTAssertEqual(round.eventCategory, ["E1": "med"])
+        let old = try JSONDecoder().decode(AppSettings.self, from: Data("{}".utf8))
+        XCTAssertTrue(old.eventCategory.isEmpty)
+    }
+
+    func testShownCategoryOnTheForm() {
+        let s = AppSettings(calendarCategory: ["CAL": "work"], keywordRules: [KeywordRule(keyword: "看牙", categoryID: "med")])
+        var d = NewEventDraft(title: "週會", day: date(2026, 11, 17), startMinutes: 540, calendarID: "CAL")
+        XCTAssertEqual(NewEventRules.shownCategoryID(d, settings: s), "work")
+        d.title = "看牙"
+        XCTAssertEqual(NewEventRules.shownCategoryID(d, settings: s), "med")
+        d.categoryID = "errand"
+        XCTAssertEqual(NewEventRules.shownCategoryID(d, settings: s), "errand")
+        d.categoryID = "gone"
+        XCTAssertEqual(NewEventRules.shownCategoryID(d, settings: s), "med")
+        d.calendarID = nil
+        d.title = ""
+        XCTAssertEqual(NewEventRules.shownCategoryID(d, settings: s), AppSettings.fallbackCategoryID)
+    }
+
+    func testDraftFromExistingEvent() {
+        let timed = CalEvent(id: "T", title: "打籃球", start: date(2026, 11, 17, 6), end: date(2026, 11, 17, 7, 30), calendarID: "CAL", location: "河濱")
+        let a = NewEventRules.draft(editing: timed, calendar: cal)
+        XCTAssertEqual(a.kind, .timed)
+        XCTAssertEqual(a.title, "打籃球")
+        XCTAssertEqual(a.day, date(2026, 11, 17))
+        XCTAssertEqual(a.startMinutes, 6 * 60)
+        XCTAssertEqual(a.durationMinutes, 90)
+        XCTAssertEqual(a.calendarID, "CAL")
+        XCTAssertEqual(a.location, "河濱")
+        // 轉成表單再算回起訖，要跟原本一樣
+        let back = NewEventRules.resolve(a, calendar: cal)
+        XCTAssertEqual(back?.start, timed.start)
+        XCTAssertEqual(back?.end, timed.end)
+
+        // 單日全天：結束給當天 23:59:59，或給隔天午夜，都是同一天
+        let lastSecond = date(2026, 11, 18).addingTimeInterval(-1)
+        let oneDay = CalEvent(id: "A", title: "生日", start: date(2026, 11, 17), end: lastSecond, isAllDay: true)
+        XCTAssertEqual(NewEventRules.draft(editing: oneDay, calendar: cal).kind, .allDay)
+        let oneDayMidnight = CalEvent(id: "A2", title: "生日", start: date(2026, 11, 17), end: date(2026, 11, 18), isAllDay: true)
+        XCTAssertEqual(NewEventRules.draft(editing: oneDayMidnight, calendar: cal).kind, .allDay)
+        let sameMoment = CalEvent(id: "A3", title: "生日", start: date(2026, 11, 17), end: date(2026, 11, 17), isAllDay: true)
+        XCTAssertEqual(NewEventRules.draft(editing: sameMoment, calendar: cal).kind, .allDay)
+
+        // 五天的旅遊
+        let trip = CalEvent(id: "M", title: "東京", start: date(2026, 12, 5), end: date(2026, 12, 10).addingTimeInterval(-1), isAllDay: true)
+        let m = NewEventRules.draft(editing: trip, calendar: cal)
+        XCTAssertEqual(m.kind, .multiDay)
+        XCTAssertEqual(m.rangeStart, date(2026, 12, 5))
+        XCTAssertEqual(m.rangeEnd, date(2026, 12, 9))
+        XCTAssertEqual(NewEventRules.rangeDayCount(m, calendar: cal), 5)
+    }
+
+    func testWhichEventsOurScreenCanEdit() {
+        let short = CalEvent(id: "1", title: "a", start: date(2026, 11, 17, 6), end: date(2026, 11, 17, 7))
+        let overnight = CalEvent(id: "2", title: "a", start: date(2026, 11, 17, 23), end: date(2026, 11, 18, 23))
+        let long = CalEvent(id: "3", title: "a", start: date(2026, 11, 17, 6), end: date(2026, 11, 19, 7))
+        let allDay = CalEvent(id: "4", title: "a", start: date(2026, 11, 17), end: date(2026, 11, 30), isAllDay: true)
+        XCTAssertTrue(NewEventRules.canEditHere(short))
+        XCTAssertTrue(NewEventRules.canEditHere(overnight))
+        XCTAssertFalse(NewEventRules.canEditHere(long))
+        XCTAssertTrue(NewEventRules.canEditHere(allDay))
+    }
+
+    func testSameTimeAndReminderMatching() {
+        let a = NewEventDraft(title: "a", day: date(2026, 11, 17), startMinutes: 540)
+        var b = a
+        b.title = "b"
+        b.notes = "x"
+        XCTAssertTrue(NewEventRules.hasSameTime(a, b))
+        b.durationMinutes = 30
+        XCTAssertFalse(NewEventRules.hasSameTime(a, b))
+
+        XCTAssertEqual(EventReminder.matching(offsetSeconds: -1800, isAllDay: false), .minutes30)
+        XCTAssertEqual(EventReminder.matching(offsetSeconds: 9 * 3600, isAllDay: true), .sameDayMorning)
+        // 15 分鐘前不在表單的選項裡
+        XCTAssertNil(EventReminder.matching(offsetSeconds: -900, isAllDay: false))
+        // 全天行程不會對到「準時」
+        XCTAssertNil(EventReminder.matching(offsetSeconds: 0, isAllDay: true))
+    }
+
+    func testSideMenuOrder() {
+        XCTAssertEqual(ViewKind.allCases, [.agenda, .day, .threeDay, .week, .month])
+    }
 }

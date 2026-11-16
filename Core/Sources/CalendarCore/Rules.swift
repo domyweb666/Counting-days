@@ -1,9 +1,13 @@
 import Foundation
 
-/// 事件歸哪個類別：關鍵字規則優先，其次看行事曆，都沒有就歸「行程」。
+/// 事件歸哪個類別：使用者替這一筆自己選的最優先，其次是關鍵字規則，再來看行事曆的預設類別，都沒有就歸「行程」。
+/// 一本行事曆裡會有很多種行程，所以行事曆的類別只是沒選過時的預設。
 public enum Classifier {
     public static func categoryID(for event: CalEvent, settings: AppSettings) -> String {
         let known = Set(settings.categories.map(\.id))
+        if let own = settings.eventCategory[event.seriesID], known.contains(own) {
+            return own
+        }
         for rule in settings.keywordRules {
             let key = rule.keyword.trimmingCharacters(in: .whitespaces)
             guard !key.isEmpty, known.contains(rule.categoryID) else { continue }

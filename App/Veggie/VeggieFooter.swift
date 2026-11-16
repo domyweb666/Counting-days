@@ -42,6 +42,7 @@ struct VeggieFooter: View {
                                 .frame(width: DT.Size.touch, height: DT.Size.touch)
                                 .background(Circle().fill(Theme.muted))
                         }
+                        .buttonStyle(PressStyle())
                         .accessibilityLabel(link.label)
                     }
                 }

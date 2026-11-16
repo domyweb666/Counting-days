@@ -184,6 +184,7 @@ final class SettingsStore {
             guard s.categories.count > 1 else { return }
             s.categories.removeAll { $0.id == id }
             s.calendarCategory = s.calendarCategory.filter { $0.value != id }
+            s.eventCategory = s.eventCategory.filter { $0.value != id }
             s.keywordRules.removeAll { $0.categoryID == id }
         }
     }

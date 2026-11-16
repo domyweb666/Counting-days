@@ -33,6 +33,8 @@ struct CalendarScreen: View {
     /// 刪掉行程的那一刻系統行事曆會通知有變動、畫面重畫；那時候再去找，剛刪掉的行程找不到，
     /// 編輯畫面會被換成「找不到這個行程」，系統也來不及通知我們關掉。
     @State private var editing: EKEvent?
+    /// 那個行程能用蒜日子自己的畫面改時，表單要帶入的東西；nil 就開系統的編輯畫面。一樣是打開時算一次就記住。
+    @State private var editSeed: EventStore.EditSeed?
     @State private var shortNameTarget: CalEvent?
     @State private var shortNameText = ""
     @State private var showShortName = false
@@ -45,6 +47,11 @@ struct CalendarScreen: View {
         CalendarActions(
             open: { event in
                 editing = app.store.ekEvent(for: event)
+                editSeed = app.store.editSeed(
+                    for: event,
+                    ownCategoryID: app.settings.value.eventCategory[event.seriesID],
+                    calendar: vm.calendar
+                )
                 sheet = .edit(event)
             },
             add: { sheet = .newEvent($0) },
@@ -439,7 +446,9 @@ struct CalendarScreen: View {
         case .newEvent(let date):
             NewEventScreen(day: date, calendar: vm.calendar) { sheet = nil }
         case .edit(let event):
-            if let editing {
+            if let editSeed {
+                NewEventScreen(seed: editSeed, calendar: vm.calendar) { sheet = nil }
+            } else if let editing {
                 EventEditor(store: app.store, event: editing, defaultDay: event.start, calendar: vm.calendar) { sheet = nil }
                     .ignoresSafeArea()
             } else {

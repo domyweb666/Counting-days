@@ -10,8 +10,6 @@ struct SettingsScreen: View {
     @State private var showCategories = false
     @State private var showThemes = false
     @State private var showModes = false
-    /// 正在看哪一本行事曆的詳情
-    @State private var detailCalendarID: String?
     @State private var showAddCalendar = false
     @State private var showCalendarOrder = false
     @State private var showTimeZones = false
@@ -241,16 +239,14 @@ struct SettingsScreen: View {
         let shown = app.vm.shownCalendars
         return SectionCard(
             title: "行事曆",
-            footer: "這裡只列有加入蒜日子的行事曆。點一本可以改它歸哪個類別、當成節日，或從蒜日子移除。這些都只改蒜日子的顯示方式，不會動到系統行事曆。"
+            footer: "右邊是這本行事曆的預設類別，點了可以改、當成節日，或從蒜日子移除。行程自己選過類別的，照它自己的。這些都只改蒜日子的顯示方式，不會動到系統行事曆。"
         ) {
             if shown.isEmpty {
                 SettingsRow(label: app.store.calendars.isEmpty ? "這支手機還沒有任何行事曆" : "還沒有加入任何行事曆") { EmptyView() }
                 Hairline()
             }
             ForEach(shown, id: \.calendarIdentifier) { cal in
-                CalendarRoleRow(settings: settings, calendar: cal) {
-                    detailCalendarID = cal.calendarIdentifier
-                }
+                CalendarRoleRow(settings: settings, calendar: cal)
                 Hairline()
             }
             Button {
@@ -271,14 +267,6 @@ struct SettingsScreen: View {
         }
         .sheet(isPresented: $showCalendarOrder) {
             CalendarOrderScreen()
-        }
-        .sheet(isPresented: Binding(
-            get: { detailCalendarID != nil },
-            set: { isShown in if !isShown { detailCalendarID = nil } }
-        )) {
-            if let id = detailCalendarID {
-                CalendarDetailScreen(calendarID: id)
-            }
         }
         .sheet(isPresented: $showAddCalendar) {
             AddCalendarScreen()
@@ -413,10 +401,7 @@ struct SettingsScreen: View {
     // MARK: 關於
 
     private var aboutSection: some View {
-        SectionCard(
-            title: "關於",
-            footer: "蒜日子直接讀寫 iPhone 的系統行事曆，沒有自己的帳號，也不會把行程傳到任何伺服器。新增行程時點了「分享」，那一筆的標題、時間、地點、備註會交給 iPhone 的分享面板，傳給你選的對象；沒按分享就不會送出任何東西。置頂、短名、類別這些設定只存在這支手機。購買完整版由 Apple 處理，蒜日子拿不到你的付款資料。"
-        ) {
+        SectionCard(title: "關於") {
             if !VeggieApp.others.isEmpty {
                 Button {
                     showFamily = true
@@ -880,11 +865,11 @@ struct SettingsRow<Trailing: View>: View {
     }
 }
 
-/// 設定裡一本行事曆的那一列：色點、名稱、現在歸哪一類，右邊一個 ⓘ。整列點了開那本行事曆的詳情。
+/// 設定裡一本行事曆的那一列：色點、名稱，右邊一顆膠囊寫它的預設類別，點了直接選。
+/// 選單最下面可以把這本從蒜日子移除（加得回來，所以不另外問）。
 struct CalendarRoleRow: View {
     let settings: SettingsStore
     let calendar: EKCalendar
-    let open: () -> Void
 
     static let holidayTag = "__holiday__"
 
@@ -900,153 +885,46 @@ struct CalendarRoleRow: View {
         tag == holidayTag ? "節日" : s.category(id: tag).name
     }
 
-    var body: some View {
-        let s = settings.value
-        let text = Self.text(for: Self.tag(for: calendar.calendarIdentifier, in: s), in: s)
-        Button(action: open) {
-            HStack(spacing: DT.Space.s3) {
-                Circle()
-                    .fill(Color(cgColor: calendar.cgColor))
-                    .frame(width: Theme.Grid.square, height: Theme.Grid.square)
-                Text(calendar.title)
-                    .dFont(DT.TypeScale.body)
-                    .foregroundStyle(Theme.ink)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text(text)
-                    .dFont(DT.TypeScale.callout)
-                    .foregroundStyle(Theme.sub)
-                    .lineLimit(1)
-                Image(systemName: "info.circle")
-                    .font(.system(size: 20, weight: .regular))
-                    .foregroundStyle(Theme.accent)
-            }
-            .padding(.vertical, DT.Space.s2)
-            .frame(minHeight: DT.Size.row)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressStyle())
-        .accessibilityLabel("\(calendar.title)：\(text)")
-        .accessibilityHint("改類別，或從蒜日子移除")
-    }
-}
-
-/// 設定的第二頁：一本行事曆。改它歸哪個類別、當成節日，或從蒜日子移除。
-struct CalendarDetailScreen: View {
-    @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
-    let calendarID: String
-
-    private var settings: SettingsStore { app.settings }
-
-    private var calendar: EKCalendar? {
-        app.store.calendars.first { $0.calendarIdentifier == calendarID }
-    }
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: DT.Space.s6) {
-                HStack {
-                    Spacer()
-                    PillTextButton(title: "完成") { dismiss() }
-                }
-                VStack(alignment: .leading, spacing: DT.Space.s1) {
-                    Text(calendar?.title ?? "找不到這本行事曆")
-                        .dFont(DT.TypeScale.largeTitle)
-                        .foregroundStyle(Theme.ink)
-                        .accessibilityAddTraits(.isHeader)
-                    if let account = calendar?.source?.title, !account.isEmpty {
-                        Text(account)
-                            .dFont(DT.TypeScale.subheadline)
-                            .foregroundStyle(Theme.sub)
+    private var role: Binding<String> {
+        let id = calendar.calendarIdentifier
+        return Binding(
+            get: { Self.tag(for: id, in: settings.value) },
+            set: { tag in
+                settings.update { s in
+                    s.holidayCalendarIDs.remove(id)
+                    s.calendarCategory.removeValue(forKey: id)
+                    if tag == Self.holidayTag {
+                        s.holidayCalendarIDs.insert(id)
+                    } else {
+                        s.calendarCategory[id] = tag
                     }
                 }
-                if calendar == nil {
-                    Text("它可能剛從這支手機刪掉了。")
-                        .dFont(DT.TypeScale.subheadline)
-                        .foregroundStyle(Theme.sub)
-                } else {
-                    roleSection
-                    removeSection
-                }
             }
-            .padding(.horizontal, DT.Size.screenMargin)
-            .padding(.top, DT.Space.s4)
-            .padding(.bottom, DT.Space.s8)
-        }
-        .background(Theme.bg.ignoresSafeArea())
-        .tint(Theme.accent)
+        )
     }
 
-    private var roleSection: some View {
+    var body: some View {
         let s = settings.value
-        let current = CalendarRoleRow.tag(for: calendarID, in: s)
-        return SectionCard(
-            title: "顯示成",
-            footer: "選一個類別，月曆上就用那個類別的顏色。選「節日」的話，這本行事曆的內容會變成日期下面的小字。"
-        ) {
-            ForEach(s.categories) { cat in
-                choiceRow(cat.name, dot: Theme.category(hex: cat.colorHex).fill, isCurrent: current == cat.id) {
-                    setRole(cat.id)
+        let id = calendar.calendarIdentifier
+        let text = Self.text(for: Self.tag(for: id, in: s), in: s)
+        SettingsRow(label: calendar.title, dotColor: Color(cgColor: calendar.cgColor)) {
+            Menu {
+                Picker(calendar.title, selection: role) {
+                    ForEach(s.categories) { cat in
+                        Text(cat.name).tag(cat.id)
+                    }
+                    Text("節日（日期下的小字）").tag(Self.holidayTag)
                 }
-                Hairline()
-            }
-            choiceRow("節日（日期下的小字）", dot: nil, isCurrent: current == CalendarRoleRow.holidayTag) {
-                setRole(CalendarRoleRow.holidayTag)
-            }
-        }
-    }
-
-    private func choiceRow(_ title: String, dot: Color?, isCurrent: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: DT.Space.s3) {
-                if let dot {
-                    Circle().fill(dot).frame(width: Theme.Grid.square, height: Theme.Grid.square)
+                Divider()
+                Button("從蒜日子移除", role: .destructive) {
+                    settings.update { $0.hiddenCalendarIDs.insert(id) }
                 }
-                Text(title)
-                    .dFont(DT.TypeScale.body)
-                    .foregroundStyle(Theme.ink)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "checkmark")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(Theme.accent)
-                    .opacity(isCurrent ? 1 : 0)
-            }
-            .frame(minHeight: DT.Size.row)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressStyle())
-        .accessibilityLabel(title)
-        .accessibilityAddTraits(isCurrent ? .isSelected : [])
-    }
-
-    private func setRole(_ tag: String) {
-        settings.update { s in
-            s.holidayCalendarIDs.remove(calendarID)
-            s.calendarCategory.removeValue(forKey: calendarID)
-            if tag == CalendarRoleRow.holidayTag {
-                s.holidayCalendarIDs.insert(calendarID)
-            } else {
-                s.calendarCategory[calendarID] = tag
-            }
-        }
-    }
-
-    private var removeSection: some View {
-        SectionCard(
-            footer: "移除之後，這本行事曆的行程不會出現在蒜日子的月曆、搜尋和倒數日。iPhone 的行事曆 app 和 Google、iCloud 上的資料都不會動，之後可以從「加入行事曆」加回來。"
-        ) {
-            Button {
-                settings.update { $0.hiddenCalendarIDs.insert(calendarID) }
-                dismiss()
             } label: {
-                Text("從蒜日子移除")
-                    .dFont(DT.TypeScale.body)
-                    .foregroundStyle(Theme.destructive)
-                    .frame(maxWidth: .infinity, minHeight: DT.Size.row, alignment: .leading)
-                    .contentShape(Rectangle())
+                PickerCapsule(text: text)
             }
-            .buttonStyle(PressStyle())
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(calendar.title)：\(text)")
+            .accessibilityHint("改預設類別，或從蒜日子移除")
         }
     }
 }

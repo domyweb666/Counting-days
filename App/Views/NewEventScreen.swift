@@ -3,15 +3,21 @@ import UIKit
 import EventKit
 import CalendarCore
 
-/// 蒜日子自己的新增行程畫面（規格第 20 節）。
+/// 蒜日子自己的新增與編輯行程畫面（規格第 20 節）。
 /// 帶入什麼、起訖怎麼推、月曆點兩下、畫面上的日期文字都問 Core 的 `NewEventRules`、`EventText`；
-/// 寫進系統行事曆交給 `EventStore.addEvent`。修改既有的行程照舊開系統的編輯畫面（`EventEditor`）。
+/// 寫進系統行事曆交給 `EventStore` 的 `addEvent`、`updateEvent`、`deleteEvent`。
+/// 表單改不了的行程（唯讀、超過 24 小時的有時間行程）由月曆那邊改開系統的編輯畫面（`EventEditor`）。
 struct NewEventScreen: View {
     @Environment(AppModel.self) private var app
 
     /// 月曆照哪個時區、一週從哪天開始，這裡就照一樣的
     let calendar: Calendar
     let close: () -> Void
+    /// 正在改的那一筆；nil 是新增
+    private let editing: EKEvent?
+    /// 原本的提醒、重複規則表單表示不了，沒去動就照原本的留著
+    private let keepsOtherReminder: Bool
+    private let keepsOtherRepeat: Bool
 
     @State private var draft: NewEventDraft
     /// 打開時的樣子。跟它不一樣就是使用者動過了，取消前要先問。
@@ -28,6 +34,10 @@ struct NewEventScreen: View {
     @State private var confirmDiscard = false
     /// 存好、而且要分享時，換成「已加進行事曆」那一頁
     @State private var saved: SavedEvent?
+    /// 重複的行程：存檔前問只改這一次還是連之後的；刪除前問要不要刪
+    @State private var askSaveSpan = false
+    @State private var askDelete = false
+    @State private var showSystemEditor = false
     @FocusState private var focus: Field?
 
     enum TimeField { case start, end }
@@ -44,6 +54,21 @@ struct NewEventScreen: View {
         _shownMonth = State(initialValue: first.day)
         self.calendar = calendar
         self.close = close
+        self.editing = nil
+        self.keepsOtherReminder = false
+        self.keepsOtherRepeat = false
+    }
+
+    /// 編輯既有的行程
+    init(seed: EventStore.EditSeed, calendar: Calendar, close: @escaping () -> Void) {
+        _draft = State(initialValue: seed.draft)
+        _pristine = State(initialValue: seed.draft)
+        _shownMonth = State(initialValue: seed.draft.rangeStart ?? seed.draft.day)
+        self.calendar = calendar
+        self.close = close
+        self.editing = seed.event
+        self.keepsOtherReminder = seed.keepsOtherReminder
+        self.keepsOtherRepeat = seed.keepsOtherRepeat
     }
 
     var body: some View {
@@ -71,12 +96,18 @@ struct NewEventScreen: View {
             && NewEventRules.resolve(draft, calendar: calendar) != nil
     }
 
-    /// 有加入蒜日子、寫得進去、不是節日的行事曆，照顯示順序
+    /// 有加入蒜日子、寫得進去、不是節日的行事曆，照顯示順序。
+    /// 編輯時那一筆原本在的那一本一定要在裡面，不然會顯示成沒有行事曆可以存。
     private var writableCalendars: [EKCalendar] {
         let holidays = app.settings.value.holidayCalendarIDs
-        return app.vm.shownCalendars.filter {
+        var list = app.vm.shownCalendars.filter {
             $0.allowsContentModifications && !holidays.contains($0.calendarIdentifier)
         }
+        if let home = editing?.calendar, home.allowsContentModifications,
+           !list.contains(where: { $0.calendarIdentifier == home.calendarIdentifier }) {
+            list.append(home)
+        }
+        return list
     }
 
     private var selectedCalendar: EKCalendar? {
@@ -84,7 +115,7 @@ struct NewEventScreen: View {
     }
 
     private func setUp() {
-        guard draft.calendarID == nil else { return }
+        guard editing == nil, draft.calendarID == nil else { return }
         let picked = NewEventRules.pickCalendar(
             lastUsed: app.settings.value.lastEventCalendarID,
             systemDefault: app.store.defaultCalendarID,
@@ -108,13 +139,42 @@ struct NewEventScreen: View {
             problem = "先在月曆上點開始的那一天。"
             return
         }
+        if let editing {
+            guard isDirty else {
+                close()
+                return
+            }
+            // 重複的行程先問範圍。動了重複規則的話只能連之後的一起改，就不問了。
+            if editing.hasRecurrenceRules, draft.repeats == pristine.repeats {
+                askSaveSpan = true
+            } else {
+                saveEdit(editing, time: time, allFuture: editing.hasRecurrenceRules)
+            }
+            return
+        }
         let result = app.store.addEvent(draft, time: time)
         guard let event = result.event else {
             problem = result.problem ?? "沒有存成功，請再試一次。"
             return
         }
-        problem = nil
         app.settings.update { $0.lastEventCalendarID = draft.calendarID }
+        finish(event, time: time, headline: "已加進行事曆")
+    }
+
+    private func saveEdit(_ event: EKEvent, time: ResolvedEventTime, allFuture: Bool) {
+        if let failure = app.store.updateEvent(event, from: pristine, to: draft, time: time, allFuture: allFuture) {
+            problem = failure
+            return
+        }
+        finish(event, time: time, headline: "已儲存")
+    }
+
+    /// 存好之後：記下使用者替這一筆選的類別，然後關掉，或換成分享那一頁
+    private func finish(_ event: EKEvent, time: ResolvedEventTime, headline: String) {
+        problem = nil
+        if let chosen = draft.categoryID, chosen != pristine.categoryID, let id = event.eventIdentifier {
+            app.settings.update { $0.eventCategory[id] = chosen }
+        }
         guard draft.wantsShare else {
             close()
             return
@@ -124,9 +184,18 @@ struct NewEventScreen: View {
             draft: draft,
             time: time,
             event: event,
+            headline: headline,
             calendarLine: selectedCalendar.map(calendarLine) ?? "",
-            dotColor: selectedCalendar.map { app.vm.color(categoryID(of: $0)) } ?? Theme.accent
+            dotColor: app.vm.color(NewEventRules.shownCategoryID(draft, settings: app.settings.value))
         )
+    }
+
+    private func delete(_ event: EKEvent, allFuture: Bool) {
+        if let failure = app.store.deleteEvent(event, allFuture: allFuture) {
+            problem = failure
+            return
+        }
+        close()
     }
 
     // MARK: 表單
@@ -143,7 +212,9 @@ struct NewEventScreen: View {
                     timeCard
                 }
                 calendarSection
+                categorySection
                 optionsSection
+                if let editing { editFooter(editing) }
             }
             .padding(.horizontal, DT.Size.screenMargin)
             .padding(.top, DT.Space.s2)
@@ -151,7 +222,6 @@ struct NewEventScreen: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .top, spacing: 0) { topBar }
-        .safeAreaInset(edge: .bottom, spacing: 0) { saveBar }
         .onAppear { setUp() }
         .confirmationDialog("放棄這筆行程？", isPresented: $confirmDiscard, titleVisibility: .visible) {
             Button("放棄", role: .destructive) { close() }
@@ -159,22 +229,31 @@ struct NewEventScreen: View {
         }
     }
 
+    /// 上面那一列：左邊取消、中間標題、右邊打勾就是儲存。儲存放上面，鍵盤開著也按得到，下面也不用再佔一條。
     private var topBar: some View {
-        ZStack {
-            Text("新增行程")
-                .dFont(DT.TypeScale.headline)
-                .foregroundStyle(Theme.ink)
-                .accessibilityAddTraits(.isHeader)
-            HStack {
-                Button(action: cancel) {
-                    Text("取消")
-                        .dFont(DT.TypeScale.body)
-                        .foregroundStyle(Theme.sub)
-                        .frame(minWidth: DT.Size.touch, minHeight: DT.Size.touch)
-                        .contentShape(Rectangle())
+        VStack(alignment: .leading, spacing: DT.Space.s1) {
+            ZStack {
+                Text(editing == nil ? "新增行程" : "編輯行程")
+                    .dFont(DT.TypeScale.headline)
+                    .foregroundStyle(Theme.ink)
+                    .accessibilityAddTraits(.isHeader)
+                HStack {
+                    Button(action: cancel) {
+                        Text("取消")
+                            .dFont(DT.TypeScale.body)
+                            .foregroundStyle(Theme.sub)
+                            .frame(minWidth: DT.Size.touch, minHeight: DT.Size.touch)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PressStyle())
+                    Spacer()
+                    saveButton
                 }
-                .buttonStyle(PressStyle())
-                Spacer()
+            }
+            if let problem {
+                Text(problem)
+                    .dFont(DT.TypeScale.footnote)
+                    .foregroundStyle(Theme.destructive)
             }
         }
         .padding(.horizontal, DT.Size.screenMargin)
@@ -183,20 +262,124 @@ struct NewEventScreen: View {
         .background(Theme.bg)
     }
 
-    private var saveBar: some View {
-        VStack(alignment: .leading, spacing: DT.Space.s2) {
-            if let problem {
-                Text(problem)
-                    .dFont(DT.TypeScale.footnote)
-                    .foregroundStyle(Theme.destructive)
-            }
-            WideButton(title: draft.wantsShare ? "儲存並分享" : "儲存", action: save)
-                .disabled(!canSave)
-                .opacity(canSave ? 1 : 0.5)
+    private var saveButton: some View {
+        Button(action: save) {
+            Image(systemName: "checkmark")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(Theme.onAccent)
+                .frame(width: DT.Size.touch, height: DT.Size.touch)
+                .background(Circle().fill(Theme.accent))
+                .contentShape(Circle())
         }
-        .padding(.horizontal, DT.Size.screenMargin)
-        .padding(.vertical, DT.Space.s3)
-        .background(Theme.bg)
+        .buttonStyle(PressStyle())
+        .disabled(!canSave)
+        .opacity(canSave ? 1 : 0.4)
+        .accessibilityLabel(draft.wantsShare ? "儲存並分享" : "儲存")
+        .confirmationDialog("這是重複的行程", isPresented: $askSaveSpan, titleVisibility: .visible) {
+            Button("只改這一次") { commitEdit(allFuture: false) }
+            Button("這次和之後的都改") { commitEdit(allFuture: true) }
+            Button("繼續編輯", role: .cancel) {}
+        }
+    }
+
+    private func commitEdit(allFuture: Bool) {
+        guard let editing, let time = NewEventRules.resolve(draft, calendar: calendar) else { return }
+        saveEdit(editing, time: time, allFuture: allFuture)
+    }
+
+    // MARK: 編輯時最下面：刪除、改開系統的畫面
+
+    private func editFooter(_ event: EKEvent) -> some View {
+        VStack(alignment: .leading, spacing: DT.Space.s2) {
+            Button {
+                askDelete = true
+            } label: {
+                Text("刪除行程")
+                    .dFont(DT.TypeScale.body)
+                    .foregroundStyle(Theme.destructive)
+                    .frame(maxWidth: .infinity, minHeight: DT.Size.row)
+                    .background(RoundedRectangle(cornerRadius: DT.Radius.lg).fill(Theme.card))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PressStyle())
+            .confirmationDialog(
+                event.hasRecurrenceRules ? "這是重複的行程" : "刪除這筆行程？",
+                isPresented: $askDelete,
+                titleVisibility: .visible
+            ) {
+                if event.hasRecurrenceRules {
+                    Button("只刪這一次", role: .destructive) { delete(event, allFuture: false) }
+                    Button("這次和之後的都刪", role: .destructive) { delete(event, allFuture: true) }
+                } else {
+                    Button("刪除", role: .destructive) { delete(event, allFuture: false) }
+                }
+                Button("不刪", role: .cancel) {}
+            }
+            Button {
+                showSystemEditor = true
+            } label: {
+                Text("邀請對象、網址這些欄位，改用 iPhone 內建的畫面編輯")
+                    .dFont(DT.TypeScale.footnote)
+                    .foregroundStyle(Theme.sub)
+                    .underline()
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, minHeight: DT.Size.touch, alignment: .leading)
+                    .padding(.horizontal, DT.Space.s1)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PressStyle())
+            .sheet(isPresented: $showSystemEditor) {
+                // 內建畫面存完，這張表單上的內容就是舊的了，所以一起關掉
+                EventEditor(store: app.store, event: event, defaultDay: draft.day, calendar: calendar) {
+                    showSystemEditor = false
+                    close()
+                }
+                .ignoresSafeArea()
+            }
+        }
+        .padding(.top, DT.Space.s2)
+    }
+
+    // MARK: 類別
+
+    /// 每一筆行程自己選類別。沒選的時候標的是存下去會歸到的那一類（行事曆的預設，或標題對到的關鍵字規則）。
+    private var categorySection: some View {
+        let settings = app.settings.value
+        let shown = NewEventRules.shownCategoryID(draft, settings: settings)
+        return VStack(alignment: .leading, spacing: DT.Space.s2) {
+            sectionLabel("類別")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: DT.Space.s2) {
+                    ForEach(settings.categories) { category in
+                        categoryChip(category, isOn: category.id == shown)
+                    }
+                }
+            }
+        }
+    }
+
+    private func categoryChip(_ category: EventCategory, isOn: Bool) -> some View {
+        Button {
+            draft.categoryID = category.id
+        } label: {
+            HStack(spacing: DT.Space.s2) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(app.vm.color(category.id))
+                    .frame(width: Theme.Grid.square, height: Theme.Grid.square)
+                Text(category.name)
+                    .dFont(DT.TypeScale.callout)
+                    .lineLimit(1)
+            }
+            .foregroundStyle(isOn ? Theme.strong : Theme.ink)
+            .padding(.horizontal, DT.Space.s4)
+            .frame(minHeight: DT.Size.touch)
+            .background(Capsule().fill(isOn ? Theme.soft : Theme.card))
+            .overlay(Capsule().strokeBorder(Theme.accent, lineWidth: isOn ? 1.5 : 0))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(PressStyle())
+        .accessibilityLabel(category.name)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
     private var titleField: some View {
@@ -781,6 +964,8 @@ struct NewEventScreen: View {
                 } label: {
                     optionLabel("提醒", systemImage: "bell", isSet: draft.reminder != nil)
                 }
+                // 選單不指定樣式的話，系統會自己套一層灰底，把裡面的字擠成刪節號
+                .buttonStyle(.plain)
                 .accessibilityLabel("提醒")
                 .accessibilityValue(draft.reminder?.label ?? "不提醒")
                 Menu {
@@ -791,6 +976,7 @@ struct NewEventScreen: View {
                 } label: {
                     optionLabel("重複", systemImage: "repeat", isSet: draft.repeats != nil)
                 }
+                .buttonStyle(.plain)
                 .accessibilityLabel("重複")
                 .accessibilityValue(draft.repeats?.label ?? "不重複")
                 Button {
@@ -814,7 +1000,8 @@ struct NewEventScreen: View {
                 .accessibilityLabel("存好之後分享給別人")
                 .accessibilityAddTraits(draft.wantsShare ? .isSelected : [])
             }
-            if draft.reminder != nil || draft.repeats != nil || hasLocation || hasNotes {
+            if draft.reminder != nil || draft.repeats != nil || hasLocation || hasNotes
+                || keptReminderNote != nil || keptRepeatNote != nil {
                 optionDetails(hasLocation: hasLocation, hasNotes: hasNotes)
             }
         }
@@ -841,6 +1028,15 @@ struct NewEventScreen: View {
         focus = field
     }
 
+    /// 原本的提醒、重複規則表單上沒有對應的選項時，寫一行讓人知道它還在。在選單選了別的就會換掉。
+    private var keptReminderNote: String? {
+        keepsOtherReminder && draft.reminder == nil ? "原本的提醒照舊" : nil
+    }
+
+    private var keptRepeatNote: String? {
+        keepsOtherRepeat && draft.repeats == nil ? "原本的重複規則照舊" : nil
+    }
+
     private func detailRow(_ systemImage: String, _ text: String) -> some View {
         HStack(spacing: DT.Space.s3) {
             Image(systemName: systemImage)
@@ -860,9 +1056,13 @@ struct NewEventScreen: View {
         VStack(alignment: .leading, spacing: 0) {
             if let reminder = draft.reminder {
                 detailRow("bell", reminder.summary)
+            } else if let keptReminderNote {
+                detailRow("bell", keptReminderNote)
             }
             if let repeats = draft.repeats {
                 detailRow("repeat", repeats.summary(from: draft.kind == .multiDay ? (draft.rangeStart ?? draft.day) : draft.day, calendar: calendar) + "重複")
+            } else if let keptRepeatNote {
+                detailRow("repeat", keptRepeatNote)
             }
             if hasLocation {
                 HStack(spacing: DT.Space.s3) {
@@ -910,6 +1110,8 @@ struct SavedEvent {
     let draft: NewEventDraft
     let time: ResolvedEventTime
     let event: EKEvent
+    /// 最上面那一句：「已加進行事曆」或「已儲存」
+    let headline: String
     /// 存進哪一本，例：「行事曆（iCloud）」
     let calendarLine: String
     let dotColor: Color
@@ -949,7 +1151,7 @@ struct NewEventSavedView: View {
                         .frame(width: checkSize, height: checkSize)
                         .background(Circle().fill(Theme.soft))
                         .accessibilityHidden(true)
-                    Text("已加進行事曆")
+                    Text(saved.headline)
                         .dFont(DT.TypeScale.title2)
                         .foregroundStyle(Theme.ink)
                         .accessibilityAddTraits(.isHeader)

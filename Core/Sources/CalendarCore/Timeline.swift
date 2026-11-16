@@ -1,12 +1,13 @@
 import Foundation
 
 /// 最上層的檢視。月曆的四種畫法是 DisplayMode，只在 month 底下有用。
+/// 這裡的先後就是側邊欄由上到下的順序：時間表、天、3 天、週、月。
 public enum ViewKind: String, Codable, CaseIterable, Sendable {
-    case month
     case agenda
-    case week
-    case threeDay
     case day
+    case threeDay
+    case week
+    case month
 
     public var label: String {
         switch self {

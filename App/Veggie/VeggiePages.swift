@@ -43,6 +43,7 @@ struct VeggieFamilyView: View {
                                 .frame(minHeight: DT.Size.row)
                                 .contentShape(Rectangle())
                             }
+                            .buttonStyle(PressStyle())
                             .accessibilityLabel("\(item.name)，\(item.tagline)，到 App Store 取得")
                         }
                     }
