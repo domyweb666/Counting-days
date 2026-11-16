@@ -451,7 +451,7 @@ struct CalendarScreen: View {
         case .search:
             SearchScreen()
         case .monthPicker:
-            MonthPickerSheet(initial: vm.titleDate) { date in
+            MonthPickerSheet(initial: vm.titleDate, timeZone: vm.calendar.timeZone) { date in
                 vm.jump(to: date, select: false)
             }
         case .fullVersion(let reason):
@@ -505,10 +505,13 @@ struct MissingEventView: View {
 struct MonthPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var date: Date
+    /// 月曆照哪個時區排，滾輪就照哪個時區，選到的才是同一天
+    let timeZone: TimeZone
     let onPick: (Date) -> Void
 
-    init(initial: Date, onPick: @escaping (Date) -> Void) {
+    init(initial: Date, timeZone: TimeZone, onPick: @escaping (Date) -> Void) {
         _date = State(initialValue: initial)
+        self.timeZone = timeZone
         self.onPick = onPick
     }
 
@@ -519,6 +522,7 @@ struct MonthPickerSheet: View {
                 .labelsHidden()
                 .environment(\.locale, Locale(identifier: "zh_Hant_TW"))
                 .environment(\.calendar, Calendar(identifier: .gregorian))
+                .environment(\.timeZone, timeZone)
                 .navigationTitle("跳到指定日期")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

@@ -71,6 +71,7 @@ final class CalendarViewModel {
         self.store = store
         self.settings = settings
         let cal = Self.makeCalendar(settings.value)
+        store.displayTimeZone = cal.timeZone
         let b = LayoutBuilder(calendar: cal, today: Date(), settings: settings.value)
         builder = b
         let month = Self.monthStart(b.today, cal)
@@ -85,7 +86,7 @@ final class CalendarViewModel {
 
     static func makeCalendar(_ s: AppSettings) -> Calendar {
         var c = Calendar(identifier: .gregorian)
-        c.timeZone = .current
+        c.timeZone = s.effectiveTimeZone(device: .current)
         c.locale = Locale(identifier: "zh_Hant_TW")
         c.firstWeekday = s.weekStartsOnMonday ? 2 : 1
         return c
@@ -171,6 +172,11 @@ final class CalendarViewModel {
 
     func rebuild() {
         let cal = Self.makeCalendar(settings.value)
+        // 換了時區：查詢前先告訴 store，快取裡照舊時區算的也要清掉
+        if store.displayTimeZone.identifier != cal.timeZone.identifier {
+            store.displayTimeZone = cal.timeZone
+            ensureWindowAfterTimeZoneChange(cal)
+        }
         let previousToday = builder.today
         builder = LayoutBuilder(calendar: cal, today: Date(), settings: settings.value)
         lunarCache.removeAll()
@@ -191,6 +197,19 @@ final class CalendarViewModel {
         if let top = topWeekID, !weeks.contains(where: { $0.id == top }) {
             topWeekID = builder.startOfWeek(top)
         }
+    }
+
+    /// 換時區之後，原本記的「今天」「被選的那天」「畫面最上面那一週」都是舊時區的午夜，對不上新的格子，全部回到今天重來。
+    private func ensureWindowAfterTimeZoneChange(_ cal: Calendar) {
+        let today = cal.startOfDay(for: Date())
+        let month = Self.monthStart(today, cal)
+        windowStart = Self.shift(month, months: -3, cal)
+        windowEnd = Self.shift(month, months: 13, cal)
+        listMonth = month
+        timelineAnchor = today
+        selected = nil
+        let fresh = LayoutBuilder(calendar: cal, today: Date(), settings: settings.value)
+        topWeekID = fresh.startOfWeek(today)
     }
 
     /// 主題頁的預覽：今天起七天、套上範例行程的一週。
