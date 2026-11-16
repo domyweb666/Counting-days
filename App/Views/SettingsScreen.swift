@@ -5,6 +5,8 @@ import CalendarCore
 struct SettingsScreen: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    @AppStorage(Appearance.storageKey) private var appearance = Appearance.system
     @State private var showCategories = false
     @State private var showThemes = false
     @State private var showModes = false
@@ -13,8 +15,16 @@ struct SettingsScreen: View {
     @State private var showAddCalendar = false
     @State private var showCalendarOrder = false
     @State private var showTimeZones = false
+    @State private var showFullVersion = false
+    @State private var showFamily = false
+    @State private var showMail = false
+    /// 上方跳一下的提示（例：已複製版本資訊）
+    @State private var toast: String?
 
     private var settings: SettingsStore { app.settings }
+    private let config = VeggieConfig.current
+    /// 提示停多久
+    private let toastSeconds: Double = 2
 
     var body: some View {
         ScrollView {
@@ -30,13 +40,17 @@ struct SettingsScreen: View {
                 if let message = settings.errorMessage {
                     Text(message).dFont(DT.TypeScale.footnote).foregroundStyle(Theme.destructive)
                 }
+                // 順序照《蔬菜家族 App 共用基本元素規格》：蒜日子自己的 → 一般 → 購買 → 支援 → 關於 → 頁尾
                 displaySection
-                timeZoneSection
                 // 天氣還沒做完，開了也不會有東西，先不放 weatherSection。做完第 8 片再放回來。
                 calendarSection
                 categoryLink
                 countdownSection
+                generalSection
+                purchaseSection
+                supportSection
                 aboutSection
+                VeggieFooter(show: show)
             }
             .padding(.horizontal, DT.Size.screenMargin)
             .padding(.top, DT.Space.s4)
@@ -47,6 +61,35 @@ struct SettingsScreen: View {
         .sheet(isPresented: $showCategories) {
             CategorySettingsScreen()
         }
+        .overlay(alignment: .top) {
+            if let toast {
+                Text(toast)
+                    .dFont(DT.TypeScale.callout)
+                    .foregroundStyle(Theme.ink)
+                    .padding(.horizontal, DT.Space.s4)
+                    .padding(.vertical, DT.Space.s2)
+                    .background(Capsule().fill(Theme.card))
+                    .domyShadow(DT.Elevation.level1)
+                    .padding(.top, DT.Space.s2)
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    /// 上方跳一下提示，過一會兒自己收起來
+    private func show(_ text: String) {
+        withAnimation { toast = text }
+        Task {
+            do {
+                try await Task.sleep(for: .seconds(toastSeconds))
+            } catch {
+                // 只有畫面離開、工作被取消才會到這裡，提示跟著畫面一起消失
+                return
+            }
+            withAnimation {
+                if toast == text { toast = nil }
+            }
+        }
     }
 
     // MARK: 顯示
@@ -56,20 +99,7 @@ struct SettingsScreen: View {
             Button {
                 showThemes = true
             } label: {
-                HStack(spacing: DT.Space.s3) {
-                    Text("主題")
-                        .dFont(DT.TypeScale.body)
-                        .foregroundStyle(Theme.ink)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(Theme.current.name)
-                        .dFont(DT.TypeScale.body)
-                        .foregroundStyle(Theme.sub)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.sub)
-                }
-                .frame(minHeight: DT.Size.row)
-                .contentShape(Rectangle())
+                VeggieRow(icon: "paintpalette", title: "主題", value: Theme.current.name, accessory: .push)
             }
             .buttonStyle(PressStyle())
             .sheet(isPresented: $showThemes) {
@@ -80,27 +110,14 @@ struct SettingsScreen: View {
             Button {
                 showModes = true
             } label: {
-                HStack(spacing: DT.Space.s3) {
-                    Text("月曆樣式")
-                        .dFont(DT.TypeScale.body)
-                        .foregroundStyle(Theme.ink)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(settings.effectiveMode.label)
-                        .dFont(DT.TypeScale.body)
-                        .foregroundStyle(Theme.sub)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.sub)
-                }
-                .frame(minHeight: DT.Size.row)
-                .contentShape(Rectangle())
+                VeggieRow(icon: "calendar", title: "月曆樣式", value: settings.effectiveMode.label, accessory: .push)
             }
             .buttonStyle(PressStyle())
             .sheet(isPresented: $showModes) {
                 DisplayModeSettingsScreen()
             }
             Hairline()
-            SettingsRow(label: "一週從哪天開始") {
+            SettingsRow(label: "一週從哪天開始", icon: "arrow.left.arrow.right") {
                 Menu {
                     Picker("一週從哪天開始", selection: settings.binding(\.weekStartsOnMonday)) {
                         Text("週日").tag(false)
@@ -112,7 +129,7 @@ struct SettingsScreen: View {
                 .buttonStyle(.plain)
             }
             Hairline()
-            SettingsRow(label: "顯示農曆與節氣") {
+            SettingsRow(label: "顯示農曆與節氣", icon: "moon") {
                 Toggle("顯示農曆與節氣", isOn: settings.binding(\.showLunar))
                     .labelsHidden()
                     .tint(Theme.accent)
@@ -120,11 +137,11 @@ struct SettingsScreen: View {
         }
     }
 
-    // MARK: 時區
+    // MARK: 一般
 
-    private var timeZoneSection: some View {
+    private var generalSection: some View {
         let usesDevice = settings.value.usesDeviceTimeZone
-        let zone = settings.value.effectiveTimeZone(device: .current)
+        let zoneName = TimeZoneSettingsScreen.name(of: settings.value.effectiveTimeZone(device: .current))
         let usesDeviceBinding = Binding(
             get: { settings.value.usesDeviceTimeZone },
             set: { on in
@@ -136,12 +153,24 @@ struct SettingsScreen: View {
             }
         )
         return SectionCard(
-            title: "時區",
+            title: "一般",
             footer: usesDevice
                 ? "月曆跟著 iPhone 的時區。出國時想照家裡的時間看行程，可以關掉自己選。"
-                : "月曆照這個時區排日期和時間。新增、修改行程的畫面是 iPhone 內建的，上面的時間還是照手機的時區。"
+                : "月曆照選的時區排日期和時間。新增、修改行程的畫面是 iPhone 內建的，上面的時間還是照手機的時區。"
         ) {
-            SettingsRow(label: "使用裝置時區") {
+            Menu {
+                Picker(VeggieText.appearance, selection: $appearance) {
+                    ForEach(Appearance.allCases) { option in
+                        Text(option.title).tag(option)
+                    }
+                }
+            } label: {
+                VeggieRow(icon: "circle.lefthalf.filled", title: VeggieText.appearance, value: appearance.title, accessory: .push)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(VeggieText.appearance)：\(appearance.title)")
+            Hairline()
+            SettingsRow(label: "使用裝置時區", icon: "clock") {
                 Toggle("使用裝置時區", isOn: usesDeviceBinding)
                     .labelsHidden()
                     .tint(Theme.accent)
@@ -150,29 +179,18 @@ struct SettingsScreen: View {
             Button {
                 showTimeZones = true
             } label: {
-                HStack(spacing: DT.Space.s3) {
-                    Text("時區")
-                        .dFont(DT.TypeScale.body)
-                        .foregroundStyle(Theme.ink)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(TimeZoneSettingsScreen.name(of: zone))
-                        .dFont(DT.TypeScale.body)
-                        .foregroundStyle(Theme.sub)
-                        .lineLimit(1)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.sub)
-                }
-                .frame(minHeight: DT.Size.row)
-                .contentShape(Rectangle())
+                VeggieRow(icon: "globe", title: "時區", value: zoneName, accessory: .push)
             }
             .buttonStyle(PressStyle())
             .disabled(usesDevice)
             .opacity(usesDevice ? 0.5 : 1)
-            .accessibilityLabel("時區：\(TimeZoneSettingsScreen.name(of: zone))")
+            .accessibilityLabel("時區：\(zoneName)")
         }
         .sheet(isPresented: $showTimeZones) {
             TimeZoneSettingsScreen()
+        }
+        .onChange(of: appearance) { _, chosen in
+            chosen.apply()
         }
     }
 
@@ -235,10 +253,20 @@ struct SettingsScreen: View {
                 }
                 Hairline()
             }
-            pushRow("加入行事曆") { showAddCalendar = true }
+            Button {
+                showAddCalendar = true
+            } label: {
+                VeggieRow(icon: "plus.circle", title: "加入行事曆", accessory: .push)
+            }
+            .buttonStyle(PressStyle())
             if shown.count > 1 {
                 Hairline()
-                pushRow("行事曆顯示順序") { showCalendarOrder = true }
+                Button {
+                    showCalendarOrder = true
+                } label: {
+                    VeggieRow(icon: "arrow.up.arrow.down", title: "行事曆顯示順序", accessory: .push)
+                }
+                .buttonStyle(PressStyle())
             }
         }
         .sheet(isPresented: $showCalendarOrder) {
@@ -257,24 +285,6 @@ struct SettingsScreen: View {
         }
     }
 
-    /// 開下一頁的一列：左邊名稱，右邊一個箭頭
-    private func pushRow(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: DT.Space.s3) {
-                Text(title)
-                    .dFont(DT.TypeScale.body)
-                    .foregroundStyle(Theme.ink)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.sub)
-            }
-            .frame(minHeight: DT.Size.row)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressStyle())
-    }
-
     // MARK: 類別（收在第二頁）
 
     private var categoryLink: some View {
@@ -282,17 +292,7 @@ struct SettingsScreen: View {
             Button {
                 showCategories = true
             } label: {
-                HStack(spacing: DT.Space.s3) {
-                    Text("類別與顏色")
-                        .dFont(DT.TypeScale.body)
-                        .foregroundStyle(Theme.ink)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.sub)
-                }
-                .frame(minHeight: DT.Size.row)
-                .contentShape(Rectangle())
+                VeggieRow(icon: "tag", title: "類別與顏色", accessory: .push)
             }
             .buttonStyle(PressStyle())
         }
@@ -332,15 +332,108 @@ struct SettingsScreen: View {
         return base + "免費版在月曆上只顯示最上面 \(FullVersionAccess.freeCountdownLimit) 個，其餘留在這裡，解鎖完整版後會回來。"
     }
 
+    // MARK: 購買
+
+    private var purchaseSection: some View {
+        let purchase = app.purchase
+        return VStack(alignment: .leading, spacing: DT.Space.s2) {
+            SectionCard(title: "購買") {
+                Button {
+                    showFullVersion = true
+                } label: {
+                    VeggieRow(
+                        icon: "sparkles",
+                        title: "蒜日子完整版",
+                        value: purchase.isUnlocked ? "已解鎖" : nil,
+                        accessory: .push
+                    )
+                }
+                .buttonStyle(PressStyle())
+                Hairline()
+                // 只是多一個入口，做的事跟完整版頁上的「恢復購買」一樣；「買了沒」還是 PurchaseStore 在算
+                Button {
+                    Task { await purchase.restore() }
+                } label: {
+                    VeggieRow(icon: "arrow.clockwise", title: VeggieText.restore, value: purchase.isBusy ? "恢復中…" : nil)
+                }
+                .buttonStyle(PressStyle())
+                .disabled(purchase.isBusy)
+            }
+            if let message = purchase.message {
+                Text(message)
+                    .dFont(DT.TypeScale.footnote)
+                    .foregroundStyle(purchase.messageIsProblem ? Theme.destructive : Theme.sub)
+                    .padding(.horizontal, DT.Space.s4)
+            }
+        }
+        .sheet(isPresented: $showFullVersion) {
+            FullVersionSheet(reason: .settings)
+        }
+    }
+
+    // MARK: 支援
+
+    /// 意見回饋、評分、分享。設定檔沒填的那一列不出現；三列都沒有就整區不出現。
+    @ViewBuilder
+    private var supportSection: some View {
+        if config.supportEmail != nil || config.appStoreURL != nil {
+            SectionCard(title: "支援") {
+                if let email = config.supportEmail {
+                    Button {
+                        if Feedback.canUseMailSheet {
+                            showMail = true
+                        } else if let url = Feedback.mailtoURL(to: email) {
+                            openURL(url)
+                        }
+                    } label: {
+                        VeggieRow(icon: "envelope", title: VeggieText.feedback, accessory: .push)
+                    }
+                    .buttonStyle(PressStyle())
+                    .sheet(isPresented: $showMail) {
+                        FeedbackMailView(recipient: email) { showMail = false }
+                            .ignoresSafeArea()
+                    }
+                }
+                if let reviewURL = config.writeReviewURL, let storeURL = config.appStoreURL {
+                    if config.supportEmail != nil { Hairline() }
+                    Link(destination: reviewURL) {
+                        VeggieRow(icon: "star", title: VeggieText.rate, accessory: .external)
+                    }
+                    .buttonStyle(PressStyle())
+                    Hairline()
+                    ShareLink(item: storeURL, message: Text("我在用\(config.name)：\(config.tagline)")) {
+                        VeggieRow(icon: "square.and.arrow.up", title: VeggieText.share, accessory: .external)
+                    }
+                    .buttonStyle(PressStyle())
+                }
+            }
+        }
+    }
+
+    // MARK: 關於
+
     private var aboutSection: some View {
         SectionCard(
             title: "關於",
             footer: "蒜日子直接讀寫 iPhone 的系統行事曆，沒有自己的帳號，也不會把行程傳到任何伺服器。置頂、短名、類別這些設定只存在這支手機。購買完整版由 Apple 處理，蒜日子拿不到你的付款資料。"
         ) {
-            SettingsRow(label: "版本") {
-                Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")
-                    .dFont(DT.TypeScale.body)
-                    .foregroundStyle(Theme.sub)
+            if !VeggieApp.others.isEmpty {
+                Button {
+                    showFamily = true
+                } label: {
+                    VeggieRow(icon: "leaf", title: VeggieText.family, accessory: .push)
+                }
+                .buttonStyle(PressStyle())
+                .sheet(isPresented: $showFamily) {
+                    VeggieFamilyView()
+                }
+            }
+            if let url = config.privacyURL {
+                if !VeggieApp.others.isEmpty { Hairline() }
+                Link(destination: url) {
+                    VeggieRow(icon: "hand.raised", title: VeggieText.privacy, accessory: .external)
+                }
+                .buttonStyle(PressStyle())
             }
         }
     }
@@ -757,17 +850,22 @@ struct ThemeRow: View {
 /// 設定列：左邊標題，右邊放開關、選單或文字。列本身保持中性。
 struct SettingsRow<Trailing: View>: View {
     let label: String
+    var icon: String?
     var dotColor: Color?
     let trailing: Trailing
 
-    init(label: String, dotColor: Color? = nil, @ViewBuilder trailing: () -> Trailing) {
+    init(label: String, icon: String? = nil, dotColor: Color? = nil, @ViewBuilder trailing: () -> Trailing) {
         self.label = label
+        self.icon = icon
         self.dotColor = dotColor
         self.trailing = trailing()
     }
 
     var body: some View {
         HStack(spacing: DT.Space.s3) {
+            if let icon {
+                VeggieRowIcon(systemName: icon)
+            }
             if let dotColor {
                 Circle().fill(dotColor).frame(width: Theme.Grid.square, height: Theme.Grid.square)
             }
