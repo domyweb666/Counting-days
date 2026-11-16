@@ -52,6 +52,8 @@ final class EventStore {
     // MARK: 讀
 
     var calendars: [EKCalendar] {
+        // 讀一下變動次數：行事曆有增減時，列出行事曆的畫面才會跟著重畫
+        _ = changeToken
         guard hasAccess else { return [] }
         return ek.calendars(for: .event).sorted {
             $0.title.localizedStandardCompare($1.title) == .orderedAscending
@@ -98,6 +100,39 @@ final class EventStore {
     func title(forSeries id: String) -> String? {
         guard hasAccess else { return nil }
         return ek.event(withIdentifier: id)?.title
+    }
+
+    // MARK: 寫
+
+    /// 建立一本新的行事曆，寫進 iPhone。成功回傳 nil，失敗回傳要給使用者看的原因。
+    /// 行程的新增、修改、刪除都交給系統的編輯畫面，蒜日子自己寫進系統行事曆的只有這一件事。
+    func createCalendar(title: String, color: CGColor) -> String? {
+        let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard hasAccess else { return "蒜日子沒有行事曆權限，沒辦法建立。" }
+        guard !name.isEmpty else { return "先幫行事曆取個名字。" }
+        guard let source = sourceForNewCalendar() else {
+            return "這支手機上找不到可以放新行事曆的帳號。請到 iPhone 的行事曆 app 建立。"
+        }
+        let calendar = EKCalendar(for: .event, eventStore: ek)
+        calendar.title = name
+        calendar.cgColor = color
+        calendar.source = source
+        do {
+            try ek.saveCalendar(calendar, commit: true)
+        } catch {
+            return "沒有建立成功：\(error.localizedDescription)"
+        }
+        bump()
+        return nil
+    }
+
+    /// 新行事曆放哪個帳號：先找 iCloud，沒有就放在這支手機上，再沒有才用新行程預設的那個帳號。
+    /// Google 這類帳號通常不讓 iPhone 替它建立行事曆，所以不優先用。
+    private func sourceForNewCalendar() -> EKSource? {
+        let sources = ek.sources
+        return sources.first { $0.sourceType == .calDAV && $0.title.localizedCaseInsensitiveContains("icloud") }
+            ?? sources.first { $0.sourceType == .local }
+            ?? ek.defaultCalendarForNewEvents?.source
     }
 
     /// 用標題或地點找事件：往前一年、往後兩年
