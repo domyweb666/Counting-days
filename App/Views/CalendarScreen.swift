@@ -27,6 +27,10 @@ struct CalendarScreen: View {
     @Environment(CoachController.self) private var coach
     @Environment(\.scenePhase) private var scenePhase
     @State private var sheet: SheetKind?
+    /// 正在編輯的那個行程，打開時找一次就記住。
+    /// 刪掉行程的那一刻系統行事曆會通知有變動、畫面重畫；那時候再去找，剛刪掉的行程找不到，
+    /// 編輯畫面會被換成「找不到這個行程」，系統也來不及通知我們關掉。
+    @State private var editing: EKEvent?
     @State private var shortNameTarget: CalEvent?
     @State private var shortNameText = ""
     @State private var showShortName = false
@@ -37,7 +41,10 @@ struct CalendarScreen: View {
 
     private var actions: CalendarActions {
         CalendarActions(
-            open: { sheet = .edit($0) },
+            open: { event in
+                editing = app.store.ekEvent(for: event)
+                sheet = .edit(event)
+            },
             add: { sheet = .newEvent($0) },
             shortName: { event in
                 shortNameTarget = event
@@ -295,8 +302,8 @@ struct CalendarScreen: View {
             EventEditor(store: app.store, event: nil, defaultDay: date, calendar: vm.calendar) { sheet = nil }
                 .ignoresSafeArea()
         case .edit(let event):
-            if let ek = app.store.ekEvent(for: event) {
-                EventEditor(store: app.store, event: ek, defaultDay: event.start, calendar: vm.calendar) { sheet = nil }
+            if let editing {
+                EventEditor(store: app.store, event: editing, defaultDay: event.start, calendar: vm.calendar) { sheet = nil }
                     .ignoresSafeArea()
             } else {
                 MissingEventView { sheet = nil }
