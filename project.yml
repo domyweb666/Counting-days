@@ -22,6 +22,8 @@ targets:
       - path: App
     dependencies:
       - package: CalendarCore
+      # 小工具是另一支程式，包在蒜日子裡一起裝
+      - target: SuanRiZiWidget
     info:
       path: App/Info.plist
       properties:
@@ -42,6 +44,9 @@ targets:
       path: SuanRiZi.entitlements
       properties:
         com.apple.developer.weatherkit: true
+        # 蒜日子與小工具共用的抽屜。Apple 開發者後台要先建這個 App Group，兩個 App ID 都要勾。
+        com.apple.security.application-groups:
+          - group.com.domyweb.countingdays
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.domyweb.countingdays
@@ -49,3 +54,36 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: NO
+  # 主畫面小工具。跟蒜日子分開簽章，編號要是蒜日子的編號再加一段。
+  SuanRiZiWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widget
+      # 顏色與字級跟蒜日子用同一份，不另外抄
+      - path: App/Support/Theme.swift
+      - path: App/Design/DomyTokens.swift
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: 蒜日子
+        CFBundleDevelopmentRegion: zh-Hant
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # 跟蒜日子本體同一句。小工具自己不會跳權限視窗，Apple 文件沒寫這裡要不要放，先放著。
+        NSCalendarsFullAccessUsageDescription: 蒜日子需要讀取你的行事曆，才能把行程畫成月曆；新增與修改行程時會寫回系統行事曆。蒜日子不會把行程傳到任何伺服器，只有你自己按「分享」時才會送出那一筆。
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: SuanRiZiWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.domyweb.countingdays
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.domyweb.countingdays.widget
+        PRODUCT_NAME: SuanRiZiWidget
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: NO
+        # 封存時小工具只能包在蒜日子裡面，不能自己再放一份到成品裡，不然上傳會失敗
+        SKIP_INSTALL: YES
