@@ -256,6 +256,8 @@ enum Theme {
     static var strong: Color { current.strong }
     static var soft: Color { current.soft }
     static var destructive: Color { current.destructive }
+    /// 側邊欄打開時，蓋在後面畫面上的暗幕。七款主題共用，不跟著主題換。
+    static let scrim = Color.black.opacity(0.35)
 
     // MARK: 類別色（蒜日子自己功能的顏色，不放進 domy-design）
 

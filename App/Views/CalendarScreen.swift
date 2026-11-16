@@ -25,7 +25,10 @@ enum SheetKind: Identifiable {
 struct CalendarScreen: View {
     @Environment(AppModel.self) private var app
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var sheet: SheetKind?
+    /// 側邊欄有沒有打開
+    @State private var showSideMenu = false
     /// 正在編輯的那個行程，打開時找一次就記住。
     /// 刪掉行程的那一刻系統行事曆會通知有變動、畫面重畫；那時候再去找，剛刪掉的行程找不到，
     /// 編輯畫面會被換成「找不到這個行程」，系統也來不及通知我們關掉。
@@ -61,6 +64,11 @@ struct CalendarScreen: View {
     /// 剛進月曆時，等多久再指定一次捲動位置；清掉與放回之間隔多久
     private let settleDelay: Double = 0.15
     private let settleGap: Double = 0.05
+    /// 側邊欄的寬度、logo 的邊長、滑出來花多久、往左滑多遠算要收起來
+    private let sideMenuWidth: CGFloat = 288
+    private let sideMenuLogo: CGFloat = 40
+    private let sideMenuDuration: Double = 0.25
+    private let sideMenuSwipe: CGFloat = 40
 
     var body: some View {
         VStack(spacing: DT.Space.s3) {
@@ -81,6 +89,9 @@ struct CalendarScreen: View {
         .padding(.horizontal, Theme.Grid.margin)
         .padding(.top, DT.Space.s2)
         .background(Theme.bg.ignoresSafeArea())
+        // 側邊欄打開時，後面的月曆不讓 VoiceOver 唸
+        .accessibilityHidden(showSideMenu)
+        .overlay { sideMenu }
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .onAppear {
             vm.autoDetectHolidaysIfNeeded()
@@ -166,27 +177,184 @@ struct CalendarScreen: View {
         .padding(.bottom, DT.Space.s4)
     }
 
-    /// 標題列的選單鈕：五種檢視、搜尋、設定都收在這裡
+    /// 標題列的選單鈕：按了從左邊滑出側邊欄
     private var mainMenu: some View {
-        Menu {
-            Picker("檢視", selection: app.settings.binding(\.view)) {
+        CircleIconButton(systemName: "line.3.horizontal", label: "選單：切換檢視、搜尋、設定") {
+            showSideMenu = true
+        }
+    }
+
+    // MARK: 側邊欄
+
+    /// 蓋在整個畫面上：後面一層暗幕，左邊一條側邊欄。點暗幕或把側邊欄往左滑就收起來。
+    /// iPhone 內建的選單放不了 logo，圖示也只能在右邊，所以自己畫。
+    private var sideMenu: some View {
+        ZStack(alignment: .leading) {
+            if showSideMenu {
+                Theme.scrim
+                    .ignoresSafeArea()
+                    .onTapGesture { showSideMenu = false }
+                    .accessibilityLabel("關閉選單")
+                    .accessibilityAddTraits(.isButton)
+                    .transition(.opacity)
+                sideMenuPanel
+                    // 開了「減少動態效果」就不滑，只淡入淡出
+                    .transition(reduceMotion ? .opacity : .move(edge: .leading))
+                    // 收起來的途中也要壓在暗幕上面
+                    .zIndex(1)
+            }
+        }
+        .animation(.easeOut(duration: sideMenuDuration), value: showSideMenu)
+    }
+
+    private var sideMenuPanel: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: DT.Space.s1) {
+                HStack(spacing: DT.Space.s3) {
+                    Image("AppLogo")
+                        .resizable()
+                        .frame(width: sideMenuLogo, height: sideMenuLogo)
+                        .clipShape(RoundedRectangle(cornerRadius: DT.Radius.md, style: .continuous))
+                        .accessibilityHidden(true)
+                    Text("蒜日子")
+                        .dFont(DT.TypeScale.title2)
+                        .foregroundStyle(Theme.ink)
+                        .accessibilityAddTraits(.isHeader)
+                }
+                .padding(.horizontal, DT.Space.s4)
+                .padding(.top, DT.Space.s4)
+                .padding(.bottom, DT.Space.s4)
                 ForEach(ViewKind.allCases, id: \.self) { kind in
-                    Text(kind.label).tag(kind)
+                    sideMenuRow(
+                        title: kind.label,
+                        isCurrent: kind == app.settings.value.view,
+                        icon: { viewKindIcon(kind) },
+                        action: {
+                            app.settings.update { $0.view = kind }
+                            showSideMenu = false
+                        }
+                    )
+                }
+                Hairline()
+                    .padding(.horizontal, DT.Space.s4)
+                    .padding(.vertical, DT.Space.s2)
+                sideMenuRow(
+                    title: "搜尋",
+                    isCurrent: false,
+                    icon: { symbolIcon("magnifyingglass") },
+                    action: {
+                        showSideMenu = false
+                        sheet = .search
+                    }
+                )
+                sideMenuRow(
+                    title: "設定",
+                    isCurrent: false,
+                    icon: { symbolIcon("gearshape") },
+                    action: {
+                        showSideMenu = false
+                        sheet = .settings
+                    }
+                )
+            }
+            .padding(.trailing, DT.Space.s3)
+            .padding(.bottom, DT.Space.s6)
+        }
+        .frame(width: sideMenuWidth)
+        .frame(maxHeight: .infinity)
+        .background(Theme.card.ignoresSafeArea())
+        // 上下捲不算，往左滑夠遠才收
+        .simultaneousGesture(
+            DragGesture(minimumDistance: sideMenuSwipe).onEnded { drag in
+                let across = drag.translation.width
+                if across < -sideMenuSwipe, abs(drag.translation.height) < abs(across) {
+                    showSideMenu = false
                 }
             }
-            Divider()
-            Button("搜尋", systemImage: "magnifyingglass") { sheet = .search }
-            Button("設定", systemImage: "gearshape") { sheet = .settings }
-        } label: {
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(Theme.accent)
-                .frame(width: DT.Size.iconButton, height: DT.Size.iconButton)
-                .background(Circle().fill(Theme.card))
-                .domyShadow(DT.Elevation.level1)
+        )
+        .accessibilityAddTraits(.isModal)
+        .accessibilityAction(.escape) { showSideMenu = false }
+    }
+
+    /// 側邊欄的一列：圖示在左、名稱在右。目前那種檢視整列標起來，左邊貼齊螢幕邊緣、右邊是圓的。
+    private func sideMenuRow<Icon: View>(
+        title: String,
+        isCurrent: Bool,
+        @ViewBuilder icon: () -> Icon,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: DT.Space.s4) {
+                icon()
+                    .frame(width: DT.Space.s8)
+                Text(title).dFont(DT.TypeScale.headline)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(isCurrent ? Theme.strong : Theme.ink)
+            .padding(.horizontal, DT.Space.s4)
+            .frame(minHeight: DT.Size.row)
+            .background(
+                UnevenRoundedRectangle(
+                    topLeadingRadius: 0, bottomLeadingRadius: 0,
+                    bottomTrailingRadius: DT.Size.row / 2, topTrailingRadius: DT.Size.row / 2
+                )
+                .fill(isCurrent ? Theme.soft : Color.clear)
+            )
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("選單：切換檢視、搜尋、設定")
+        .buttonStyle(PressStyle())
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isCurrent ? .isSelected : [])
+    }
+
+    private func symbolIcon(_ systemName: String) -> some View {
+        Image(systemName: systemName).font(.system(size: 17, weight: .semibold))
+    }
+
+    /// 五種檢視的小圖示：一個框裡分成幾欄幾列，就是那種檢視一次排的樣子。
+    /// 月是格子、時間表是上下兩列、週是四欄、3 天是三欄、天是一整格。
+    private func viewKindIcon(_ kind: ViewKind) -> some View {
+        let columns: Int
+        let rows: Int
+        switch kind {
+        case .month:
+            columns = 3
+            rows = 2
+        case .agenda:
+            columns = 1
+            rows = 2
+        case .week:
+            columns = 4
+            rows = 1
+        case .threeDay:
+            columns = 3
+            rows = 1
+        case .day:
+            columns = 1
+            rows = 1
+        }
+        let line: CGFloat = 2
+        return RoundedRectangle(cornerRadius: DT.Radius.sm / 2)
+            .strokeBorder(lineWidth: line)
+            .overlay {
+                GeometryReader { geo in
+                    Path { path in
+                        for column in 1..<columns {
+                            let x = geo.size.width * CGFloat(column) / CGFloat(columns)
+                            path.move(to: CGPoint(x: x, y: 0))
+                            path.addLine(to: CGPoint(x: x, y: geo.size.height))
+                        }
+                        for row in 1..<rows {
+                            let y = geo.size.height * CGFloat(row) / CGFloat(rows)
+                            path.move(to: CGPoint(x: 0, y: y))
+                            path.addLine(to: CGPoint(x: geo.size.width, y: y))
+                        }
+                    }
+                    .stroke(lineWidth: line)
+                }
+            }
+            .frame(width: 24, height: 18)
+            .accessibilityHidden(true)
     }
 
     private var countdownStrip: some View {
