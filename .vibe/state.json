@@ -1,10 +1,10 @@
 {
-  "station": "decompose",
-  "updated_at": "2026-11-16T23:55:00+08:00",
+  "station": "audit-immediate",
+  "updated_at": "2026-11-17T01:30:00+08:00",
   "updated_by": "vibe-traffic-control",
   "pieces": {
-    "todo": 28,
-    "machine_verified": 24,
+    "todo": 17,
+    "machine_verified": 35,
     "human_verified": 24
   },
   "chunks": [
@@ -67,47 +67,54 @@
     {
       "name": "H 三個小修（第 28 到 30 片）",
       "total": 3,
-      "machine_done": 0,
+      "machine_done": 3,
       "human_verified": false,
-      "approved": false
+      "approved": true
     },
     {
       "name": "I 側邊選單（第 31 片）",
       "total": 1,
-      "machine_done": 0,
+      "machine_done": 1,
       "human_verified": false,
-      "approved": false
+      "approved": true
     },
     {
       "name": "J 行事曆自己管（第 32 到 34 片）",
       "total": 3,
-      "machine_done": 0,
+      "machine_done": 3,
       "human_verified": false,
-      "approved": false
+      "approved": true
     },
     {
       "name": "K 時區（第 35 片）",
       "total": 1,
-      "machine_done": 0,
+      "machine_done": 1,
       "human_verified": false,
-      "approved": false
+      "approved": true
     },
     {
       "name": "L 設定頁照蔬菜家族的樣子（第 36 到 38 片）",
       "total": 3,
-      "machine_done": 0,
+      "machine_done": 3,
       "human_verified": false,
-      "approved": false
+      "approved": true
     },
     {
       "name": "M 提醒事項（第 39 到 42 片）",
       "total": 4,
       "machine_done": 0,
       "human_verified": false,
-      "approved": false
+      "approved": true
     }
   ],
-  "pending_immediate_verify": [],
+  "pending_immediate_verify": [
+    31,
+    32,
+    34,
+    35,
+    36,
+    38
+  ],
   "skipped_gates": [
     "grill-me",
     "prd",
