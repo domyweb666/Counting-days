@@ -22,6 +22,11 @@ public enum EventReminder: String, CaseIterable, Sendable {
 
     public var isForAllDay: Bool { EventReminder.allDayCases.contains(self) }
 
+    /// 既有行程上的提醒對得上表單的哪一種。對不上（例如 15 分鐘前）回傳 nil，那個提醒就照原本的留著。
+    public static func matching(offsetSeconds: Int, isAllDay: Bool) -> EventReminder? {
+        (isAllDay ? allDayCases : timedCases).first { $0.offsetSeconds == offsetSeconds }
+    }
+
     /// 相對於行程開始的秒數，負的是之前。全天行程的開始是那天的午夜。
     public var offsetSeconds: Int {
         switch self {
@@ -119,6 +124,8 @@ public struct NewEventDraft: Equatable, Sendable {
     public var notes: String
     /// 存好之後要不要出現分享那一頁
     public var wantsShare: Bool
+    /// 使用者替這一筆選的類別。nil 是沒選，照行事曆的預設類別。
+    public var categoryID: String?
 
     public init(
         title: String = "",
@@ -133,7 +140,8 @@ public struct NewEventDraft: Equatable, Sendable {
         repeats: EventRepeat? = nil,
         location: String = "",
         notes: String = "",
-        wantsShare: Bool = false
+        wantsShare: Bool = false,
+        categoryID: String? = nil
     ) {
         self.title = title
         self.kind = kind
@@ -148,6 +156,7 @@ public struct NewEventDraft: Equatable, Sendable {
         self.location = location
         self.notes = notes
         self.wantsShare = wantsShare
+        self.categoryID = categoryID
     }
 
     public var cleanTitle: String { title.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -195,6 +204,63 @@ public enum NewEventRules {
     public static func initialDraft(day: Date, now: Date, calendar: Calendar) -> NewEventDraft {
         let start = calendar.startOfDay(for: day)
         return NewEventDraft(day: start, startMinutes: defaultStartMinutes(day: start, now: now, calendar: calendar))
+    }
+
+    /// 這一筆既有的行程能不能用蒜日子自己的畫面改。
+    /// 有時間、而且超過 24 小時的行程，表單的「開始、結束」表示不了，交給 iPhone 內建的畫面。
+    public static func canEditHere(_ event: CalEvent) -> Bool {
+        if event.isAllDay { return true }
+        let seconds = event.end.timeIntervalSince(event.start)
+        return seconds >= 0 && seconds <= TimeInterval(minutesPerDay * 60)
+    }
+
+    /// 把一筆既有的行程變成表單上的樣子。提醒、重複、備註、類別這裡不知道，由呼叫的人補。
+    public static func draft(editing event: CalEvent, calendar: Calendar) -> NewEventDraft {
+        let firstDay = calendar.startOfDay(for: event.start)
+        var draft = NewEventDraft(
+            title: event.title,
+            day: firstDay,
+            startMinutes: defaultMorning,
+            calendarID: event.calendarID,
+            location: event.location ?? ""
+        )
+        guard event.isAllDay else {
+            let parts = calendar.dateComponents([.hour, .minute], from: event.start)
+            draft.kind = .timed
+            draft.startMinutes = (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
+            let minutes = Int((event.end.timeIntervalSince(event.start) / 60).rounded())
+            draft.durationMinutes = min(max(minutes, 0), minutesPerDay)
+            return draft
+        }
+        // 全天行程的結束，有的來源給最後一天的 23:59:59，有的給隔天的午夜。退一秒再取那天，兩種都落在最後一天。
+        let lastMoment = event.end > event.start ? event.end.addingTimeInterval(-1) : event.end
+        let lastDay = calendar.startOfDay(for: lastMoment)
+        if lastDay > firstDay {
+            draft.kind = .multiDay
+            draft.rangeStart = firstDay
+            draft.rangeEnd = lastDay
+        } else {
+            draft.kind = .allDay
+        }
+        return draft
+    }
+
+    /// 兩份表單的日期時間是不是一樣。編輯時一樣就不重寫起訖，原本的秒數、時區都不會被動到。
+    public static func hasSameTime(_ a: NewEventDraft, _ b: NewEventDraft) -> Bool {
+        a.kind == b.kind && a.day == b.day && a.startMinutes == b.startMinutes
+            && a.durationMinutes == b.durationMinutes && a.rangeStart == b.rangeStart && a.rangeEnd == b.rangeEnd
+    }
+
+    /// 表單上那一排類別要標哪一顆：自己選過就是那一個；沒選就是存下去之後會歸到的那一類
+    /// （標題對到關鍵字規則就照規則，不然照行事曆的預設類別）。
+    public static func shownCategoryID(_ draft: NewEventDraft, settings: AppSettings) -> String {
+        if let own = draft.categoryID, settings.categories.contains(where: { $0.id == own }) {
+            return own
+        }
+        let preview = CalEvent(
+            id: "", title: draft.cleanTitle, start: draft.day, end: draft.day, calendarID: draft.calendarID ?? ""
+        )
+        return Classifier.categoryID(for: preview, settings: settings)
     }
 
     /// 那一天是今天起算的第幾天。0、1、2 對應「今天」「明天」「後天」，其他回傳 nil。
