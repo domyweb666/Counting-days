@@ -48,6 +48,8 @@ struct RootView: View {
         }
         // 放在畫面裡讀主色，換主題時才會跟著重畫
         .tint(Theme.accent)
+        // 設定裡選的外觀（跟隨系統／淺色／深色），開 app 時先套一次
+        .onAppear { Appearance.stored.apply() }
         .onChange(of: scenePhase) { _, phase in
             // 使用者可能剛從「設定」改完權限回來
             if phase == .active { app.store.refreshStatus() }

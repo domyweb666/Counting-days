@@ -103,9 +103,13 @@ struct FullVersionOffer: View {
 enum FullVersionReason: String {
     case countdown
     case categoryColor
+    /// 從設定的「購買」那一區自己點進來的，沒有碰到哪個鎖
+    case settings
 
     var text: String {
         switch self {
+        case .settings:
+            return "蒜日子可以免費一直用。下面這幾樣要完整版。"
         case .countdown:
             return "免費版可以放 \(FullVersionAccess.freeCountdownLimit) 個倒數日，再多要完整版。"
         case .categoryColor:
