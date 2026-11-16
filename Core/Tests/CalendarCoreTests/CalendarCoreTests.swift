@@ -538,4 +538,193 @@ final class CalendarCoreTests: XCTestCase {
         XCTAssertNil(WeatherCity.find(nil))
         XCTAssertNil(WeatherCity.find("不存在"))
     }
+
+    // MARK: 自己的新增行程畫面
+
+    func draft(_ day: Date, start: Int = 16 * 60, duration: Int = 60) -> NewEventDraft {
+        NewEventDraft(title: "開會", day: day, startMinutes: start, durationMinutes: duration)
+    }
+
+    func testNewEventDefaultStart() {
+        let today = date(2026, 11, 16)
+        // 今天是下一個整點，最晚 23:00；其他天是早上 9 點
+        XCTAssertEqual(NewEventRules.defaultStartMinutes(day: today, now: date(2026, 11, 16, 15, 44), calendar: cal), 16 * 60)
+        XCTAssertEqual(NewEventRules.defaultStartMinutes(day: today, now: date(2026, 11, 16, 23, 30), calendar: cal), 23 * 60)
+        XCTAssertEqual(NewEventRules.defaultStartMinutes(day: date(2026, 11, 20), now: date(2026, 11, 16, 15, 44), calendar: cal), 9 * 60)
+        let d = NewEventRules.initialDraft(day: date(2026, 11, 16, 13, 5), now: date(2026, 11, 16, 15, 44), calendar: cal)
+        XCTAssertEqual(d.day, today)
+        XCTAssertEqual(d.durationMinutes, 60)
+        XCTAssertEqual(d.kind, .timed)
+    }
+
+    func testQuickDayIndex() {
+        let today = date(2026, 11, 16, 15)
+        XCTAssertEqual(NewEventRules.quickDayIndex(of: date(2026, 11, 16), today: today, calendar: cal), 0)
+        XCTAssertEqual(NewEventRules.quickDayIndex(of: date(2026, 11, 18), today: today, calendar: cal), 2)
+        XCTAssertNil(NewEventRules.quickDayIndex(of: date(2026, 11, 19), today: today, calendar: cal))
+        XCTAssertNil(NewEventRules.quickDayIndex(of: date(2026, 11, 15), today: today, calendar: cal))
+    }
+
+    func testSettingStartKeepsLengthAndSettingEndChangesIt() {
+        let base = draft(date(2026, 11, 16))
+        let moved = NewEventRules.settingStart(10 * 60 + 30, in: base)
+        XCTAssertEqual(moved.durationMinutes, 60)
+        XCTAssertEqual(moved.endMinutes, 11 * 60 + 30)
+        let longer = NewEventRules.settingEnd(12 * 60, in: moved)
+        XCTAssertEqual(longer.durationMinutes, 90)
+        // 結束比開始早：當成隔天
+        let overnight = NewEventRules.settingEnd(1 * 60, in: draft(date(2026, 11, 16), start: 23 * 60))
+        XCTAssertEqual(overnight.durationMinutes, 120)
+        XCTAssertTrue(overnight.endsNextDay)
+        XCTAssertEqual(overnight.endMinutes, 60)
+    }
+
+    func testResolveTimedAllDayAndMultiDay() {
+        let day = date(2026, 11, 16)
+        let timed = NewEventRules.resolve(draft(day), calendar: cal)
+        XCTAssertEqual(timed, ResolvedEventTime(start: date(2026, 11, 16, 16), end: date(2026, 11, 16, 17), isAllDay: false))
+        var whole = draft(day)
+        whole.kind = .allDay
+        XCTAssertEqual(NewEventRules.resolve(whole, calendar: cal), ResolvedEventTime(start: day, end: day, isAllDay: true))
+        var trip = draft(day)
+        trip.kind = .multiDay
+        XCTAssertNil(NewEventRules.resolve(trip, calendar: cal))
+        trip.rangeStart = date(2026, 12, 5)
+        XCTAssertEqual(NewEventRules.resolve(trip, calendar: cal)?.end, date(2026, 12, 5))
+        trip.rangeEnd = date(2026, 12, 9)
+        XCTAssertEqual(NewEventRules.resolve(trip, calendar: cal),
+                       ResolvedEventTime(start: date(2026, 12, 5), end: date(2026, 12, 9), isAllDay: true))
+    }
+
+    func testTappingRangeDays() {
+        var d = draft(date(2026, 11, 16))
+        d.kind = .multiDay
+        XCTAssertEqual(NewEventRules.rangeDayCount(d, calendar: cal), 0)
+        d = NewEventRules.tappingRangeDay(date(2026, 12, 9), in: d, calendar: cal)
+        XCTAssertEqual(d.rangeStart, date(2026, 12, 9))
+        XCTAssertEqual(NewEventRules.rangeDayCount(d, calendar: cal), 1)
+        // 第二下點在開始之前：改當開始，還要再點結束
+        d = NewEventRules.tappingRangeDay(date(2026, 12, 5), in: d, calendar: cal)
+        XCTAssertEqual(d.rangeStart, date(2026, 12, 5))
+        XCTAssertNil(d.rangeEnd)
+        d = NewEventRules.tappingRangeDay(date(2026, 12, 9), in: d, calendar: cal)
+        XCTAssertEqual(d.rangeEnd, date(2026, 12, 9))
+        XCTAssertEqual(NewEventRules.rangeDayCount(d, calendar: cal), 5)
+        // 兩個都有了再點：重新選
+        d = NewEventRules.tappingRangeDay(date(2026, 12, 20), in: d, calendar: cal)
+        XCTAssertEqual(d.rangeStart, date(2026, 12, 20))
+        XCTAssertNil(d.rangeEnd)
+    }
+
+    func testReminderFitsKindAndOffsets() {
+        XCTAssertEqual(NewEventRules.reminder(.minutes30, fitting: .timed), .minutes30)
+        XCTAssertNil(NewEventRules.reminder(.minutes30, fitting: .allDay))
+        XCTAssertNil(NewEventRules.reminder(.sameDayMorning, fitting: .timed))
+        XCTAssertEqual(NewEventRules.reminder(.dayBeforeMorning, fitting: .multiDay), .dayBeforeMorning)
+        XCTAssertEqual(EventReminder.minutes30.offsetSeconds, -1800)
+        XCTAssertEqual(EventReminder.sameDayMorning.offsetSeconds, 9 * 3600)
+        XCTAssertEqual(EventReminder.dayBeforeMorning.offsetSeconds, -15 * 3600)
+        XCTAssertEqual(Set(EventReminder.timedCases + EventReminder.allDayCases), Set(EventReminder.allCases))
+    }
+
+    func testPickCalendarForNewEvent() {
+        XCTAssertEqual(NewEventRules.pickCalendar(lastUsed: "B", systemDefault: "A", available: ["A", "B"]), "B")
+        // 上次那本被移除了：用 iPhone 的預設；預設也不在清單裡：用第一本
+        XCTAssertEqual(NewEventRules.pickCalendar(lastUsed: "X", systemDefault: "A", available: ["B", "A"]), "A")
+        XCTAssertEqual(NewEventRules.pickCalendar(lastUsed: nil, systemDefault: "X", available: ["B", "A"]), "B")
+        XCTAssertNil(NewEventRules.pickCalendar(lastUsed: "B", systemDefault: "A", available: []))
+    }
+
+    func testMonthCellsAlignWeekdays() {
+        // 2026 年 12 月 1 日是週二，一共 31 天
+        let sundayFirst = NewEventRules.monthCells(month: date(2026, 12, 15), calendar: cal)
+        XCTAssertEqual(sundayFirst.count, 2 + 31)
+        XCTAssertNil(sundayFirst[1])
+        XCTAssertEqual(sundayFirst[2], date(2026, 12, 1))
+        XCTAssertEqual(sundayFirst[32], date(2026, 12, 31))
+        var monday: Calendar = cal
+        monday.firstWeekday = 2
+        XCTAssertEqual(NewEventRules.monthCells(month: date(2026, 12, 15), calendar: monday).count, 1 + 31)
+    }
+
+    func testEventTexts() {
+        XCTAssertEqual(EventText.day(date(2026, 11, 16), calendar: cal), "11月16日 週一")
+        XCTAssertEqual(EventText.shortDay(date(2026, 11, 26), calendar: cal), "11/26 週四")
+        XCTAssertEqual(EventText.month(date(2026, 12, 5), calendar: cal), "2026年12月")
+        XCTAssertEqual(EventText.time(0), "上午 12:00")
+        XCTAssertEqual(EventText.time(12 * 60 + 5), "下午 12:05")
+        XCTAssertEqual(EventText.timeRange(startMinutes: 16 * 60, durationMinutes: 60), "下午 4:00 – 5:00")
+        XCTAssertEqual(EventText.timeRange(startMinutes: 11 * 60 + 30, durationMinutes: 60), "上午 11:30 – 下午 12:30")
+        XCTAssertEqual(EventText.timeRange(startMinutes: 23 * 60, durationMinutes: 120), "下午 11:00 – 隔天上午 1:00")
+        XCTAssertEqual(EventText.duration(90), "1 小時 30 分")
+        XCTAssertEqual(EventRepeat.weekly.summary(from: date(2026, 11, 17), calendar: cal), "每週二")
+        XCTAssertEqual(EventRepeat.monthly.summary(from: date(2026, 11, 17), calendar: cal), "每月 17 日")
+    }
+
+    func testShareText() {
+        var d = draft(date(2026, 11, 16))
+        d.title = "  跟廠商開會 "
+        d.location = "信義區"
+        XCTAssertEqual(EventText.shareText(d, calendar: cal), "跟廠商開會\n11月16日 週一 下午 4:00 – 5:00\n信義區")
+        var trip = draft(date(2026, 11, 16))
+        trip.title = "沖繩旅遊"
+        trip.kind = .multiDay
+        trip.rangeStart = date(2026, 12, 5)
+        trip.rangeEnd = date(2026, 12, 9)
+        XCTAssertEqual(EventText.shareText(trip, calendar: cal), "沖繩旅遊\n12月5日 週六 到 12月9日 週三（整日）")
+    }
+
+    func testICSFileForTimedEvent() throws {
+        var d = draft(date(2026, 11, 17), start: 19 * 60 + 30)
+        d.title = "瑜珈課, 進階"
+        d.repeats = .biweekly
+        d.notes = "帶墊子\n帶水"
+        let time = try XCTUnwrap(NewEventRules.resolve(d, calendar: cal))
+        let ics = ICSFile.make(uid: "abc@suanrizi", draft: d, time: time, stamp: date(2026, 11, 16, 8), calendar: cal)
+        let lines = ics.components(separatedBy: "\r\n")
+        XCTAssertEqual(lines.first, "BEGIN:VCALENDAR")
+        XCTAssertTrue(ics.hasSuffix("END:VCALENDAR\r\n"))
+        // 台北 19:30 是世界協調時間 11:30
+        XCTAssertTrue(lines.contains("DTSTART:20261117T113000Z"))
+        XCTAssertTrue(lines.contains("DTEND:20261117T123000Z"))
+        XCTAssertTrue(lines.contains("DTSTAMP:20261116T000000Z"))
+        XCTAssertTrue(lines.contains("SUMMARY:瑜珈課\\, 進階"))
+        XCTAssertTrue(lines.contains("RRULE:FREQ=WEEKLY;INTERVAL=2"))
+        XCTAssertTrue(lines.contains("DESCRIPTION:帶墊子\\n帶水"))
+        XCTAssertFalse(ics.contains("VALARM"))
+    }
+
+    func testICSFileForMultiDayEventEndsTheDayAfter() throws {
+        var d = draft(date(2026, 11, 16))
+        d.title = "沖繩旅遊"
+        d.kind = .multiDay
+        d.rangeStart = date(2026, 12, 5)
+        d.rangeEnd = date(2026, 12, 9)
+        let time = try XCTUnwrap(NewEventRules.resolve(d, calendar: cal))
+        let ics = ICSFile.make(uid: "u", draft: d, time: time, stamp: date(2026, 11, 16), calendar: cal)
+        XCTAssertTrue(ics.contains("DTSTART;VALUE=DATE:20261205\r\n"))
+        XCTAssertTrue(ics.contains("DTEND;VALUE=DATE:20261210\r\n"))
+    }
+
+    func testICSFoldsLongLinesWithoutSplittingCharacters() {
+        let long = "SUMMARY:" + String(repeating: "蒜", count: 60)
+        let folded = ICSFile.fold(long).components(separatedBy: "\r\n")
+        XCTAssertGreaterThan(folded.count, 1)
+        for (index, line) in folded.enumerated() {
+            XCTAssertLessThanOrEqual(line.utf8.count, 75)
+            if index > 0 { XCTAssertTrue(line.hasPrefix(" ")) }
+        }
+        XCTAssertEqual(folded.map { $0.hasPrefix(" ") ? String($0.dropFirst()) : $0 }.joined(), long)
+        XCTAssertEqual(ICSFile.fileName(title: " 開會/討論: A "), "開會_討論_ A.ics")
+        XCTAssertEqual(ICSFile.fileName(title: "  "), "行程.ics")
+    }
+
+    func testLastEventCalendarRoundTripsAndOldSettingsStillLoad() throws {
+        var s = AppSettings()
+        s.lastEventCalendarID = "CAL"
+        let round = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s))
+        XCTAssertEqual(round.lastEventCalendarID, "CAL")
+        let old = try JSONDecoder().decode(AppSettings.self, from: Data("{}".utf8))
+        XCTAssertNil(old.lastEventCalendarID)
+    }
 }

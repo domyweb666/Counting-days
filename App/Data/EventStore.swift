@@ -111,7 +111,8 @@ final class EventStore {
     // MARK: 寫
 
     /// 建立一本新的行事曆，寫進 iPhone。成功回傳 nil，失敗回傳要給使用者看的原因。
-    /// 行程的新增、修改、刪除都交給系統的編輯畫面，蒜日子自己寫進系統行事曆的只有這一件事。
+    /// 蒜日子自己寫進系統行事曆的有兩件事：這裡的建立行事曆，和下面的新增行程。
+    /// 行程的修改、刪除照舊交給系統的編輯畫面。
     func createCalendar(title: String, color: CGColor) -> String? {
         let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard hasAccess else { return "蒜日子沒有行事曆權限，沒辦法建立。" }
@@ -130,6 +131,64 @@ final class EventStore {
         }
         bump()
         return nil
+    }
+
+    /// 新增一筆行程，寫進系統行事曆（規格第 20 節）。`time` 是照月曆的時區算好的起訖。
+    /// 成功回傳存好的那一筆，失敗回傳要給使用者看的原因，兩個剛好有一個。
+    func addEvent(_ draft: NewEventDraft, time: ResolvedEventTime) -> (event: EKEvent?, problem: String?) {
+        let name = draft.cleanTitle
+        guard hasAccess else { return (nil, "蒜日子沒有行事曆權限，沒辦法儲存。") }
+        guard !name.isEmpty else { return (nil, "先幫行程取個標題。") }
+        guard let id = draft.calendarID, let target = ek.calendar(withIdentifier: id) else {
+            return (nil, "找不到要存進去的行事曆，請重新選一本。")
+        }
+        guard target.allowsContentModifications else {
+            return (nil, "「\(target.title)」這本行事曆不能寫入，請換一本。")
+        }
+        guard time.end >= time.start else { return (nil, "結束時間比開始時間早，請重新選時間。") }
+
+        let event = EKEvent(eventStore: ek)
+        event.title = name
+        event.calendar = target
+        event.isAllDay = time.isAllDay
+        // 全天行程沒有時區，系統照手機時區的午夜記。月曆照別的時區排時，把鐘面時間搬回手機的時區。
+        let device = TimeZone.current
+        let floats = time.isAllDay && displayTimeZone.identifier != device.identifier
+        event.startDate = floats ? FloatingTime.moved(time.start, from: displayTimeZone, to: device) : time.start
+        event.endDate = floats ? FloatingTime.moved(time.end, from: displayTimeZone, to: device) : time.end
+        if let reminder = draft.reminder {
+            event.addAlarm(EKAlarm(relativeOffset: TimeInterval(reminder.offsetSeconds)))
+        }
+        if let repeats = draft.repeats {
+            event.addRecurrenceRule(recurrenceRule(repeats))
+        }
+        let place = draft.location.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !place.isEmpty { event.location = place }
+        let notes = draft.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !notes.isEmpty { event.notes = notes }
+        do {
+            try ek.save(event, span: .thisEvent, commit: true)
+        } catch {
+            return (nil, "沒有存成功：\(error.localizedDescription)")
+        }
+        bump()
+        return (event, nil)
+    }
+
+    private func recurrenceRule(_ repeats: EventRepeat) -> EKRecurrenceRule {
+        switch repeats {
+        case .daily: return EKRecurrenceRule(recurrenceWith: .daily, interval: 1, end: nil)
+        case .weekly: return EKRecurrenceRule(recurrenceWith: .weekly, interval: 1, end: nil)
+        case .biweekly: return EKRecurrenceRule(recurrenceWith: .weekly, interval: 2, end: nil)
+        case .monthly: return EKRecurrenceRule(recurrenceWith: .monthly, interval: 1, end: nil)
+        case .yearly: return EKRecurrenceRule(recurrenceWith: .yearly, interval: 1, end: nil)
+        }
+    }
+
+    /// iPhone「設定」裡指定的預設行事曆
+    var defaultCalendarID: String? {
+        guard hasAccess else { return nil }
+        return ek.defaultCalendarForNewEvents?.calendarIdentifier
     }
 
     /// 新行事曆放哪個帳號：先找 iCloud，沒有就放在這支手機上，再沒有才用新行程預設的那個帳號。

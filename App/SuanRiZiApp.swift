@@ -76,7 +76,7 @@ struct PermissionIntroView: View {
                 Hairline()
                 point("新增和修改行程時，會直接寫回系統行事曆。")
                 Hairline()
-                point("行程不會離開這支手機，蒜日子沒有帳號，也沒有伺服器。")
+                point("蒜日子沒有帳號，也沒有伺服器。行程只有在你自己按「分享」的時候，才會傳給你選的人。")
             }
             Spacer()
             if let message = app.store.lastError {

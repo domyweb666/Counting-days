@@ -124,6 +124,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var usesDeviceTimeZone: Bool
     /// 不跟著手機時，照哪個時區排（例："Asia/Tokyo"）。還沒選過是 nil。
     public var timeZoneID: String?
+    /// 上次新增行程時存進哪一本行事曆（行事曆識別碼）。還沒存過是 nil。
+    public var lastEventCalendarID: String?
 
     public static let fallbackCategoryID = "trip"
     public static let defaultThemeID = "sage"
@@ -154,7 +156,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         themeID: String = AppSettings.defaultThemeID,
         calendarOrder: [String] = [],
         usesDeviceTimeZone: Bool = true,
-        timeZoneID: String? = nil
+        timeZoneID: String? = nil,
+        lastEventCalendarID: String? = nil
     ) {
         self.categories = categories
         self.calendarCategory = calendarCategory
@@ -175,6 +178,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.calendarOrder = calendarOrder
         self.usesDeviceTimeZone = usesDeviceTimeZone
         self.timeZoneID = timeZoneID
+        self.lastEventCalendarID = lastEventCalendarID
     }
 
     // 之後版本加欄位時，舊資料少了欄位也要讀得回來，所以每個欄位都給預設值。
@@ -200,6 +204,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         calendarOrder = try c.decodeIfPresent([String].self, forKey: .calendarOrder) ?? d.calendarOrder
         usesDeviceTimeZone = try c.decodeIfPresent(Bool.self, forKey: .usesDeviceTimeZone) ?? d.usesDeviceTimeZone
         timeZoneID = try c.decodeIfPresent(String.self, forKey: .timeZoneID)
+        lastEventCalendarID = try c.decodeIfPresent(String.self, forKey: .lastEventCalendarID)
         if categories.isEmpty { categories = d.categories }
     }
 

@@ -415,7 +415,7 @@ struct SettingsScreen: View {
     private var aboutSection: some View {
         SectionCard(
             title: "關於",
-            footer: "蒜日子直接讀寫 iPhone 的系統行事曆，沒有自己的帳號，也不會把行程傳到任何伺服器。置頂、短名、類別這些設定只存在這支手機。購買完整版由 Apple 處理，蒜日子拿不到你的付款資料。"
+            footer: "蒜日子直接讀寫 iPhone 的系統行事曆，沒有自己的帳號，也不會把行程傳到任何伺服器。新增行程時點了「分享」，那一筆的標題、時間、地點、備註會交給 iPhone 的分享面板，傳給你選的對象；沒按分享就不會送出任何東西。置頂、短名、類別這些設定只存在這支手機。購買完整版由 Apple 處理，蒜日子拿不到你的付款資料。"
         ) {
             if !VeggieApp.others.isEmpty {
                 Button {

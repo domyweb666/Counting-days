@@ -31,7 +31,7 @@ targets:
           - zh-Hant
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        NSCalendarsFullAccessUsageDescription: 蒜日子需要讀取你的行事曆，才能把行程畫成月曆；新增與修改行程時會寫回系統行事曆。行程不會離開這支手機。
+        NSCalendarsFullAccessUsageDescription: 蒜日子需要讀取你的行事曆，才能把行程畫成月曆；新增與修改行程時會寫回系統行事曆。蒜日子不會把行程傳到任何伺服器，只有你自己按「分享」時才會送出那一筆。
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
