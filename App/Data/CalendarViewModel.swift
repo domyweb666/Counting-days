@@ -162,6 +162,11 @@ final class CalendarViewModel {
     var titleMonthText: String { "\(calendar.component(.month, from: titleDate))月" }
     var titleYearText: String { String(calendar.component(.year, from: titleDate)) }
 
+    /// 標題寫的那個月是不是今天所在的月。不是的話，標題旁邊多一顆回到今天的鈕。
+    var isShowingThisMonth: Bool {
+        Self.monthStart(titleDate, calendar) == Self.monthStart(today, calendar)
+    }
+
     // MARK: 重新查詢
 
     func rebuild() {

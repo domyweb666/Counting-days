@@ -147,6 +147,10 @@ struct CalendarScreen: View {
             }
             .buttonStyle(PressStyle())
             .accessibilityLabel("\(vm.titleYearText) 年 \(vm.titleMonthText)，點一下選擇年月")
+            // 跑到別的月份時才出現。右邊的「今天」做的是同一件事，這顆放在標題旁邊比較順手。
+            if !vm.isShowingThisMonth {
+                CircleIconButton(systemName: "arrow.uturn.backward", label: "回到今天") { vm.goToday() }
+            }
             Spacer(minLength: 0)
             PillTextButton(title: "今天") { vm.goToday() }
         }
