@@ -24,7 +24,6 @@ enum SheetKind: Identifiable {
 
 struct CalendarScreen: View {
     @Environment(AppModel.self) private var app
-    @Environment(CoachController.self) private var coach
     @Environment(\.scenePhase) private var scenePhase
     @State private var sheet: SheetKind?
     /// 正在編輯的那個行程，打開時找一次就記住。
@@ -59,11 +58,13 @@ struct CalendarScreen: View {
     private let inset = DT.Size.screenMargin - Theme.Grid.margin
     /// 右下角新增鈕的直徑
     private let fabSize: CGFloat = 56
+    /// 剛進月曆時，等多久再指定一次捲動位置；清掉與放回之間隔多久
+    private let settleDelay: Double = 0.15
+    private let settleGap: Double = 0.05
 
     var body: some View {
         VStack(spacing: DT.Space.s3) {
             header
-            if coach.showsIntroCard { introCard }
             if !vm.countdowns.isEmpty { countdownStrip }
             if let message = app.store.lastError ?? app.settings.errorMessage {
                 Text(message)
@@ -75,7 +76,6 @@ struct CalendarScreen: View {
             content
                 // 捲到底時多留一段，最後一列才不會被右下角的新增鈕蓋住
                 .contentMargins(.bottom, fabSize + DT.Space.s4, for: .scrollContent)
-                .coachTarget(CoachTargetID.content)
         }
         .overlay(alignment: .bottomTrailing) { addButton }
         .padding(.horizontal, Theme.Grid.margin)
@@ -113,15 +113,15 @@ struct CalendarScreen: View {
 
     /// 剛進月曆時，行程還沒載進來就先指定了捲動位置，上面那些收成一行的週高度還沒確定，
     /// 結果會差半列，今天那一週的日期被星期列蓋住。等排好之後再指定一次。
-    /// 位置要「有變」才會捲，所以先清掉再放回去（跟引導切回月曆時同一個做法，等的時間也共用）。
+    /// 位置要「有變」才會捲，所以先清掉再放回去。
     private func settleFirstScroll() async {
         let week = vm.topWeekID
         do {
-            try await Task.sleep(for: .seconds(CoachStyle.recenterDelay))
+            try await Task.sleep(for: .seconds(settleDelay))
             // 這段時間使用者自己捲了，就不要把他拉回去
             guard vm.topWeekID == week else { return }
             vm.topWeekID = nil
-            try await Task.sleep(for: .seconds(CoachStyle.recenterGap))
+            try await Task.sleep(for: .seconds(settleGap))
             guard vm.topWeekID == nil else { return }
             vm.topWeekID = week
         } catch {
@@ -147,7 +147,6 @@ struct CalendarScreen: View {
             }
             .buttonStyle(PressStyle())
             .accessibilityLabel("\(vm.titleYearText) 年 \(vm.titleMonthText)，點一下選擇年月")
-            .coachTarget(CoachTargetID.monthTitle)
             Spacer(minLength: 0)
             PillTextButton(title: "今天") { vm.goToday() }
         }
@@ -184,39 +183,6 @@ struct CalendarScreen: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("選單：切換檢視、搜尋、設定")
-        .coachTarget(CoachTargetID.menu)
-    }
-
-    /// 沒看過引導的人才看得到。引導不自動開始，點這張卡才開始；按 ✕ 就不再出現。
-    private var introCard: some View {
-        HStack(spacing: 0) {
-            Button {
-                coach.requestStart()
-            } label: {
-                Text("第一次用？花一分鐘看怎麼用")
-                    .dFont(DT.TypeScale.subheadline)
-                    .foregroundStyle(Theme.ink)
-                    // 字體放大後會換行，上下留一點才不會貼到卡片邊
-                    .padding(.vertical, DT.Space.s2)
-                    .frame(maxWidth: .infinity, minHeight: DT.Size.touch, alignment: .leading)
-                    .padding(.leading, DT.Space.s4)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(PressStyle())
-            Button {
-                coach.dismissIntroCard()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(Theme.sub)
-                    .frame(width: DT.Size.touch, height: DT.Size.touch)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(PressStyle())
-            .accessibilityLabel("關閉，不再顯示")
-        }
-        .background(RoundedRectangle(cornerRadius: DT.Radius.lg).fill(Theme.card))
-        .padding(.horizontal, inset)
     }
 
     private var countdownStrip: some View {

@@ -1,8 +1,8 @@
 import Foundation
 import CalendarCore
 
-/// 引導期間用的範例行程。只活在記憶體裡，不會寫進系統行事曆。
-enum CoachDemo {
+/// 主題頁、月曆樣式頁的預覽用的範例行程。只活在記憶體裡，不會寫進系統行事曆。
+enum SampleEvents {
     /// 範例行程掛在這幾本假的行事曆上，各自對到一個預設類別
     static let calendarCategory: [String: String] = [
         "demo.work": "work",

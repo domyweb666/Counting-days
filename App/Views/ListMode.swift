@@ -77,7 +77,6 @@ struct ListModeView: View {
                             }
                             .buttonStyle(PressStyle())
                             .accessibilityLabel(vm.accessibilityLabel(for: day))
-                            .coachTarget(CoachTargetID.today, when: day.isToday)
                         }
                     }
                 }

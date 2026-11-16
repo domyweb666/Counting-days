@@ -4,7 +4,6 @@ import CalendarCore
 
 struct SettingsScreen: View {
     @Environment(AppModel.self) private var app
-    @Environment(CoachController.self) private var coach
     @Environment(\.dismiss) private var dismiss
     @State private var showCategories = false
     @State private var showThemes = false
@@ -241,19 +240,6 @@ struct SettingsScreen: View {
                     .dFont(DT.TypeScale.body)
                     .foregroundStyle(Theme.sub)
             }
-            Hairline()
-            Button {
-                // 引導的遮罩蓋不到彈出視窗，先關掉設定再開始
-                coach.requestStart()
-                dismiss()
-            } label: {
-                Text("重看教學")
-                    .dFont(DT.TypeScale.body)
-                    .foregroundStyle(Theme.strong)
-                    .frame(maxWidth: .infinity, minHeight: DT.Size.row, alignment: .leading)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(PressStyle())
         }
     }
 }
@@ -457,7 +443,7 @@ struct DisplayModeSettingsScreen: View {
     private var current: DisplayMode { settings.effectiveMode }
 
     private var footer: String {
-        if purchase.isUnlocked { return "引導裡也看得到這四種樣式。" }
+        if purchase.isUnlocked { return "四種樣式都可以用，點一種上面的預覽就會換。" }
         return "上鎖的樣式可以點一下試看，離開這一頁就會換回原本那種。"
     }
 
@@ -508,6 +494,16 @@ struct DisplayModeSettingsScreen: View {
         .onDisappear { settings.endModePreview() }
     }
 
+    /// 每種樣式一句說明
+    private func caption(for mode: DisplayMode) -> String {
+        switch mode {
+        case .flex: return "每件事都寫出來，那一週跟著長高。"
+        case .list: return "小月曆用顏色標出哪天有事，下面列出接下來的行程。"
+        case .strips: return "沒事的日子縮窄，有事的撐開。"
+        case .head: return "每天只寫最重要的一件，其他用小色塊。"
+        }
+    }
+
     /// 買了或免費的直接套用；沒買的付費樣式只試看
     private func pick(_ mode: DisplayMode) {
         if !settings.selectMode(mode) {
@@ -526,7 +522,7 @@ struct DisplayModeSettingsScreen: View {
                     Text(mode.label)
                         .dFont(DT.TypeScale.headline)
                         .foregroundStyle(Theme.ink)
-                    Text(CoachTour.caption(for: mode))
+                    Text(caption(for: mode))
                         .dFont(DT.TypeScale.footnote)
                         .foregroundStyle(Theme.sub)
                 }
@@ -553,7 +549,7 @@ struct DisplayModeSettingsScreen: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PressStyle())
-        .accessibilityLabel("\(mode.label)，\(CoachTour.caption(for: mode))\(isLocked ? "，未解鎖" : "")\(isLocked && isSelected ? "，試看中" : "")")
+        .accessibilityLabel("\(mode.label)，\(caption(for: mode))\(isLocked ? "，未解鎖" : "")\(isLocked && isSelected ? "，試看中" : "")")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 

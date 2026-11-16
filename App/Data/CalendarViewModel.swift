@@ -56,8 +56,6 @@ final class CalendarViewModel {
     private(set) var windowEnd: Date
 
     var selected: Date?
-    /// 新手引導期間改吃這份範例行程，不讀系統行事曆。平常是 nil。
-    var demoEvents: [CalEvent]?
     /// 捲動位置：畫面最上面那一週
     var topWeekID: Date?
     /// 清單方式的小月曆顯示哪個月
@@ -177,10 +175,10 @@ final class CalendarViewModel {
             countdowns = []
             return
         }
-        let events = demoEvents ?? store.events(from: windowStart, to: windowEnd)
+        let events = store.events(from: windowStart, to: windowEnd)
         weeks = builder.weeks(from: windowStart, to: builder.addDays(windowEnd, -1), events: events)
         upcoming = builder.upcoming(in: weeks)
-        countdowns = demoEvents == nil ? makeCountdowns() : []
+        countdowns = makeCountdowns()
         if previousToday != builder.today, selected == previousToday {
             selected = nil
         }
@@ -191,17 +189,17 @@ final class CalendarViewModel {
     }
 
     /// 主題頁的預覽：今天起七天、套上範例行程的一週。
-    /// 只算出一份拿去畫，不碰 `weeks`、`demoEvents`、`selected`，外面的月曆不受影響。
+    /// 只算出一份拿去畫，不碰 `weeks`、`selected`，外面的月曆不受影響。
     func themePreviewWeek() -> WeekModel? {
         // 今天排在最左邊。照日曆的那一週排的話，週末打開時範例行程幾乎都落在下一週。
         var previewCalendar = calendar
         previewCalendar.firstWeekday = previewCalendar.component(.weekday, from: today)
-        let sampleSettings = AppSettings(calendarCategory: CoachDemo.calendarCategory)
+        let sampleSettings = AppSettings(calendarCategory: SampleEvents.calendarCategory)
         let previewBuilder = LayoutBuilder(calendar: previewCalendar, today: today, settings: sampleSettings)
         let lastDay = previewBuilder.addDays(today, 6)
 
-        // 引導的範例裡「台南行」排在 11 天後，進不了這七天；預覽另外放一段在第 4 到 6 天，才看得到跨日色帶
-        var events = CoachDemo.events(today: today, calendar: previewCalendar).filter { $0.id != "demo.tainan" }
+        // 範例裡的「台南行」排在 11 天後，進不了這七天；預覽另外放一段在第 4 到 6 天，才看得到跨日色帶
+        var events = SampleEvents.events(today: today, calendar: previewCalendar).filter { $0.id != "demo.tainan" }
         events.append(CalEvent(
             id: "preview.tainan",
             title: "台南行",
