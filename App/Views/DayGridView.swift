@@ -4,6 +4,7 @@ import CalendarCore
 /// 時間軸：週、3 天、天共用。差別只在一次排幾欄。
 /// 左右滑換上一段、下一段；點上面的日期進那一天的「天」檢視。
 struct DayGridView: View {
+    @Environment(AppModel.self) private var app
     let vm: CalendarViewModel
     let actions: CalendarActions
 
@@ -20,6 +21,12 @@ struct DayGridView: View {
         let days = dates.map { vm.day(for: $0) }
         VStack(spacing: DT.Space.s2) {
             header(dates, days)
+            // 天與 3 天檢視的日期下面有天氣時，放一次來源標示。週檢視一欄太窄，不放天氣。
+            if !compact, let credit = app.weatherCredit(for: dates) {
+                WeatherCreditLink(credit: credit)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.trailing, DT.Space.s3)
+            }
             if days.contains(where: { !allDayItems($0).isEmpty }) {
                 allDayStrip(days)
             }
@@ -67,14 +74,31 @@ struct DayGridView: View {
                             .foregroundStyle(isToday ? Theme.onAccent : (isHoliday ? Theme.destructive : Theme.ink))
                             .frame(minWidth: DT.Space.s8, minHeight: DT.Space.s8)
                             .background(Circle().fill(isToday ? Theme.accent : Color.clear))
+                        if !compact, let forecast = app.forecast(for: date) {
+                            HStack(spacing: 2) {
+                                Image(systemName: forecast.symbolName)
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text(WeatherRules.temperatures(forecast))
+                                    .sFont(11, .medium)
+                                    .lineLimit(1)
+                            }
+                            .foregroundStyle(Theme.sub)
+                        }
                     }
                     .frame(maxWidth: .infinity, minHeight: DT.Size.touch)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(PressStyle())
-                .accessibilityLabel(days[index].map { vm.accessibilityLabel(for: $0) } ?? vm.md(date))
+                .accessibilityLabel(headerLabel(date, days[index]))
             }
         }
+    }
+
+    /// 日期那一格的朗讀文字，有天氣就接在後面
+    private func headerLabel(_ date: Date, _ day: DayModel?) -> String {
+        let base = day.map { vm.accessibilityLabel(for: $0) } ?? vm.md(date)
+        guard !compact, let forecast = app.forecast(for: date) else { return base }
+        return base + "，天氣：" + WeatherRules.line(forecast)
     }
 
     // MARK: 全天

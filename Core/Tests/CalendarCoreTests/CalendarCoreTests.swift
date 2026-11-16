@@ -833,4 +833,89 @@ final class CalendarCoreTests: XCTestCase {
     func testSideMenuOrder() {
         XCTAssertEqual(ViewKind.allCases, [.agenda, .day, .threeDay, .week, .month])
     }
+
+    // MARK: 天氣
+
+    private func sampleCache(city: String = "taipei", at fetched: Date) -> WeatherCache {
+        let credit = WeatherCredit(
+            markLight: URL(string: "https://example.com/light.png")!,
+            markDark: URL(string: "https://example.com/dark.png")!,
+            legalPage: URL(string: "https://example.com/legal")!
+        )
+        let days = [
+            DayForecast(dayKey: "2026-11-16", symbolName: "cloud", condition: "多雲", high: 28, low: 22, rainPercent: 40),
+            DayForecast(dayKey: "2026-11-17", symbolName: "sun.max", condition: "晴", high: 30, low: 21, rainPercent: 0)
+        ]
+        return WeatherCache(cityID: city, fetchedAt: fetched, days: days, credit: credit)
+    }
+
+    func testEveryCityHasCoordinatesInsideTaiwanArea() {
+        for city in WeatherCity.all {
+            XCTAssertTrue((21.5...26.5).contains(city.latitude), city.name)
+            XCTAssertTrue((118.0...122.5).contains(city.longitude), city.name)
+        }
+        XCTAssertNotNil(TimeZone(identifier: WeatherCity.timeZoneID))
+    }
+
+    func testWeatherDayKeyAndLookup() {
+        XCTAssertEqual(WeatherRules.dayKey(date(2026, 1, 5, 23, 59), calendar: cal), "2026-01-05")
+        let cache = sampleCache(at: date(2026, 11, 16, 8, 12))
+        let today = date(2026, 11, 16)
+        let hit = WeatherRules.forecast(in: cache, cityID: "taipei", day: date(2026, 11, 17, 15), today: today, calendar: cal)
+        XCTAssertEqual(hit?.high, 30)
+        // 沒有那一天的資料（超過十天）
+        XCTAssertNil(WeatherRules.forecast(in: cache, cityID: "taipei", day: date(2026, 12, 1), today: today, calendar: cal))
+        // 已經過去的日子，就算手機裡還留著也不顯示
+        XCTAssertNil(WeatherRules.forecast(in: cache, cityID: "taipei", day: date(2026, 11, 16), today: date(2026, 11, 17), calendar: cal))
+        // 換了縣市、還沒選縣市、手機裡沒有資料
+        XCTAssertNil(WeatherRules.forecast(in: cache, cityID: "tainan", day: today, today: today, calendar: cal))
+        XCTAssertNil(WeatherRules.forecast(in: cache, cityID: nil, day: today, today: today, calendar: cal))
+        XCTAssertNil(WeatherRules.forecast(in: nil, cityID: "taipei", day: today, today: today, calendar: cal))
+    }
+
+    func testWeatherNeedsRefresh() {
+        let fetched = date(2026, 11, 16, 8, 0)
+        let cache = sampleCache(at: fetched)
+        XCTAssertTrue(WeatherRules.needsRefresh(nil, cityID: "taipei", now: fetched))
+        XCTAssertFalse(WeatherRules.needsRefresh(cache, cityID: "taipei", now: date(2026, 11, 16, 10, 59)))
+        XCTAssertTrue(WeatherRules.needsRefresh(cache, cityID: "taipei", now: date(2026, 11, 16, 11, 0)))
+        XCTAssertTrue(WeatherRules.needsRefresh(cache, cityID: "tainan", now: date(2026, 11, 16, 8, 1)))
+        // 時鐘被往回調
+        XCTAssertTrue(WeatherRules.needsRefresh(cache, cityID: "taipei", now: date(2026, 11, 16, 7, 0)))
+    }
+
+    func testWeatherRejectsBrokenData() {
+        let good = DayForecast(dayKey: "2026-11-16", symbolName: "cloud", condition: "多雲", high: 28, low: 22, rainPercent: 40)
+        XCTAssertTrue(WeatherRules.isValid(good))
+        var bad = good
+        bad.symbolName = ""
+        XCTAssertFalse(WeatherRules.isValid(bad))
+        bad = good
+        bad.low = 35
+        XCTAssertFalse(WeatherRules.isValid(bad))
+        bad = good
+        bad.high = 999
+        XCTAssertFalse(WeatherRules.isValid(bad))
+        bad = good
+        bad.rainPercent = 140
+        XCTAssertFalse(WeatherRules.isValid(bad))
+    }
+
+    func testWeatherTexts() {
+        let f = DayForecast(dayKey: "2026-11-16", symbolName: "cloud", condition: "多雲", high: 28, low: 22, rainPercent: 40)
+        XCTAssertEqual(WeatherRules.temperatures(f), "22–28°")
+        XCTAssertEqual(WeatherRules.line(f), "多雲 · 22–28° · 降雨 40%")
+        var blank = f
+        blank.condition = " "
+        XCTAssertEqual(WeatherRules.line(blank), "22–28° · 降雨 40%")
+        let now = date(2026, 11, 16, 20, 0)
+        XCTAssertEqual(WeatherRules.updatedText(date(2026, 11, 16, 8, 12), now: now, calendar: cal), "今天 08:12")
+        XCTAssertEqual(WeatherRules.updatedText(date(2026, 11, 15, 23, 5), now: now, calendar: cal), "11月15日 23:05")
+    }
+
+    func testWeatherCacheRoundTrips() throws {
+        let cache = sampleCache(at: date(2026, 11, 16, 8, 12))
+        let round = try JSONDecoder().decode(WeatherCache.self, from: JSONEncoder().encode(cache))
+        XCTAssertEqual(round, cache)
+    }
 }

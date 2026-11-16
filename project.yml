@@ -36,6 +36,12 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         ITSAppUsesNonExemptEncryption: false
+    # 天氣用 Apple 的 WeatherKit。Apple 開發者後台這個 App ID 的 Capabilities 與 App Services 都要勾 WeatherKit，
+    # 不然簽章會失敗，或是裝得起來但抓不到天氣。
+    entitlements:
+      path: SuanRiZi.entitlements
+      properties:
+        com.apple.developer.weatherkit: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.domyweb.countingdays

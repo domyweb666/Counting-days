@@ -30,6 +30,7 @@ final class AppModel {
     let settings: SettingsStore
     let vm: CalendarViewModel
     let purchase: PurchaseStore
+    let weather: WeatherStore
 
     init() {
         let store = EventStore()
@@ -38,6 +39,22 @@ final class AppModel {
         self.settings = settings
         self.purchase = PurchaseStore(onChange: { settings.setUnlocked($0) })
         self.vm = CalendarViewModel(store: store, settings: settings)
+        self.weather = WeatherStore()
+    }
+
+    /// 那一天要顯示的天氣。沒開天氣、沒選縣市、那天沒有預報（過去的日子、十天以後）都是 nil，畫面上就不顯示。
+    func forecast(for day: Date) -> DayForecast? {
+        let s = settings.value
+        guard s.weatherEnabled else { return nil }
+        return WeatherRules.forecast(
+            in: weather.cache, cityID: s.weatherCityID, day: day, today: vm.today, calendar: vm.calendar
+        )
+    }
+
+    /// 這幾天裡只要有一天顯示了天氣，就要放來源標示
+    func weatherCredit(for days: [Date]) -> WeatherCredit? {
+        guard days.contains(where: { forecast(for: $0) != nil }) else { return nil }
+        return weather.cache?.credit
     }
 }
 

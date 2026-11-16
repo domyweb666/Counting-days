@@ -3,6 +3,7 @@ import CalendarCore
 
 /// 點一天展開的時間表。四種呈現方式共用這一個。
 struct DayPanel: View {
+    @Environment(AppModel.self) private var app
     let vm: CalendarViewModel
     let day: DayModel
     let actions: CalendarActions
@@ -63,6 +64,13 @@ struct DayPanel: View {
                     Text(subtitle)
                         .dFont(DT.TypeScale.caption)
                         .foregroundStyle(day.holidays.isEmpty ? Theme.sub : Theme.destructive)
+                }
+                // 天氣另起一行。沒有預報的日子（過去、十天以後）這一行不出現
+                if let forecast = app.forecast(for: day.date) {
+                    WeatherLine(forecast: forecast)
+                    if let credit = app.weather.cache?.credit {
+                        WeatherCreditLink(credit: credit)
+                    }
                 }
             }
             Spacer()

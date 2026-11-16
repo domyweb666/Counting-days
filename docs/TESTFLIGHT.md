@@ -6,7 +6,7 @@
 
 ## 一、在 Apple 建好 app
 
-1. 到 [Apple Developer 的 Identifiers](https://developer.apple.com/account/resources/identifiers/list) 按「+」，選 App IDs → App，Bundle ID 選 Explicit，填 `com.domyweb.countingdays`。Capabilities 不用勾任何東西。
+1. 到 [Apple Developer 的 Identifiers](https://developer.apple.com/account/resources/identifiers/list) 按「+」，選 App IDs → App，Bundle ID 選 Explicit，填 `com.domyweb.countingdays`。Capabilities 要勾 WeatherKit，旁邊的 App Services 分頁也要勾 WeatherKit（天氣用的，兩個都要；改完按 Save）。已經建好 App ID 的話，點進去補勾一樣可以。
 2. 到 [App Store Connect 的 App 頁](https://appstoreconnect.apple.com/apps) 按「+」→ 新增 App。平台 iOS，名稱「蒜日子」（被別人用掉就換一個，這只是商店上的名字），主要語言繁體中文，套件識別碼選剛剛建的那個，SKU 隨便填，例如 `countingdays`。
 
 Bundle ID 想用別的也可以，但要告訴 Claude 一起改 `project.yml`，兩邊不一樣會上傳失敗。

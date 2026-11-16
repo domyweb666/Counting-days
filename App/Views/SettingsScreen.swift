@@ -40,7 +40,7 @@ struct SettingsScreen: View {
                 }
                 // 順序照《蔬菜家族 App 共用基本元素規格》：蒜日子自己的 → 一般 → 購買 → 支援 → 關於 → 頁尾
                 displaySection
-                // 天氣還沒做完，開了也不會有東西，先不放 weatherSection。做完第 8 片再放回來。
+                weatherSection
                 calendarSection
                 categoryLink
                 countdownSection
@@ -197,20 +197,22 @@ struct SettingsScreen: View {
     private var weatherSection: some View {
         let enabled = settings.value.weatherEnabled
         let city = WeatherCity.find(settings.value.weatherCityID)
+        let weather = app.weather
+        let today = app.forecast(for: app.vm.today)
         return SectionCard(
             title: "天氣",
             footer: enabled && city == nil
                 ? "選一個縣市才會顯示天氣。"
-                : "天氣還在製作中。這一版只會記住你選的縣市，不會連網。"
+                : "打開後，蒜日子會連網向 Apple 天氣查你選的縣市未來十天的預報。只送縣市，不送行程。"
         ) {
-            SettingsRow(label: "顯示天氣") {
+            SettingsRow(label: "顯示天氣", icon: "cloud.sun") {
                 Toggle("顯示天氣", isOn: settings.binding(\.weatherEnabled))
                     .labelsHidden()
                     .tint(Theme.accent)
             }
             if enabled {
                 Hairline()
-                SettingsRow(label: "縣市") {
+                SettingsRow(label: "縣市", icon: "mappin.and.ellipse") {
                     Menu {
                         ForEach(WeatherCity.all) { item in
                             Button {
@@ -230,7 +232,59 @@ struct SettingsScreen: View {
                     .accessibilityLabel("縣市：\(city?.name ?? "還沒選")")
                 }
             }
+            if enabled, let city {
+                Hairline()
+                weatherStatus(city: city, today: today, weather: weather)
+            }
         }
+    }
+
+    /// 天氣區下半：今天的天氣、上次更新的時間、抓不到的原因與「再試一次」、來源標示
+    private func weatherStatus(city: WeatherCity, today: DayForecast?, weather: WeatherStore) -> some View {
+        VStack(alignment: .leading, spacing: DT.Space.s1) {
+            if let today {
+                HStack(spacing: DT.Space.s2) {
+                    Text("今天")
+                        .dFont(DT.TypeScale.body)
+                        .foregroundStyle(Theme.ink)
+                    WeatherLine(forecast: today)
+                }
+            } else if weather.isLoading {
+                Text("正在抓天氣…")
+                    .dFont(DT.TypeScale.subheadline)
+                    .foregroundStyle(Theme.sub)
+            } else if weather.problem == nil {
+                Text("還沒有今天的天氣。")
+                    .dFont(DT.TypeScale.subheadline)
+                    .foregroundStyle(Theme.sub)
+            }
+            if let cache = weather.cache, cache.cityID == city.id {
+                Text("上次更新：" + WeatherRules.updatedText(cache.fetchedAt, now: Date(), calendar: app.vm.calendar))
+                    .dFont(DT.TypeScale.footnote)
+                    .foregroundStyle(Theme.sub)
+            }
+            if let problem = weather.problem {
+                Text(problem)
+                    .dFont(DT.TypeScale.footnote)
+                    .foregroundStyle(Theme.destructive)
+                Button {
+                    Task { await weather.refresh(city: city) }
+                } label: {
+                    Text(weather.isLoading ? "正在抓…" : "再試一次")
+                        .dFont(DT.TypeScale.callout)
+                        .foregroundStyle(Theme.strong)
+                        .frame(minHeight: DT.Size.touch)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PressStyle())
+                .disabled(weather.isLoading)
+            }
+            if let cache = weather.cache, cache.cityID == city.id {
+                WeatherCreditLink(credit: cache.credit)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, DT.Space.s2)
     }
 
     // MARK: 行事曆
