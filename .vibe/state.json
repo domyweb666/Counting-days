@@ -1,10 +1,10 @@
 {
   "station": "audit-immediate",
-  "updated_at": "2026-11-17T02:00:00+08:00",
+  "updated_at": "2026-11-16T23:59:00+08:00",
   "updated_by": "vibe-traffic-control",
   "pieces": {
     "todo": 13,
-    "machine_verified": 35,
+    "machine_verified": 44,
     "human_verified": 24
   },
   "chunks": [
@@ -98,6 +98,27 @@
       "machine_done": 3,
       "human_verified": false,
       "approved": true
+    },
+    {
+      "name": "O 第二輪手機試用的五個小修（第 51 到 55 片）",
+      "total": 5,
+      "machine_done": 5,
+      "human_verified": false,
+      "approved": true
+    },
+    {
+      "name": "P 編輯既有的行程用自己的畫面（第 56、57 片）",
+      "total": 2,
+      "machine_done": 2,
+      "human_verified": false,
+      "approved": true
+    },
+    {
+      "name": "Q 每筆行程自己的類別（第 58、59 片）",
+      "total": 2,
+      "machine_done": 2,
+      "human_verified": false,
+      "approved": true
     }
   ],
   "pending_immediate_verify": [
@@ -106,7 +127,10 @@
     34,
     35,
     36,
-    38
+    38,
+    52,
+    57,
+    58
   ],
   "skipped_gates": [
     "grill-me",
@@ -115,6 +139,7 @@
     "spec-standards（第 1 到 16 片）",
     "plan-readback（第 1 到 16 片）",
     "真實情境走查與覆誦等點頭（第 19 到 26 片）",
-    "self-review／simplify／regression-guard（第 19 到 26 片）"
+    "self-review／simplify／regression-guard（第 19 到 26 片）",
+    "spec-standards／plan-readback／self-review／simplify／regression-guard（第 51 到 59 片）"
   ]
 }
