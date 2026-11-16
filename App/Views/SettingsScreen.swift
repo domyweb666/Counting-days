@@ -953,10 +953,16 @@ struct CalendarOrderScreen: View {
     }
 }
 
-/// 設定的第二頁：把移除的行事曆加回來。
+/// 設定的第二頁：把移除的行事曆加回來，或建立一本新的。
 struct AddCalendarScreen: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
+
+    @State private var newName = ""
+    @State private var newColor = Theme.accent
+    /// 建立之後要給使用者看的那句話，以及它是不是壞消息
+    @State private var createMessage: String?
+    @State private var createFailed = false
 
     private var settings: SettingsStore { app.settings }
 
@@ -975,6 +981,7 @@ struct AddCalendarScreen: View {
                     Text(message).dFont(DT.TypeScale.footnote).foregroundStyle(Theme.destructive)
                 }
                 removedSection
+                createSection
             }
             .padding(.horizontal, DT.Size.screenMargin)
             .padding(.top, DT.Space.s4)
@@ -982,6 +989,42 @@ struct AddCalendarScreen: View {
         }
         .background(Theme.bg.ignoresSafeArea())
         .tint(Theme.accent)
+    }
+
+    private var createSection: some View {
+        let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return VStack(alignment: .leading, spacing: DT.Space.s3) {
+            SectionCard(
+                title: "建立新的行事曆",
+                footer: "會寫進 iPhone 的行事曆：有開 iCloud 行事曆就放在 iCloud，沒有就放在這支手機上。之後要刪掉它，得到 iPhone 的行事曆 app 刪。"
+            ) {
+                TextField("名稱", text: $newName)
+                    .dFont(DT.TypeScale.body)
+                    .foregroundStyle(Theme.ink)
+                    .frame(minHeight: DT.Size.row)
+                    .submitLabel(.done)
+                Hairline()
+                SettingsRow(label: "顏色") {
+                    ColorPicker("顏色", selection: $newColor, supportsOpacity: false)
+                        .labelsHidden()
+                        .frame(minWidth: DT.Size.touch, minHeight: DT.Size.touch)
+                }
+            }
+            if let createMessage {
+                Text(createMessage)
+                    .dFont(DT.TypeScale.footnote)
+                    .foregroundStyle(createFailed ? Theme.destructive : Theme.strong)
+                    .padding(.horizontal, DT.Space.s4)
+            }
+            WideButton(title: "建立", kind: .secondary) {
+                let problem = app.store.createCalendar(title: name, color: UIColor(newColor).cgColor)
+                createFailed = problem != nil
+                createMessage = problem ?? "已建立「\(name)」，回設定的清單就看得到。"
+                if problem == nil { newName = "" }
+            }
+            .disabled(name.isEmpty)
+            .opacity(name.isEmpty ? 0.5 : 1)
+        }
     }
 
     private var removedSection: some View {
