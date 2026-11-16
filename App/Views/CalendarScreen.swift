@@ -437,8 +437,7 @@ struct CalendarScreen: View {
     private func sheetView(_ kind: SheetKind) -> some View {
         switch kind {
         case .newEvent(let date):
-            EventEditor(store: app.store, event: nil, defaultDay: date, calendar: vm.calendar) { sheet = nil }
-                .ignoresSafeArea()
+            NewEventScreen(day: date, calendar: vm.calendar) { sheet = nil }
         case .edit(let event):
             if let editing {
                 EventEditor(store: app.store, event: editing, defaultDay: event.start, calendar: vm.calendar) { sheet = nil }
