@@ -6,3 +6,5 @@ build/
 .build/
 .swiftpm/
 App/Info.plist
+# 雲端建置時由 XcodeGen 照 project.yml 產生
+SuanRiZi.entitlements

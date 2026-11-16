@@ -103,14 +103,22 @@ struct CalendarScreen: View {
         .onAppear {
             vm.autoDetectHolidaysIfNeeded()
             vm.rebuild()
+            app.weather.refreshIfNeeded(settings: app.settings.value)
         }
         .task { await settleFirstScroll() }
         .onChange(of: app.store.changeToken) { vm.rebuild() }
-        .onChange(of: app.settings.value) { vm.rebuild() }
+        .onChange(of: app.settings.value) {
+            vm.rebuild()
+            // 在設定裡開了天氣或換了縣市，這裡就去抓
+            app.weather.refreshIfNeeded(settings: app.settings.value)
+        }
         // 驗到購買（或退款）之後，顯示幾個倒數日會變
         .onChange(of: app.purchase.isUnlocked) { vm.rebuild() }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { vm.rebuild() }
+            if phase == .active {
+                vm.rebuild()
+                app.weather.refreshIfNeeded(settings: app.settings.value)
+            }
         }
         .sheet(item: $sheet) { kind in
             sheetView(kind)

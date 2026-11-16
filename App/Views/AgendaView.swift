@@ -3,6 +3,7 @@ import CalendarCore
 
 /// 時間表：今天起每件事一列，有起訖時間，一路往下捲
 struct AgendaView: View {
+    @Environment(AppModel.self) private var app
     let vm: CalendarViewModel
     let actions: CalendarActions
 
@@ -13,6 +14,11 @@ struct AgendaView: View {
         let days = vm.builder.agendaDays(in: vm.weeks)
         ScrollView {
             LazyVStack(alignment: .leading, spacing: DT.Space.s3) {
+                // 下面有任何一天顯示了天氣，最上面就放一次來源標示
+                if let credit = app.weatherCredit(for: days.map(\.date)) {
+                    WeatherCreditLink(credit: credit)
+                        .padding(.leading, DT.Size.touch + DT.Space.s3)
+                }
                 ForEach(Array(days.enumerated()), id: \.element.id) { index, day in
                     let previous = index > 0 ? days[index - 1].date : nil
                     if let previous, !vm.calendar.isDate(previous, equalTo: day.date, toGranularity: .month) {
@@ -52,6 +58,7 @@ struct AgendaView: View {
 
 /// 時間表的一天：左邊日期，右邊一張卡列出當天每件事
 struct AgendaDayRow: View {
+    @Environment(AppModel.self) private var app
     let vm: CalendarViewModel
     let day: DayModel
     let actions: CalendarActions
@@ -64,6 +71,11 @@ struct AgendaDayRow: View {
                 .buttonStyle(PressStyle())
                 .accessibilityLabel(vm.accessibilityLabel(for: day) + "，點一下看當天的時間軸")
             VStack(spacing: 0) {
+                if let forecast = app.forecast(for: day.date) {
+                    WeatherLine(forecast: forecast)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, DT.Space.s2)
+                }
                 if rows.isEmpty {
                     Text(day.isToday ? "今天沒有行程" : "這天沒有行程")
                         .dFont(DT.TypeScale.subheadline)

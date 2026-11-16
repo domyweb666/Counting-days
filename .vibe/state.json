@@ -1,10 +1,10 @@
 {
   "station": "audit-immediate",
-  "updated_at": "2026-11-16T23:59:00+08:00",
+  "updated_at": "2026-11-17T00:40:00+08:00",
   "updated_by": "vibe-traffic-control",
   "pieces": {
     "todo": 13,
-    "machine_verified": 44,
+    "machine_verified": 46,
     "human_verified": 24
   },
   "chunks": [
@@ -25,7 +25,7 @@
     {
       "name": "天氣",
       "total": 4,
-      "machine_done": 1,
+      "machine_done": 3,
       "human_verified": false,
       "approved": true
     },
@@ -130,7 +130,8 @@
     38,
     52,
     57,
-    58
+    58,
+    7
   ],
   "skipped_gates": [
     "grill-me",
