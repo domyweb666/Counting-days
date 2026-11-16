@@ -3,7 +3,7 @@
   "updated_at": "2026-11-17T00:40:00+08:00",
   "updated_by": "vibe-traffic-control",
   "pieces": {
-    "todo": 13,
+    "todo": 26,
     "machine_verified": 46,
     "human_verified": 24
   },
@@ -119,6 +119,27 @@
       "machine_done": 2,
       "human_verified": false,
       "approved": true
+    },
+    {
+      "name": "R 主畫面上看得到今天，小尺寸小工具（第 60 到 65 片）",
+      "total": 6,
+      "machine_done": 0,
+      "human_verified": false,
+      "approved": true
+    },
+    {
+      "name": "S 主畫面上看得到整個月，中大尺寸小工具（第 66 到 70 片）",
+      "total": 5,
+      "machine_done": 0,
+      "human_verified": false,
+      "approved": false
+    },
+    {
+      "name": "T 鎖定畫面與倒數日小工具（第 71、72 片）",
+      "total": 2,
+      "machine_done": 0,
+      "human_verified": false,
+      "approved": false
     }
   ],
   "pending_immediate_verify": [
