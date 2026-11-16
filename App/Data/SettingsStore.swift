@@ -87,9 +87,8 @@ final class SettingsStore {
     /// 正在試看的付費月曆樣式。只放在記憶體，不存檔。
     private(set) var previewingMode: DisplayMode?
 
-    /// 月曆實際要畫成哪一種樣式。引導期間照引導指定的演，四種都要演得出來。
+    /// 月曆實際要畫成哪一種樣式
     var effectiveMode: DisplayMode {
-        if isPreviewing { return value.mode }
         return FullVersionAccess.effectiveMode(selected: value.mode, previewing: previewingMode, isUnlocked: isUnlocked)
     }
 
@@ -131,38 +130,12 @@ final class SettingsStore {
         FullVersionAccess.usesPaidContent(value)
     }
 
-    // MARK: 新手引導的範例設定
-
-    /// 引導期間先把使用者真正的設定收在這裡，結束時放回去
-    @ObservationIgnored private var savedBeforePreview: AppSettings?
-
-    var isPreviewing: Bool { savedBeforePreview != nil }
-
-    /// 暫時改成範例設定。只改畫面上看到的，不寫進手機。
-    func beginPreview(_ change: (inout AppSettings) -> Void) {
-        if savedBeforePreview == nil { savedBeforePreview = value }
-        var next = value
-        change(&next)
-        if next != value { value = next }
-        applyTheme()
-    }
-
-    /// 還原成引導開始前的設定
-    func endPreview() {
-        guard let saved = savedBeforePreview else { return }
-        savedBeforePreview = nil
-        value = saved
-        applyTheme()
-    }
-
     func update(_ change: (inout AppSettings) -> Void) {
         var next = value
         change(&next)
         guard next != value else { return }
         value = next
         applyTheme()
-        // 引導期間的改動都是範例，不存檔
-        guard savedBeforePreview == nil else { return }
         do {
             defaults.set(try JSONEncoder().encode(next), forKey: Self.key)
         } catch {

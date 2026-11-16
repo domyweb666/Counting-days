@@ -1,9 +1,9 @@
 {
-  "station": "idle",
-  "updated_at": "2026-11-16T23:00:00+08:00",
+  "station": "decompose",
+  "updated_at": "2026-11-16T23:55:00+08:00",
   "updated_by": "vibe-traffic-control",
   "pieces": {
-    "todo": 13,
+    "todo": 28,
     "machine_verified": 24,
     "human_verified": 24
   },
@@ -63,6 +63,48 @@
       "machine_done": 4,
       "human_verified": true,
       "approved": true
+    },
+    {
+      "name": "H 三個小修（第 28 到 30 片）",
+      "total": 3,
+      "machine_done": 0,
+      "human_verified": false,
+      "approved": false
+    },
+    {
+      "name": "I 側邊選單（第 31 片）",
+      "total": 1,
+      "machine_done": 0,
+      "human_verified": false,
+      "approved": false
+    },
+    {
+      "name": "J 行事曆自己管（第 32 到 34 片）",
+      "total": 3,
+      "machine_done": 0,
+      "human_verified": false,
+      "approved": false
+    },
+    {
+      "name": "K 時區（第 35 片）",
+      "total": 1,
+      "machine_done": 0,
+      "human_verified": false,
+      "approved": false
+    },
+    {
+      "name": "L 設定頁照蔬菜家族的樣子（第 36 到 38 片）",
+      "total": 3,
+      "machine_done": 0,
+      "human_verified": false,
+      "approved": false
+    },
+    {
+      "name": "M 提醒事項（第 39 到 42 片）",
+      "total": 4,
+      "machine_done": 0,
+      "human_verified": false,
+      "approved": false
     }
   ],
   "pending_immediate_verify": [],

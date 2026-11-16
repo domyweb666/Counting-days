@@ -4,13 +4,11 @@ import EventKit
 @main
 struct SuanRiZiApp: App {
     @State private var app = AppModel()
-    @State private var coach = CoachController()
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(app)
-                .environment(coach)
         }
     }
 }
@@ -50,10 +48,6 @@ struct RootView: View {
         }
         // 放在畫面裡讀主色，換主題時才會跟著重畫
         .tint(Theme.accent)
-        .overlayPreferenceValue(CoachTargetKey.self) { anchors in
-            CoachOverlay(anchors: anchors)
-        }
-        .modifier(CoachDirector())
         .onChange(of: scenePhase) { _, phase in
             // 使用者可能剛從「設定」改完權限回來
             if phase == .active { app.store.refreshStatus() }
