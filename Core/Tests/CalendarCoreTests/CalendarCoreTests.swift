@@ -456,6 +456,39 @@ final class CalendarCoreTests: XCTestCase {
         XCTAssertEqual(WeatherCity.find(round.weatherCityID)?.name, "臺北市")
     }
 
+    // MARK: 行事曆順序
+
+    func testCalendarOrderPutsUnknownLastAndKeepsTheirOrder() {
+        XCTAssertEqual(CalendarOrder.sorted(["A", "B", "C", "D"], by: ["C", "A"]), ["C", "A", "B", "D"])
+        XCTAssertEqual(CalendarOrder.sorted(["A", "B"], by: []), ["A", "B"])
+        XCTAssertEqual(CalendarOrder.sorted(["A"], by: ["不在手機上的", "A"]), ["A"])
+    }
+
+    func testSameStartFollowsCalendarOrder() {
+        let day = date(2026, 11, 18)
+        let events = [
+            ev("a", "工作的事", date(2026, 11, 18, 10), cal: "W"),
+            ev("b", "辦事的事", date(2026, 11, 18, 10), cal: "E"),
+            ev("c", "更早的事", date(2026, 11, 18, 9), cal: "W")
+        ]
+        // 沒排過：開始時間一樣的照識別碼
+        var week = builder(today: day).weeks(from: day, to: day, events: events)[0]
+        XCTAssertEqual(week.days.first { $0.date == day }?.events.map(\.id), ["c", "a", "b"])
+        // 把辦事那本排到前面：同一時間的兩件對調，比較早的那件還是最前面
+        settings.calendarOrder = ["E", "W"]
+        week = builder(today: day).weeks(from: day, to: day, events: events)[0]
+        XCTAssertEqual(week.days.first { $0.date == day }?.events.map(\.id), ["c", "b", "a"])
+    }
+
+    func testCalendarOrderRoundTripsAndOldSettingsStillLoad() throws {
+        var s = AppSettings()
+        s.calendarOrder = ["X", "Y"]
+        let round = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s))
+        XCTAssertEqual(round.calendarOrder, ["X", "Y"])
+        let old = #"{"mode":"A"}"#.data(using: .utf8)!
+        XCTAssertEqual(try JSONDecoder().decode(AppSettings.self, from: old).calendarOrder, [])
+    }
+
     func testWeatherCityList() {
         XCTAssertEqual(WeatherCity.all.count, 22)
         XCTAssertEqual(Set(WeatherCity.all.map(\.id)).count, 22)

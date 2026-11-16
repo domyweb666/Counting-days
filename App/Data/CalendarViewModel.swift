@@ -256,10 +256,20 @@ final class CalendarViewModel {
 
     // MARK: 行事曆清單
 
-    /// 有加入蒜日子的行事曆
+    /// 有加入蒜日子的行事曆，照使用者排的順序；沒排過的照名稱接在後面
     var shownCalendars: [EKCalendar] {
         let removed = settings.value.hiddenCalendarIDs
-        return store.calendars.filter { !removed.contains($0.calendarIdentifier) }
+        let shown = store.calendars.filter { !removed.contains($0.calendarIdentifier) }
+        let byID = Dictionary(shown.map { ($0.calendarIdentifier, $0) }, uniquingKeysWith: { first, _ in first })
+        return CalendarOrder.sorted(shown.map(\.calendarIdentifier), by: settings.value.calendarOrder)
+            .compactMap { byID[$0] }
+    }
+
+    /// 使用者在「行事曆顯示順序」那一頁拖了一列
+    func moveShownCalendar(from source: IndexSet, to destination: Int) {
+        var ids = shownCalendars.map(\.calendarIdentifier)
+        ids.move(fromOffsets: source, toOffset: destination)
+        settings.update { $0.calendarOrder = ids }
     }
 
     /// 從蒜日子移除的行事曆。手機上還在，隨時可以加回來。

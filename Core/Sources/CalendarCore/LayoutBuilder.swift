@@ -147,9 +147,13 @@ public struct LayoutBuilder: Sendable {
         return result
     }
 
+    /// 一天裡的行程誰排前面：全天的先，再照開始時間；開始時間一樣，照使用者排的行事曆順序。
     func eventOrder(_ a: ClassifiedEvent, _ b: ClassifiedEvent) -> Bool {
         if a.event.isAllDay != b.event.isAllDay { return a.event.isAllDay }
         if a.event.start != b.event.start { return a.event.start < b.event.start }
+        let ca = CalendarOrder.rank(of: a.event.calendarID, in: settings.calendarOrder)
+        let cb = CalendarOrder.rank(of: b.event.calendarID, in: settings.calendarOrder)
+        if ca != cb { return ca < cb }
         return a.event.id < b.event.id
     }
 

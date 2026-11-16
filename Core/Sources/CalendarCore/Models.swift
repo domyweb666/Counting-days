@@ -99,6 +99,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var keywordRules: [KeywordRule]
     public var holidayCalendarIDs: Set<String>
     public var hiddenCalendarIDs: Set<String>
+    /// 使用者排的行事曆顯示順序（行事曆識別碼）。沒排過是空的；不在裡面的行事曆排在後面。
+    public var calendarOrder: [String]
     /// 被置頂的事件系列
     public var pinned: Set<String>
     /// 事件系列 → 短名
@@ -145,7 +147,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         didAutoDetectHolidays: Bool = false,
         weatherEnabled: Bool = false,
         weatherCityID: String? = nil,
-        themeID: String = AppSettings.defaultThemeID
+        themeID: String = AppSettings.defaultThemeID,
+        calendarOrder: [String] = []
     ) {
         self.categories = categories
         self.calendarCategory = calendarCategory
@@ -163,6 +166,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.weatherEnabled = weatherEnabled
         self.weatherCityID = weatherCityID
         self.themeID = themeID
+        self.calendarOrder = calendarOrder
     }
 
     // 之後版本加欄位時，舊資料少了欄位也要讀得回來，所以每個欄位都給預設值。
@@ -185,6 +189,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         weatherEnabled = try c.decodeIfPresent(Bool.self, forKey: .weatherEnabled) ?? d.weatherEnabled
         weatherCityID = try c.decodeIfPresent(String.self, forKey: .weatherCityID)
         themeID = try c.decodeIfPresent(String.self, forKey: .themeID) ?? d.themeID
+        calendarOrder = try c.decodeIfPresent([String].self, forKey: .calendarOrder) ?? d.calendarOrder
         if categories.isEmpty { categories = d.categories }
     }
 

@@ -11,6 +11,7 @@ struct SettingsScreen: View {
     /// 正在看哪一本行事曆的詳情
     @State private var detailCalendarID: String?
     @State private var showAddCalendar = false
+    @State private var showCalendarOrder = false
 
     private var settings: SettingsStore { app.settings }
 
@@ -177,6 +178,13 @@ struct SettingsScreen: View {
                 Hairline()
             }
             pushRow("加入行事曆") { showAddCalendar = true }
+            if shown.count > 1 {
+                Hairline()
+                pushRow("行事曆顯示順序") { showCalendarOrder = true }
+            }
+        }
+        .sheet(isPresented: $showCalendarOrder) {
+            CalendarOrderScreen()
         }
         .sheet(isPresented: Binding(
             get: { detailCalendarID != nil },
@@ -884,6 +892,64 @@ struct CalendarDetailScreen: View {
             }
             .buttonStyle(PressStyle())
         }
+    }
+}
+
+/// 設定的第二頁：拖著排行事曆的順序。
+struct CalendarOrderScreen: View {
+    @Environment(AppModel.self) private var app
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: DT.Space.s4) {
+                HStack {
+                    Spacer()
+                    PillTextButton(title: "完成") { dismiss() }
+                }
+                Text("行事曆顯示順序")
+                    .dFont(DT.TypeScale.largeTitle)
+                    .foregroundStyle(Theme.ink)
+                    .accessibilityAddTraits(.isHeader)
+                Text("按住右邊的三條線上下拖。開始時間一樣的行程，排前面的行事曆會顯示在上面。")
+                    .dFont(DT.TypeScale.subheadline)
+                    .foregroundStyle(Theme.sub)
+                if let message = app.settings.errorMessage {
+                    Text(message).dFont(DT.TypeScale.footnote).foregroundStyle(Theme.destructive)
+                }
+            }
+            .padding(.horizontal, DT.Size.screenMargin)
+            .padding(.top, DT.Space.s4)
+            .padding(.bottom, DT.Space.s2)
+            // 拖著排用 iPhone 內建的清單，一直開著編輯狀態，右邊才有可以拖的把手
+            List {
+                ForEach(app.vm.shownCalendars, id: \.calendarIdentifier) { cal in
+                    HStack(spacing: DT.Space.s3) {
+                        Circle()
+                            .fill(Color(cgColor: cal.cgColor))
+                            .frame(width: Theme.Grid.square, height: Theme.Grid.square)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(cal.title)
+                                .dFont(DT.TypeScale.body)
+                                .foregroundStyle(Theme.ink)
+                            if let account = cal.source?.title, !account.isEmpty {
+                                Text(account)
+                                    .dFont(DT.TypeScale.footnote)
+                                    .foregroundStyle(Theme.sub)
+                            }
+                        }
+                    }
+                    .listRowBackground(Theme.card)
+                }
+                .onMove { source, destination in
+                    app.vm.moveShownCalendar(from: source, to: destination)
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .environment(\.editMode, .constant(.active))
+        }
+        .background(Theme.bg.ignoresSafeArea())
+        .tint(Theme.accent)
     }
 }
 
