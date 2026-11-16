@@ -254,6 +254,20 @@ final class CalendarViewModel {
         }
     }
 
+    // MARK: 行事曆清單
+
+    /// 有加入蒜日子的行事曆
+    var shownCalendars: [EKCalendar] {
+        let removed = settings.value.hiddenCalendarIDs
+        return store.calendars.filter { !removed.contains($0.calendarIdentifier) }
+    }
+
+    /// 從蒜日子移除的行事曆。手機上還在，隨時可以加回來。
+    var removedCalendars: [EKCalendar] {
+        let removed = settings.value.hiddenCalendarIDs
+        return store.calendars.filter { removed.contains($0.calendarIdentifier) }
+    }
+
     // MARK: 選取與移動
 
     func day(for date: Date) -> DayModel? {
