@@ -918,4 +918,69 @@ final class CalendarCoreTests: XCTestCase {
         let round = try JSONDecoder().decode(WeatherCache.self, from: JSONEncoder().encode(cache))
         XCTAssertEqual(round, cache)
     }
+
+    // MARK: 小工具
+
+    func testWidgetTodayDropsEndedHiddenHolidayAndRoutine() {
+        settings.hiddenCalendarIDs = ["X"]
+        let now = date(2026, 11, 17, 14, 0)
+        let events = [
+            ev("done", "晨會", date(2026, 11, 17, 9, 0)),
+            // 13:00 到 14:00，現在剛好 14:00，算結束了
+            ev("justDone", "午餐", date(2026, 11, 17, 13, 0)),
+            ev("going", "看牙", date(2026, 11, 17, 13, 30), cal: "M"),
+            ev("later", "接小孩", date(2026, 11, 17, 16, 0), cal: "E"),
+            allDay("full", "繳房租", date(2026, 11, 17), days: 1),
+            ev("hidden", "不看的", date(2026, 11, 17, 15, 0), cal: "X"),
+            allDay("holiday", "某節", date(2026, 11, 17), days: 1, cal: "H"),
+            ev("routine", "吃藥", date(2026, 11, 17, 18, 0), daily: true),
+            ev("tomorrow", "開會", date(2026, 11, 18, 10, 0))
+        ]
+        let w = WidgetRules.today(events: events, now: now, calendar: cal, settings: settings)
+        XCTAssertEqual(w.rows.map(\.id), ["full", "going", "later"])
+        XCTAssertEqual(w.rows.map(\.timeText), ["全天", "13:30", "16:00"])
+        XCTAssertEqual(w.rows.map(\.categoryID), ["trip", "med", "errand"])
+        XCTAssertEqual(w.moreCount, 0)
+    }
+
+    func testWidgetTodayBandFirstAndLimit() {
+        let now = date(2026, 11, 17, 8, 0)
+        let events = [
+            ev("c", "C", date(2026, 11, 17, 15, 0)),
+            ev("a", "A", date(2026, 11, 17, 9, 0)),
+            allDay("full", "繳房租", date(2026, 11, 17), days: 1),
+            ev("b", "B", date(2026, 11, 17, 11, 0)),
+            allDay("trip", "東京", date(2026, 11, 16), days: 3)
+        ]
+        let w = WidgetRules.today(events: events, now: now, calendar: cal, settings: settings)
+        XCTAssertEqual(w.rows.map(\.id), ["trip", "full", "a"])
+        XCTAssertEqual(w.rows[0].timeText, "全天")
+        XCTAssertEqual(w.moreCount, 2)
+
+        let roomy = WidgetRules.today(events: events, now: now, calendar: cal, settings: settings, limit: 10)
+        XCTAssertEqual(roomy.rows.map(\.id), ["trip", "full", "a", "b", "c"])
+        XCTAssertEqual(roomy.moreCount, 0)
+
+        let none = WidgetRules.today(events: events, now: now, calendar: cal, settings: settings, limit: 0)
+        XCTAssertTrue(none.rows.isEmpty)
+        XCTAssertEqual(none.moreCount, 5)
+    }
+
+    func testWidgetTodayChangesDayAtMidnightAndUsesShortName() {
+        settings.shortNames = ["long": "回診"]
+        let events = [
+            // 22:00 到隔天 01:00，跟蒜日子一樣只算在開始那天
+            ev("late", "看電影", date(2026, 11, 17, 22, 0), hours: 3),
+            ev("long", "台大醫院心臟內科回診拿藥", date(2026, 11, 18, 10, 0), cal: "M")
+        ]
+        let before = WidgetRules.today(events: events, now: date(2026, 11, 17, 23, 59), calendar: cal, settings: settings)
+        XCTAssertEqual(before.rows.map(\.id), ["late"])
+
+        let after = WidgetRules.today(events: events, now: date(2026, 11, 18, 0, 0), calendar: cal, settings: settings)
+        XCTAssertEqual(after.rows.map(\.id), ["long"])
+        XCTAssertEqual(after.rows[0].label, "回診")
+
+        let empty = WidgetRules.today(events: [], now: date(2026, 11, 18, 0, 0), calendar: cal, settings: settings)
+        XCTAssertEqual(empty, WidgetToday(rows: [], moreCount: 0))
+    }
 }

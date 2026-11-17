@@ -676,3 +676,13 @@
 ### 21.2 簽章
 
 Apple 開發者後台要先建 App Group、小工具的 App ID，兩個 App ID 都勾 App Groups，步驟在 `docs/TESTFLIGHT.md` 第一節。上傳流程 `.github/workflows/testflight.yml` 沒有改：封存的是蒜日子，小工具跟著一起被封存與簽章。
+
+### 21.3 小工具上放哪幾筆（第 61 片，只有規則，還沒接到畫面）
+
+規則在 `Core/Sources/CalendarCore/WidgetToday.swift` 的 `WidgetRules.today`，哪些行程算今天的沿用 `LayoutBuilder`，所以跟蒜日子裡點開今天看到的對得起來。
+
+- 不列：已經結束的（結束時間一到就拿掉）、在蒜日子裡關掉的行事曆、節日、每天重複的例行事件。
+- 順序：跨日的、全天的、有時間的照開始時間。
+- 小尺寸最多 3 筆（`WidgetRules.smallRowLimit`），放不下的只給筆數。
+- 每一列給：時間的字（「全天」或「14:30」）、月曆格子用的那個名字（太長用短名）、類別。
+- 跨過午夜的行程只算在開始那天，跟月曆一致。
