@@ -830,6 +830,13 @@ final class CalendarCoreTests: XCTestCase {
 
     // MARK: 開始、結束各有日期與時間
 
+    func testClock24HasNoMorningOrAfternoon() {
+        XCTAssertEqual(EventText.clock24(0), "0:00")
+        XCTAssertEqual(EventText.clock24(9 * 60 + 5), "9:05")
+        XCTAssertEqual(EventText.clock24(17 * 60), "17:00")
+        XCTAssertEqual(EventText.clock24(23 * 60 + 55), "23:55")
+    }
+
     func testLongTimedEventRoundTrips() {
         // 12/1 晚上 8:00 到 12/8 晚上 10:30
         let trip = CalEvent(id: "K", title: "去韓國", start: date(2026, 12, 1, 20), end: date(2026, 12, 8, 22, 30))

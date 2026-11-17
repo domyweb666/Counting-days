@@ -28,6 +28,8 @@ struct NewEventScreen: View {
     @State private var shownMonth: Date
     /// 「開始／結束」那張卡正在調哪一格；nil 是收著
     @State private var picking: WhenPart?
+    /// 月曆上面的「2026年11月」點開了沒：點開是年、月兩個滾輪，用來一次跳很遠
+    @State private var pickingYearMonth = false
     @State private var pickingCalendar = false
     @State private var showLocation = false
     @State private var showNotes = false
@@ -53,6 +55,9 @@ struct NewEventScreen: View {
     /// 地點、備註那一格長出來花多久；長出來之後等多久再捲過去
     private let fieldAnimation: Double = 0.2
     private let fieldSettleDelay: Double = 0.3
+    /// 年份滾輪從今年往前、往後各列幾年
+    private let yearsBack = 10
+    private let yearsAhead = 20
 
     init(day: Date, calendar: Calendar, close: @escaping () -> Void) {
         let first = NewEventRules.initialDraft(day: day, now: Date(), calendar: calendar)
@@ -488,7 +493,7 @@ struct NewEventScreen: View {
                         part: .startDay, label: "開始日期"
                     )
                     if !allDay {
-                        whenButton(EventText.time(draft.startMinutes), part: .startTime, label: "開始時間", isBig: true)
+                        whenButton(EventText.clock24(draft.startMinutes), part: .startTime, label: "開始時間", isBig: true)
                     }
                 }
                 Image(systemName: "chevron.right")
@@ -499,7 +504,7 @@ struct NewEventScreen: View {
                     whenButton(EventText.shortDay(endDay, calendar: calendar), part: .endDay, label: "結束日期", isWrong: isWrong)
                     if !allDay {
                         whenButton(
-                            EventText.time(NewEventRules.endClock(draft, calendar: calendar)),
+                            EventText.clock24(NewEventRules.endClock(draft, calendar: calendar)),
                             part: .endTime, label: "結束時間", isBig: true, isWrong: isWrong
                         )
                     }
@@ -595,6 +600,7 @@ struct NewEventScreen: View {
         // 月曆、滾輪要有地方長出來，先把鍵盤收掉
         focus = nil
         pickingCalendar = false
+        pickingYearMonth = false
         shownMonth = part == .endDay
             ? NewEventRules.endDay(draft, calendar: calendar)
             : NewEventRules.startDay(draft)
@@ -656,38 +662,32 @@ struct NewEventScreen: View {
         }
     }
 
-    /// 三個滾輪：上午下午、幾點、幾分。系統的時間滾輪不能設成 5 分鐘一格，所以自己排。
+    /// 兩個滾輪：幾點（0 到 23）、幾分。系統的時間滾輪不能設成 5 分鐘一格，還會帶「上午、下午」這些字，所以自己排。
     private func wheels(_ field: TimeField) -> some View {
         let minutes = field == .start ? draft.startMinutes : NewEventRules.endClock(draft, calendar: calendar)
-        let afternoon = Binding<Bool>(
-            get: { EventText.isAfternoon(minutes) },
-            set: { setClock(field, afternoon: $0, hour: EventText.hour12(minutes), minute: minutes % 60) }
-        )
         let hour = Binding<Int>(
-            get: { EventText.hour12(minutes) },
-            set: { setClock(field, afternoon: EventText.isAfternoon(minutes), hour: $0, minute: minutes % 60) }
+            get: { minutes / 60 },
+            set: { setClock(field, hour: $0, minute: minutes % 60) }
         )
         let minute = Binding<Int>(
             get: { minutes % 60 },
-            set: { setClock(field, afternoon: EventText.isAfternoon(minutes), hour: EventText.hour12(minutes), minute: $0) }
+            set: { setClock(field, hour: minutes / 60, minute: $0) }
         )
         return HStack(spacing: 0) {
-            Picker("上午或下午", selection: afternoon) {
-                Text("上午").tag(false)
-                Text("下午").tag(true)
-            }
-            .frame(maxWidth: .infinity)
-            .clipped()
             Picker("幾點", selection: hour) {
-                ForEach(1...12, id: \.self) { value in
-                    Text("\(value)").tag(value)
+                ForEach(0..<24, id: \.self) { value in
+                    Text(verbatim: "\(value)").tag(value)
                 }
             }
             .frame(maxWidth: .infinity)
             .clipped()
+            Text(verbatim: ":")
+                .dFont(DT.TypeScale.title3)
+                .foregroundStyle(Theme.ink)
+                .accessibilityHidden(true)
             Picker("幾分", selection: minute) {
                 ForEach(minuteOptions(including: minutes % 60), id: \.self) { value in
-                    Text(value < 10 ? "0\(value)" : "\(value)").tag(value)
+                    Text(verbatim: value < 10 ? "0\(value)" : "\(value)").tag(value)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -695,6 +695,7 @@ struct NewEventScreen: View {
         }
         .pickerStyle(.wheel)
         .frame(height: wheelHeight)
+        .padding(.horizontal, DT.Space.s8)
     }
 
     /// 滾輪上的分鐘：每 5 分鐘一格。現在的分鐘數不在格子上（別處帶進來的）就補進去，不然滾輪會沒有選到的那一列。
@@ -707,8 +708,8 @@ struct NewEventScreen: View {
         return options
     }
 
-    private func setClock(_ field: TimeField, afternoon: Bool, hour: Int, minute: Int) {
-        let total = ((hour % 12) + (afternoon ? 12 : 0)) * 60 + minute
+    private func setClock(_ field: TimeField, hour: Int, minute: Int) {
+        let total = hour * 60 + minute
         switch field {
         case .start: draft = NewEventRules.settingStart(total, in: draft)
         case .end: draft = NewEventRules.settingEndClock(total, in: draft, calendar: calendar)
@@ -732,35 +733,96 @@ struct NewEventScreen: View {
         let cells = NewEventRules.monthCells(month: shownMonth, calendar: calendar)
         let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
         return VStack(spacing: DT.Space.s2) {
-            HStack {
-                monthArrow("chevron.left", label: "上個月", months: -1)
-                Spacer()
-                Text(EventText.month(shownMonth, calendar: calendar))
-                    .dFont(DT.TypeScale.headline)
-                    .foregroundStyle(Theme.ink)
-                Spacer()
-                monthArrow("chevron.right", label: "下個月", months: 1)
-            }
             HStack(spacing: 0) {
-                ForEach(app.vm.weekdaySymbols, id: \.self) { symbol in
-                    Text(symbol)
-                        .dFont(DT.TypeScale.caption)
-                        .foregroundStyle(Theme.sub)
-                        .frame(maxWidth: .infinity)
+                Button {
+                    pickingYearMonth.toggle()
+                } label: {
+                    HStack(spacing: DT.Space.s1) {
+                        Text(EventText.month(shownMonth, calendar: calendar))
+                            .dFont(DT.TypeScale.headline)
+                        Image(systemName: pickingYearMonth ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .foregroundStyle(pickingYearMonth ? Theme.strong : Theme.ink)
+                    .frame(minHeight: DT.Size.touch)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(PressStyle())
+                .accessibilityLabel("選年份和月份，現在是\(EventText.month(shownMonth, calendar: calendar))")
+                .accessibilityAddTraits(pickingYearMonth ? .isSelected : [])
+                Spacer()
+                if !pickingYearMonth {
+                    monthArrow("chevron.left", label: "上個月", months: -1)
+                    monthArrow("chevron.right", label: "下個月", months: 1)
                 }
             }
-            .accessibilityHidden(true)
-            LazyVGrid(columns: columns, spacing: DT.Space.s1) {
-                ForEach(Array(cells.enumerated()), id: \.offset) { _, cell in
-                    if let cell {
-                        dayCell(cell, isEnd: isEnd)
-                    } else {
-                        Color.clear.frame(height: DT.Size.touch)
+            if pickingYearMonth {
+                yearMonthWheels
+            } else {
+                HStack(spacing: 0) {
+                    ForEach(app.vm.weekdaySymbols, id: \.self) { symbol in
+                        Text(symbol)
+                            .dFont(DT.TypeScale.caption)
+                            .foregroundStyle(Theme.sub)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .accessibilityHidden(true)
+                LazyVGrid(columns: columns, spacing: DT.Space.s1) {
+                    ForEach(Array(cells.enumerated()), id: \.offset) { _, cell in
+                        if let cell {
+                            dayCell(cell, isEnd: isEnd)
+                        } else {
+                            Color.clear.frame(height: DT.Size.touch)
+                        }
                     }
                 }
             }
         }
         .padding(.horizontal, DT.Space.s1)
+    }
+
+    /// 年、月兩個滾輪：只是把月曆翻到那個月，選哪一天還是回月曆點。再點一次上面的年月就回到月曆。
+    private var yearMonthWheels: some View {
+        let parts = calendar.dateComponents([.year, .month], from: shownMonth)
+        let thisYear = calendar.component(.year, from: app.vm.today)
+        let shownYear = parts.year ?? thisYear
+        let shownMonthNumber = parts.month ?? 1
+        // 正在看的那一年不在範圍裡（編輯很久以前或很久以後的行程）就把範圍拉過去
+        let firstYear = min(thisYear - yearsBack, shownYear)
+        let lastYear = max(thisYear + yearsAhead, shownYear)
+        let year = Binding<Int>(
+            get: { shownYear },
+            set: { showMonth(year: $0, month: shownMonthNumber) }
+        )
+        let month = Binding<Int>(
+            get: { shownMonthNumber },
+            set: { showMonth(year: shownYear, month: $0) }
+        )
+        return HStack(spacing: 0) {
+            Picker("年份", selection: year) {
+                ForEach(firstYear...lastYear, id: \.self) { value in
+                    Text(verbatim: "\(value)年").tag(value)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .clipped()
+            Picker("月份", selection: month) {
+                ForEach(1...12, id: \.self) { value in
+                    Text(verbatim: "\(value)月").tag(value)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .clipped()
+        }
+        .pickerStyle(.wheel)
+        .frame(height: wheelHeight)
+    }
+
+    private func showMonth(year: Int, month: Int) {
+        if let next = calendar.date(from: DateComponents(year: year, month: month, day: 1)) {
+            shownMonth = next
+        }
     }
 
     private func monthArrow(_ systemName: String, label: String, months: Int) -> some View {

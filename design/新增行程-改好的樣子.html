@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>新增行程 改好的樣子</title>
+<style>
+  :root {
+    --bg: #F3F3F5; --card: #FFFFFF; --ink: #1C1C1E; --sub: #6A6A70; --ter: #B4B4BA;
+    --sep: #E5E1D8; --accent: #4F6B57; --strong: #3F5746; --soft: #E3ECE5;
+    --blue: #4A6A8F; --red: #C4372C; --page: #D9D9DE; --kb: #CDD0D6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px 64px; background: var(--page); color: var(--ink);
+    font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  }
+  main { max-width: 1480px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  h2 { font-size: 20px; margin: 40px 0 6px; }
+  .lead { font-size: 15px; line-height: 1.7; color: #3a3a3e; max-width: 900px; margin: 0 0 18px; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+  figure { margin: 0; width: 340px; max-width: 100%; }
+  figcaption { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .desc { font-size: 13.5px; line-height: 1.6; color: #44444a; margin: 0 0 10px; min-height: 64px; }
+  .phone { position: relative; width: 100%; height: 700px; background: var(--bg); border-radius: 32px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,.18); }
+  .scr { height: 100%; overflow-y: auto; padding: 14px 16px 24px; }
+  .bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .bar b { font-size: 16px; }
+  .bar .cancel { color: var(--sub); font-size: 16px; }
+  .ok { width: 38px; height: 38px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; }
+  .ok.off { opacity: .4; }
+  .title { background: var(--card); border-radius: 14px; padding: 18px 16px; font-size: 21px; color: var(--ter); margin-bottom: 12px; }
+  .title.filled { color: var(--ink); font-weight: 600; }
+  .caret { display: inline-block; width: 2px; height: 20px; background: var(--accent); vertical-align: -4px; }
+  .cats { display: flex; gap: 8px; overflow: hidden; margin-bottom: 12px; }
+  .cats span { background: var(--card); border-radius: 999px; padding: 10px 14px; font-size: 15px; font-weight: 600; white-space: nowrap; }
+  .cats .on { background: var(--soft); color: var(--strong); outline: 1.5px solid var(--accent); outline-offset: -1.5px; }
+  .sq { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; background: var(--blue); }
+  .card { background: var(--card); border-radius: 14px; }
+  .when { display: flex; align-items: center; gap: 4px; padding: 8px; }
+  .col { flex: 1; min-width: 0; }
+  .col small { display: block; font-size: 12.5px; color: var(--sub); margin: 0 0 4px 4px; }
+  .cell { background: var(--bg); border-radius: 10px; padding: 0 12px; height: 44px; display: flex; align-items: center; font-size: 16px; font-weight: 600; margin-bottom: 4px; border: 2px solid transparent; white-space: nowrap; }
+  .cell.big { font-size: 20px; }
+  .cell.on { border-color: var(--accent); }
+  .cell.bad { color: var(--red); text-decoration: line-through; }
+  .arrow { color: var(--sub); font-weight: 700; flex: none; }
+  .warn { color: var(--red); font-size: 13px; padding: 0 16px 8px; }
+  .pick { padding: 0 12px 8px; }
+  .mh { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 16px; height: 40px; }
+  .mh span { width: 40px; text-align: center; color: var(--ink); }
+  .dow, .grid { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+  .dow { font-size: 12px; color: var(--sub); margin-bottom: 4px; }
+  .grid div { height: 40px; display: grid; place-items: center; font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+  .grid .edge { background: var(--accent); color: #fff; border-radius: 999px; }
+  .grid .mid { background: var(--soft); }
+  .grid .off { color: var(--ter); }
+  .wheels { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; height: 132px; position: relative; align-items: center; }
+  .wheels::before { content: ""; position: absolute; left: 0; right: 0; top: 50px; height: 32px; background: var(--bg); border-radius: 8px; }
+  .wheels div { position: relative; line-height: 32px; color: var(--ter); font-size: 17px; }
+  .wheels b { display: block; color: var(--ink); font-size: 20px; }
+  .durs { display: flex; gap: 6px; margin-top: 6px; }
+  .durs span { flex: 1; text-align: center; background: var(--bg); border-radius: 999px; padding: 10px 0; font-size: 14px; font-weight: 600; }
+  .durs .on { background: var(--accent); color: #fff; }
+  .hint { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--sub); padding: 6px 4px 0; }
+  .hint b { color: var(--strong); font-size: 16px; }
+  .row { display: flex; justify-content: space-between; align-items: center; min-height: 50px; padding: 0 16px; font-size: 16px; border-top: 1px solid var(--sep); }
+  .row .k { color: var(--sub); }
+  .sw { width: 50px; height: 30px; border-radius: 15px; background: #D4D4D8; padding: 3px; display: flex; }
+  .sw i { width: 24px; height: 24px; border-radius: 50%; background: #fff; }
+  .sw.on { background: var(--accent); justify-content: flex-end; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .chip { border: 1px dashed var(--ter); color: var(--sub); border-radius: 999px; padding: 10px 12px; font-size: 14.5px; white-space: nowrap; }
+  .chip.set { border: 1px solid transparent; background: var(--soft); color: var(--strong); font-weight: 600; }
+  .field { display: flex; gap: 10px; align-items: center; font-size: 16px; min-height: 46px; padding: 0 16px; }
+  .field i { font-style: normal; color: var(--strong); width: 20px; text-align: center; }
+  .ph { color: var(--ter); }
+  .del { text-align: center; color: var(--red); font-weight: 600; padding: 14px 0; margin-top: 14px; }
+  .sys { text-align: center; color: var(--sub); font-size: 13px; padding: 4px 0 0; }
+  .kb { position: absolute; left: 0; right: 0; bottom: 0; height: 250px; background: var(--kb); display: grid; place-items: center; color: #777; font-size: 14px; }
+  ul { font-size: 15px; line-height: 1.8; max-width: 900px; padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+<h1>新增行程：現在程式裡的樣子</h1>
+<p class="lead">照今天存檔的程式（791068a）畫的示意，顏色用你截圖裡的綠色主題。還沒編譯、沒上手機，字級與間距會跟實機有出入。每一張是同一個畫面的不同狀態，按鈕都點不動。</p>
+
+<div class="wrap">
+  <figure>
+    <figcaption>1　剛打開</figcaption>
+    <p class="desc">游標在標題，鍵盤開著。開始帶今天的下一個整點，結束是一小時後。鍵盤以上整張表單看得到，膠囊要往上捲一點。</p>
+    <div class="phone"><div class="scr">
+      <div class="bar"><span class="cancel">取消</span><b>新增行程</b><span class="ok off">✓</span></div>
+      <div class="title">要做什麼？<span class="caret"></span></div>
+      <div class="cats"><span>工作</span><span class="on"><i class="sq"></i>行程</span><span><i class="sq" style="background:#B5503B"></i>看診</span><span><i class="sq" style="background:#7A5C99"></i>娛樂</span></div>
+      <div class="card">
+        <div class="when">
+          <div class="col"><small>開始</small><div class="cell">11/17 週二</div><div class="cell big">下午 5:00</div></div>
+          <span class="arrow">›</span>
+          <div class="col"><small>結束</small><div class="cell">11/17 週二</div><div class="cell big">下午 6:00</div></div>
+        </div>
+        <div class="row"><span>整日</span><span class="sw"><i></i></span></div>
+        <div class="row"><span class="k">行事曆</span><span><i class="sq"></i>charlie81…mail.com ⌄</span></div>
+      </div>
+      <div class="chips"><span class="chip">+ 提醒</span><span class="chip">+ 重複</span><span class="chip">+ 地點</span><span class="chip">+ 備註</span><span class="chip">+ 分享</span><span class="chip">+ 倒數日</span></div>
+    </div><div class="kb">鍵盤</div></div>
+  </figure>
+
+  <figure>
+    <figcaption>2　點結束的日期</figcaption>
+    <p class="desc">鍵盤自動收掉，卡裡展開月曆。開始、結束兩天是實心，中間淡色；開始之前的日子是灰的、點不動。點開始的日期也是這個月曆，但結束會跟著一起移。</p>
+    <div class="phone"><div class="scr">
+      <div class="bar"><span class="cancel">取消</span><b>新增行程</b><span class="ok">✓</span></div>
+      <div class="title filled">去韓國</div>
+      <div class="cats"><span>工作</span><span class="on"><i class="sq"></i>行程</span><span><i class="sq" style="background:#B5503B"></i>看診</span><span><i class="sq" style="background:#7A5C99"></i>娛樂</span></div>
+      <div class="card">
+        <div class="when">
+          <div class="col"><small>開始</small><div class="cell">12/1 週二</div><div class="cell big">下午 8:00</div></div>
+          <span class="arrow">›</span>
+          <div class="col"><small>結束</small><div class="cell on">12/8 週二</div><div class="cell big">下午 10:30</div></div>
+        </div>
+        <div class="pick">
+          <div class="mh"><span>‹</span>2026年12月<span>›</span></div>
+          <div class="dow"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+          <div class="grid">
+            <div></div><div></div><div class="edge">1</div><div class="mid">2</div><div class="mid">3</div><div class="mid">4</div><div class="mid">5</div>
+            <div class="mid">6</div><div class="mid">7</div><div class="edge">8</div><div>9</div><div>10</div><div>11</div><div>12</div>
+            <div>13</div><div>14</div><div>15</div><div>16</div><div>17</div><div>18</div><div>19</div>
+            <div>20</div><div>21</div><div>22</div><div>23</div><div>24</div><div>25</div><div>26</div>
+            <div>27</div><div>28</div><div>29</div><div>30</div><div>31</div><div></div><div></div>
+          </div>
+          <div class="hint"><span>開始那一天之前的不能選</span><b>完成</b></div>
+        </div>
+        <div class="row"><span>整日</span><span class="sw"><i></i></span></div>
+        <div class="row"><span class="k">行事曆</span><span><i class="sq"></i>charlie81…mail.com ⌄</span></div>
+      </div>
+    </div></div>
+  </figure>
+
+  <figure>
+    <figcaption>3　點開始的時間</figcaption>
+    <p class="desc">展開三個滾輪（上午下午、幾點、幾分，5 分鐘一格）和一排長度。轉開始，結束跟著移；點「2 小時」，結束變成開始後兩小時。點結束的時間也是這組滾輪，但只動結束。</p>
+    <div class="phone"><div class="scr">
+      <div class="bar"><span class="cancel">取消</span><b>新增行程</b><span class="ok">✓</span></div>
+      <div class="title filled">牙齒回診</div>
+      <div class="cats"><span>工作</span><span><i class="sq"></i>行程</span><span class="on"><i class="sq" style="background:#B5503B"></i>看診</span><span><i class="sq" style="background:#7A5C99"></i>娛樂</span></div>
+      <div class="card">
+        <div class="when">
+          <div class="col"><small>開始</small><div class="cell">11/26 週四</div><div class="cell big on">下午 5:00</div></div>
+          <span class="arrow">›</span>
+          <div class="col"><small>結束</small><div class="cell">11/26 週四</div><div class="cell big">下午 6:00</div></div>
+        </div>
+        <div class="pick">
+          <div class="wheels">
+            <div>上午<b>下午</b>&nbsp;</div>
+            <div>4<b>5</b>6</div>
+            <div>55<b>00</b>05</div>
+          </div>
+          <div class="durs"><span>30 分</span><span class="on">1 小時</span><span>2 小時</span><span>3 小時</span></div>
+          <div class="hint"><span>結束時間會跟著往後移</span><b>完成</b></div>
+        </div>
+        <div class="row"><span>整日</span><span class="sw"><i></i></span></div>
+        <div class="row"><span class="k">行事曆</span><span><i class="sq"></i>charlie81…mail.com ⌄</span></div>
+      </div>
+    </div></div>
+  </figure>
+
+  <figure>
+    <figcaption>4　結束比開始早</figcaption>
+    <p class="desc">同一天裡把結束調到開始之前：結束兩格變紅劃掉，下面一行字，右上角打勾變淡、按不下去。</p>
+    <div class="phone"><div class="scr">
+      <div class="bar"><span class="cancel">取消</span><b>新增行程</b><span class="ok off">✓</span></div>
+      <div class="title filled">牙齒回診</div>
+      <div class="cats"><span>工作</span><span><i class="sq"></i>行程</span><span class="on"><i class="sq" style="background:#B5503B"></i>看診</span><span><i class="sq" style="background:#7A5C99"></i>娛樂</span></div>
+      <div class="card">
+        <div class="when">
+          <div class="col"><small>開始</small><div class="cell">11/26 週四</div><div class="cell big">下午 5:00</div></div>
+          <span class="arrow">›</span>
+          <div class="col"><small>結束</small><div class="cell bad">11/26 週四</div><div class="cell big bad">下午 3:00</div></div>
+        </div>
+        <div class="warn">結束比開始早，改一下才能存。</div>
+        <div class="row"><span>整日</span><span class="sw"><i></i></span></div>
+        <div class="row"><span class="k">行事曆</span><span><i class="sq"></i>charlie81…mail.com ⌄</span></div>
+      </div>
+      <div class="chips"><span class="chip">+ 提醒</span><span class="chip">+ 重複</span><span class="chip">+ 地點</span><span class="chip">+ 備註</span><span class="chip">+ 分享</span><span class="chip">+ 倒數日</span></div>
+    </div></div>
+  </figure>
+
+  <figure>
+    <figcaption>5　整日，膠囊設了幾顆</figcaption>
+    <p class="desc">打開「整日」，時間那兩格不見，只剩日期。提醒、重複設了之後直接寫內容；地點點了在下面長出一格，游標進去、自動捲到鍵盤上面。</p>
+    <div class="phone"><div class="scr">
+      <div class="bar"><span class="cancel">取消</span><b>新增行程</b><span class="ok">✓</span></div>
+      <div class="title filled">媽媽生日</div>
+      <div class="cats"><span>工作</span><span class="on"><i class="sq"></i>行程</span><span><i class="sq" style="background:#B5503B"></i>看診</span><span><i class="sq" style="background:#7A5C99"></i>娛樂</span></div>
+      <div class="card">
+        <div class="when">
+          <div class="col"><small>開始</small><div class="cell">12/14 週一</div></div>
+          <span class="arrow">›</span>
+          <div class="col"><small>結束</small><div class="cell">12/14 週一</div></div>
+        </div>
+        <div class="row"><span>整日</span><span class="sw on"><i></i></span></div>
+        <div class="row"><span class="k">行事曆</span><span><i class="sq"></i>charlie81…mail.com ⌄</span></div>
+      </div>
+      <div class="chips"><span class="chip set">前一天早上 9 點</span><span class="chip set">每年</span><span class="chip set">地點</span><span class="chip">+ 備註</span><span class="chip">+ 分享</span><span class="chip set">倒數日</span></div>
+      <div class="card" style="margin-top:12px"><div class="field"><i>⌖</i><span class="ph"><span class="caret"></span> 地點</span></div></div>
+    </div><div class="kb">鍵盤</div></div>
+  </figure>
+
+  <figure>
+    <figcaption>6　編輯既有的行程</figcaption>
+    <p class="desc">同一張表單，標題換成「編輯行程」，四格帶入原本的起訖，鍵盤不會自己跳出來。最下面多「刪除行程」和一行改開 iPhone 內建畫面的連結。</p>
+    <div class="phone"><div class="scr">
+      <div class="bar"><span class="cancel">取消</span><b>編輯行程</b><span class="ok">✓</span></div>
+      <div class="title filled">去韓國</div>
+      <div class="cats"><span>工作</span><span class="on"><i class="sq"></i>行程</span><span><i class="sq" style="background:#B5503B"></i>看診</span><span><i class="sq" style="background:#7A5C99"></i>娛樂</span></div>
+      <div class="card">
+        <div class="when">
+          <div class="col"><small>開始</small><div class="cell">12/1 週二</div><div class="cell big">下午 8:00</div></div>
+          <span class="arrow">›</span>
+          <div class="col"><small>結束</small><div class="cell">12/8 週二</div><div class="cell big">下午 10:30</div></div>
+        </div>
+        <div class="row"><span>整日</span><span class="sw"><i></i></span></div>
+        <div class="row"><span class="k">行事曆</span><span><i class="sq" style="background:#A5DDE4"></i>charlie@domy… ⌄</span></div>
+      </div>
+      <div class="chips"><span class="chip set">10 分鐘前</span><span class="chip">+ 重複</span><span class="chip">+ 地點</span><span class="chip">+ 備註</span><span class="chip">+ 分享</span><span class="chip">+ 倒數日</span></div>
+      <div class="del">刪除行程</div>
+      <div class="sys">邀請對象、網址這些欄位，改用 iPhone 內建的畫面編輯</div>
+    </div></div>
+  </figure>
+</div>
+
+<h2>跟你給的原型不一樣的地方</h2>
+<ul>
+  <li>時間滾輪是 iPhone 內建的樣式，有「上午／下午」，不是 24 小時制的兩個滾輪。</li>
+  <li>「+ 提醒」「+ 重複」點了是跳系統選單，不是在下面展開一排選項。</li>
+  <li>月曆上方沒有「點年月換成年、月滾輪」，只有左右箭頭換月。</li>
+  <li>收合用文字「完成」，不是黑色圓形打勾。</li>
+  <li>沒有「邀請對象」「網址」（蒜日子不寫這兩樣），多了「分享」「倒數日」。</li>
+  <li>類別那一排可以左右滑，不是四顆等寬。</li>
+  <li>右上角是圓形打勾，不是「加入」兩個字。</li>
+</ul>
+</main>
+</body>
+</html>

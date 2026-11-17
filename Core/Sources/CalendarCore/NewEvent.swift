@@ -554,6 +554,14 @@ public enum EventText {
         return "\(hour12(minutes)):" + (minute < 10 ? "0\(minute)" : "\(minute)")
     }
 
+    /// 24 小時制的鐘點，沒有上午下午：「9:05」「17:00」
+    public static func clock24(_ minutes: Int) -> String {
+        let day = NewEventRules.minutesPerDay
+        let safe = ((minutes % day) + day) % day
+        let minute = safe % 60
+        return "\(safe / 60):" + (minute < 10 ? "0\(minute)" : "\(minute)")
+    }
+
     /// 「下午 4:00」
     public static func time(_ minutes: Int) -> String {
         (isAfternoon(minutes) ? "下午 " : "上午 ") + clock(minutes)
