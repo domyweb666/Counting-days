@@ -106,13 +106,17 @@
 <body>
 <main>
   <h1>主事件樣式：六種畫法</h1>
-  <p class="lead">同一批行程，用六種畫法各畫一次。上面可以換情境、換字的大小，六張會一起換。看中哪一張，跟我說字母就好。跨日的色帶六張都一樣，這次只比單日那一格怎麼畫。</p>
+  <p class="lead">同一批行程，用六種畫法各畫一次。上面可以換情境、換字的大小，六張會一起換。看中哪一張，跟我說字母就好。跨日的色帶六張都一樣，這次只比單日那一格怎麼畫。你選的是 A。「規則」那一排可以切換改之前、改之後：改之後，上面有寫字的跨日色帶的日子，單日行程都縮成小色塊。</p>
 
   <div class="tools">
     <div class="line"><span class="name">情境</span><span id="scenes"></span></div>
     <div class="line"><span class="name">字</span>
       <button data-size="big" class="on">大字（你手機現在的大小）</button>
       <button data-size="std">標準字</button>
+    </div>
+    <div class="line"><span class="name">規則</span>
+      <button data-rule="new" class="on">改之後：一天只有一件寫字的</button>
+      <button data-rule="old">改之前</button>
     </div>
     <p class="story" id="story"></p>
   </div>
@@ -259,15 +263,18 @@ function weekHTML(week, opt, k) {
     }).join('');
     return `<div class="g bands">${items}</div>`;
   }).join('');
-  const cells = week.days.map(d => {
+  const cells = week.days.map((d, col) => {
     if (!d.ev.length) return '<div class="cell"></div>';
+    // 一天只有一件寫字的：上面有寫字的色帶（第一條）時，單日的全部縮成小色塊
+    const covered = week.bands.some(b => b.lane === 0 && col >= b.s && col < b.s + b.n);
+    if (rule === 'new' && covered) return `<div class="cell">${pips(d.ev, d.past)}</div>`;
     const c = d.past ? GREY : CAT[d.ev[0][1]];
     return `<div class="cell">${opt.cell(d, k, c, d.past ? ' past' : '')}</div>`;
   }).join('');
   return `<div class="week"><div class="g">${dates}</div>${bands}<div class="g cells${opt.stretch ? ' stretch' : ''}">${cells}</div></div>`;
 }
 
-let scene = 0, size = 'big';
+let scene = 0, size = 'big', rule = 'new';
 function draw() {
   const k = size === 'big' ? 1.28 : 1;
   const wrap = document.getElementById('wrap');
@@ -293,6 +300,13 @@ document.querySelectorAll('[data-size]').forEach(b => {
   b.onclick = () => {
     size = b.dataset.size;
     document.querySelectorAll('[data-size]').forEach(x => x.classList.toggle('on', x === b));
+    draw();
+  };
+});
+document.querySelectorAll('[data-rule]').forEach(b => {
+  b.onclick = () => {
+    rule = b.dataset.rule;
+    document.querySelectorAll('[data-rule]').forEach(x => x.classList.toggle('on', x === b));
     draw();
   };
 });
