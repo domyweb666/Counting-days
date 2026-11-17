@@ -19,14 +19,6 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     /// 等購買驗證等太久，不等了
     @State private var stoppedWaiting = false
-    /// 每回到前景一次就加一，鬧鐘跟著重新比對
-    @State private var activeCount = 0
-
-    /// 這幾樣變了就要重排鬧鐘
-    private var alarmSyncKey: String {
-        let s = app.settings.value
-        return "\(app.store.changeToken)|\(s.alarmEnabled)|\(s.alarmSoundID)|\(s.hiddenCalendarIDs.sorted())|\(activeCount)"
-    }
 
     /// 存下來的設定用到付費的東西，而購買還沒驗完：先不畫，免得已經買的人看到一瞬間沒買的樣子
     private var isWaitingForPurchase: Bool {
@@ -60,16 +52,7 @@ struct RootView: View {
         .onAppear { Appearance.stored.apply() }
         .onChange(of: scenePhase) { _, phase in
             // 使用者可能剛從「設定」改完權限回來
-            if phase == .active {
-                app.store.refreshStatus()
-                activeCount += 1
-            }
-        }
-        .task(id: alarmSyncKey) {
-            // 行事曆連續變動時等一下再排，不要每變一次就排一次
-            try? await Task.sleep(for: .seconds(1))
-            guard !Task.isCancelled else { return }
-            await app.syncAlarms()
+            if phase == .active { app.store.refreshStatus() }
         }
     }
 }
