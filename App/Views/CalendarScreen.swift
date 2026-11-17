@@ -4,7 +4,12 @@ import CalendarCore
 
 enum SheetKind: Identifiable {
     case newEvent(Date)
-    case edit(CalEvent)
+    /// 打開的那一刻就把系統行事曆裡的那一筆、表單要帶入的東西一起帶著走，之後不再回頭查。
+    /// - 刪掉行程的那一刻系統行事曆會通知有變動、畫面重畫；那時候再去找，剛刪掉的行程找不到，
+    ///   編輯畫面會被換成「找不到這個行程」。
+    /// - 分開放在畫面的狀態裡的話，彈出畫面有機會拿到上一次的值（還沒查到的空值）。
+    /// `seed` 有值就用蒜日子自己的表單；沒有就把 `found` 交給系統的編輯畫面；兩個都沒有才是找不到。
+    case edit(CalEvent, found: EKEvent?, seed: EventStore.EditSeed?)
     case settings
     case search
     case monthPicker
@@ -13,7 +18,7 @@ enum SheetKind: Identifiable {
     var id: String {
         switch self {
         case .newEvent(let d): return "new\(d.timeIntervalSinceReferenceDate)"
-        case .edit(let e): return "edit" + e.id
+        case .edit(let e, _, _): return "edit" + e.id
         case .settings: return "settings"
         case .search: return "search"
         case .monthPicker: return "month"
@@ -29,12 +34,6 @@ struct CalendarScreen: View {
     @State private var sheet: SheetKind?
     /// 側邊欄有沒有打開
     @State private var showSideMenu = false
-    /// 正在編輯的那個行程，打開時找一次就記住。
-    /// 刪掉行程的那一刻系統行事曆會通知有變動、畫面重畫；那時候再去找，剛刪掉的行程找不到，
-    /// 編輯畫面會被換成「找不到這個行程」，系統也來不及通知我們關掉。
-    @State private var editing: EKEvent?
-    /// 那個行程能用蒜日子自己的畫面改時，表單要帶入的東西；nil 就開系統的編輯畫面。一樣是打開時算一次就記住。
-    @State private var editSeed: EventStore.EditSeed?
     @State private var shortNameTarget: CalEvent?
     @State private var shortNameText = ""
     @State private var showShortName = false
@@ -46,13 +45,12 @@ struct CalendarScreen: View {
     private var actions: CalendarActions {
         CalendarActions(
             open: { event in
-                editing = app.store.ekEvent(for: event)
-                editSeed = app.store.editSeed(
+                let seed = app.store.editSeed(
                     for: event,
                     ownCategoryID: app.settings.value.eventCategory[event.seriesID],
                     calendar: vm.calendar
                 )
-                sheet = .edit(event)
+                sheet = .edit(event, found: seed?.event ?? app.store.ekEvent(for: event), seed: seed)
             },
             add: { sheet = .newEvent($0) },
             shortName: { event in
@@ -453,11 +451,11 @@ struct CalendarScreen: View {
         switch kind {
         case .newEvent(let date):
             NewEventScreen(day: date, calendar: vm.calendar) { sheet = nil }
-        case .edit(let event):
-            if let editSeed {
-                NewEventScreen(seed: editSeed, calendar: vm.calendar) { sheet = nil }
-            } else if let editing {
-                EventEditor(store: app.store, event: editing, defaultDay: event.start, calendar: vm.calendar) { sheet = nil }
+        case .edit(let event, let found, let seed):
+            if let seed {
+                NewEventScreen(seed: seed, calendar: vm.calendar) { sheet = nil }
+            } else if let found {
+                EventEditor(store: app.store, event: found, defaultDay: event.start, calendar: vm.calendar) { sheet = nil }
                     .ignoresSafeArea()
             } else {
                 MissingEventView { sheet = nil }

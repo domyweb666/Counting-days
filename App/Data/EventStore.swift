@@ -100,7 +100,20 @@ final class EventStore {
     /// 找回 EventKit 的原始事件，交給系統的編輯畫面
     func ekEvent(for event: CalEvent) -> EKEvent? {
         if let hit = cache[event.id] { return hit }
-        return ek.event(withIdentifier: event.seriesID)
+        // 快取裡沒有（系統行事曆剛通知有變動、月曆還沒重新查完）：照月曆當初查到它的方法，用日期範圍再查一次。
+        // 只靠識別碼去找不夠：有些帳號的行程用識別碼找不回來，重複的行程找回來的也是第一次那一筆。
+        let day: TimeInterval = 24 * 60 * 60
+        let predicate = ek.predicateForEvents(
+            withStart: event.start.addingTimeInterval(-day),
+            end: max(event.end, event.start).addingTimeInterval(day),
+            calendars: nil
+        )
+        let same = ek.events(matching: predicate).filter { $0.eventIdentifier == event.seriesID }
+        let exact = same.first {
+            guard let start = $0.startDate else { return false }
+            return event.seriesID + "|" + String(start.timeIntervalSinceReferenceDate) == event.id
+        }
+        return exact ?? same.first ?? ek.event(withIdentifier: event.seriesID)
     }
 
     func title(forSeries id: String) -> String? {
