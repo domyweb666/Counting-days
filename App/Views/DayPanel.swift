@@ -142,6 +142,10 @@ struct DayPanel: View {
                 actions.needFullVersion(.countdown)
             }
         }
+        Button("分享", systemImage: "square.and.arrow.up") {
+            longPressHintDone = true
+            actions.share(row.event)
+        }
         Button("編輯", systemImage: "pencil") {
             longPressHintDone = true
             actions.open(row.event)

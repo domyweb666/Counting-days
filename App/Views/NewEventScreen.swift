@@ -1306,7 +1306,6 @@ struct NewEventSavedView: View {
     let close: () -> Void
 
     @State private var sharing: SharePayload?
-    @State private var inviting = false
     @State private var message: String?
     @State private var messageIsProblem = false
 
@@ -1316,7 +1315,6 @@ struct NewEventSavedView: View {
     struct SharePayload: Identifiable {
         let id = UUID()
         let text: String
-        let file: URL
     }
 
     private var shareText: String { EventText.shareText(saved.draft, calendar: calendar) }
@@ -1356,7 +1354,6 @@ struct NewEventSavedView: View {
                             .foregroundStyle(messageIsProblem ? Theme.destructive : Theme.strong)
                             .padding(.horizontal, DT.Space.s1)
                     }
-                    inviteRow
                 }
             }
             .padding(.horizontal, DT.Size.screenMargin)
@@ -1376,13 +1373,7 @@ struct NewEventSavedView: View {
             .background(Theme.bg)
         }
         .sheet(item: $sharing) { payload in
-            ActivityView(items: [payload.text, payload.file])
-        }
-        .sheet(isPresented: $inviting) {
-            EventEditor(store: app.store, event: saved.event, defaultDay: saved.time.start, calendar: calendar) {
-                inviting = false
-            }
-            .ignoresSafeArea()
+            ActivityView(items: [payload.text])
         }
     }
 
@@ -1413,53 +1404,10 @@ struct NewEventSavedView: View {
         .background(RoundedRectangle(cornerRadius: DT.Radius.lg).fill(Theme.card))
     }
 
-    private var inviteRow: some View {
-        Button {
-            inviting = true
-        } label: {
-            HStack(spacing: DT.Space.s3) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("用 Email 正式邀請")
-                        .dFont(DT.TypeScale.body)
-                        .foregroundStyle(Theme.ink)
-                    Text("對方可以回覆要不要來。會開 iPhone 內建的畫面，在「邀請對象」填信箱。")
-                        .dFont(DT.TypeScale.footnote)
-                        .foregroundStyle(Theme.sub)
-                        .multilineTextAlignment(.leading)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.sub)
-            }
-            .padding(DT.Space.s4)
-            .background(RoundedRectangle(cornerRadius: DT.Radius.lg).fill(Theme.card))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PressStyle())
-    }
-
-    /// 把行事曆檔寫到暫存資料夾，連同那段文字交給 iPhone 的分享面板
+    /// 分享出去的是一段文字：時間標題加「加到 Google 日曆」的連結（不再附 .ics 檔，LINE 會把它拆成一則要下載的檔案）
     private func share() {
-        let seed = saved.event.eventIdentifier ?? UUID().uuidString
-        let ics = ICSFile.make(
-            uid: seed + "@suanrizi",
-            draft: saved.draft,
-            time: saved.time,
-            stamp: Date(),
-            calendar: calendar
-        )
-        let file = FileManager.default.temporaryDirectory
-            .appendingPathComponent(ICSFile.fileName(title: saved.draft.cleanTitle))
-        do {
-            try Data(ics.utf8).write(to: file, options: .atomic)
-        } catch {
-            message = "沒辦法準備行事曆檔：\(error.localizedDescription)"
-            messageIsProblem = true
-            return
-        }
         message = nil
-        sharing = SharePayload(text: shareText, file: file)
+        sharing = SharePayload(text: ShareMessage.text(saved.draft, calendar: calendar))
     }
 }
 

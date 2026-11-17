@@ -35,6 +35,8 @@ struct CalendarScreen: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var sheet: SheetKind?
+    /// 長按「分享」要送出去的文字
+    @State private var sharing: ShareText?
     /// 側邊欄有沒有打開
     @State private var showSideMenu = false
     @State private var shortNameTarget: CalEvent?
@@ -61,8 +63,19 @@ struct CalendarScreen: View {
                 shortNameText = app.settings.value.shortNames[event.seriesID] ?? ""
                 showShortName = true
             },
-            needFullVersion: { sheet = .fullVersion($0) }
+            needFullVersion: { sheet = .fullVersion($0) },
+            share: { event in
+                // 寫得進去的行事曆讀得到備註與重複；唯讀的（節日、訂閱）只帶標題、時間、地點
+                let draft = app.store.editSeed(for: event, ownCategoryID: nil, calendar: vm.calendar)?.draft
+                    ?? NewEventRules.draft(editing: event, calendar: vm.calendar)
+                sharing = ShareText(text: ShareMessage.text(draft, calendar: vm.calendar))
+            }
         )
+    }
+
+    struct ShareText: Identifiable {
+        let id = UUID()
+        let text: String
     }
 
     /// 標題列、切換鈕、倒數日離螢幕邊緣 20：外層已經有月曆的 8，這裡再補 12
@@ -122,6 +135,9 @@ struct CalendarScreen: View {
                 vm.rebuild()
                 app.weather.refreshIfNeeded(settings: app.settings.value)
             }
+        }
+        .sheet(item: $sharing) { item in
+            ActivityView(items: [item.text])
         }
         .sheet(item: $sheet) { kind in
             sheetView(kind)

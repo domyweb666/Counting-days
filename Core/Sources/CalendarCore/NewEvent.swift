@@ -646,57 +646,49 @@ public enum EventText {
     }
 }
 
-/// 分享用的行事曆檔（iCalendar，RFC 5545）。對方點了可以加進自己的行事曆。
-/// 提醒不放進去。有時間的行程用世界協調時間寫，所以重複行程在有日光節約的地方，換季後會差一小時。
-public enum ICSFile {
-    static let lineLimit = 75
+/// 分享出去的那一則：時間標題，加一個「加到 Google 日曆」的連結。
+public enum ShareMessage {
+    public static func text(_ draft: NewEventDraft, calendar: Calendar) -> String {
+        let head = EventText.shareText(draft, calendar: calendar)
+        guard let time = NewEventRules.resolve(draft, calendar: calendar),
+              let link = GoogleCalendarLink.make(draft: draft, time: time, calendar: calendar) else { return head }
+        return head + "\n\n加到 Google 日曆：\n" + link.absoluteString
+    }
+}
 
-    public static func make(
-        uid: String,
-        draft: NewEventDraft,
-        time: ResolvedEventTime,
-        stamp: Date,
-        calendar: Calendar
-    ) -> String {
-        var lines = [
-            "BEGIN:VCALENDAR",
-            "VERSION:2.0",
-            "PRODID:-//DOMYWEB//SuanRiZi//ZH",
-            "CALSCALE:GREGORIAN",
-            "METHOD:PUBLISH",
-            "BEGIN:VEVENT",
-            "UID:" + escape(uid),
-            "DTSTAMP:" + utc(stamp),
-            "SUMMARY:" + escape(draft.cleanTitle)
-        ]
+/// Google 日曆公開的「新增行程」網址。對方點了會打開 Google 日曆的新增畫面，標題、時間已經填好，按儲存就加進去。
+/// 不是邀請：之後這邊改了，對方那份不會跟著變。提醒不帶過去。
+public enum GoogleCalendarLink {
+    static let base = "https://calendar.google.com/calendar/render"
+
+    public static func make(draft: NewEventDraft, time: ResolvedEventTime, calendar: Calendar) -> URL? {
+        let dates: String
         if time.isAllDay {
             // 全天行程的結束日是「最後一天的隔天」
             let after = calendar.date(byAdding: .day, value: 1, to: time.end) ?? time.end
-            lines.append("DTSTART;VALUE=DATE:" + dateOnly(time.start, calendar: calendar))
-            lines.append("DTEND;VALUE=DATE:" + dateOnly(after, calendar: calendar))
+            dates = dateOnly(time.start, calendar: calendar) + "/" + dateOnly(after, calendar: calendar)
         } else {
-            lines.append("DTSTART:" + utc(time.start))
-            lines.append("DTEND:" + utc(time.end))
+            dates = utc(time.start) + "/" + utc(time.end)
         }
-        if let rule = draft.repeats {
-            lines.append("RRULE:" + recurrence(rule))
-        }
+        var items: [(String, String)] = [
+            ("action", "TEMPLATE"),
+            ("text", draft.cleanTitle),
+            ("dates", dates)
+        ]
         let place = draft.location.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !place.isEmpty { lines.append("LOCATION:" + escape(place)) }
+        if !place.isEmpty { items.append(("location", place)) }
         let notes = draft.notes.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !notes.isEmpty { lines.append("DESCRIPTION:" + escape(notes)) }
-        lines.append("END:VEVENT")
-        lines.append("END:VCALENDAR")
-        return lines.map(fold).joined(separator: "\r\n") + "\r\n"
+        if !notes.isEmpty { items.append(("details", notes)) }
+        if let rule = draft.repeats { items.append(("recur", "RRULE:" + recurrence(rule))) }
+        let query = items.map { $0.0 + "=" + encode($0.1) }.joined(separator: "&")
+        return URL(string: base + "?" + query)
     }
 
-    /// 檔名：標題裡不能當檔名的字換成底線，空的就叫「行程」
-    public static func fileName(title: String) -> String {
-        let banned = CharacterSet(charactersIn: "/\\:*?\"<>|").union(.newlines).union(.controlCharacters)
-        let clean = title.trimmingCharacters(in: .whitespacesAndNewlines)
-            .unicodeScalars.map { banned.contains($0) ? "_" : String($0) }.joined()
-        let name = String(clean.prefix(40))
-        return (name.isEmpty ? "行程" : name) + ".ics"
+    /// 只留英數與 -._~/ 不編碼。加號一定要編，不然 Google 會讀成空白。
+    static func encode(_ text: String) -> String {
+        var allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+        allowed.insert(charactersIn: "-._~/")
+        return text.addingPercentEncoding(withAllowedCharacters: allowed) ?? text
     }
 
     static func recurrence(_ rule: EventRepeat) -> String {
@@ -707,43 +699,6 @@ public enum ICSFile {
         case .monthly: return "FREQ=MONTHLY"
         case .yearly: return "FREQ=YEARLY"
         }
-    }
-
-    /// 文字裡的反斜線、分號、逗號、換行要跳脫
-    static func escape(_ text: String) -> String {
-        var out = ""
-        for ch in text {
-            switch ch {
-            case "\\": out += "\\\\"
-            case ";": out += "\\;"
-            case ",": out += "\\,"
-            case "\n", "\r\n": out += "\\n"
-            case "\r": break
-            default: out.append(ch)
-            }
-        }
-        return out
-    }
-
-    /// 一行最多 75 個位元組，超過要折行，下一行開頭多一個空白。不能把一個字切成兩半。
-    static func fold(_ line: String) -> String {
-        var parts: [String] = []
-        var current = ""
-        var size = 0
-        for ch in line {
-            let bytes = String(ch).utf8.count
-            // 接續行開頭的那個空白也算一個位元組
-            let limit = parts.isEmpty ? lineLimit : lineLimit - 1
-            if size + bytes > limit {
-                parts.append(current)
-                current = ""
-                size = 0
-            }
-            current.append(ch)
-            size += bytes
-        }
-        parts.append(current)
-        return parts.joined(separator: "\r\n ")
     }
 
     private static func two(_ n: Int) -> String { n < 10 ? "0\(n)" : "\(n)" }
