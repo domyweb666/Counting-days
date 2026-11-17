@@ -232,6 +232,42 @@ final class CalendarCoreTests: XCTestCase {
         XCTAssertEqual(day.head?.label, "入境表")
     }
 
+    func testHeadModeWritesOnlyOneThingPerDay() {
+        // 11/17 到 11/18 有一條跨日的；17 號還有兩件單日的；19 號沒有色帶，有兩件單日的
+        let events = [allDay("trip", "出差", date(2026, 11, 17), days: 2),
+                      ev("a", "打籃球", date(2026, 11, 17, 19)),
+                      ev("b", "牙醫", date(2026, 11, 17, 9), cal: "M"),
+                      ev("c", "週會", date(2026, 11, 19, 10)),
+                      ev("d", "聚餐", date(2026, 11, 19, 18))]
+        let weeks = builder(today: date(2026, 11, 14)).weeks(from: date(2026, 11, 17), to: date(2026, 11, 17), events: events)
+        let covered = weeks[0].days[2]
+        // 上面有寫字的色帶：這一格不再寫字，單日的兩件都是小色塊
+        XCTAssertTrue(covered.hasWrittenBand)
+        XCTAssertNil(covered.headChip)
+        XCTAssertEqual(Set(covered.headPips.map(\.id)), ["a", "b"])
+        // 主事件本身沒有變，點開那一天的時間表照舊
+        XCTAssertNotNil(covered.head)
+        // 沒有色帶的日子照舊：一件寫字，其餘小色塊
+        let plain = weeks[0].days[4]
+        XCTAssertFalse(plain.hasWrittenBand)
+        XCTAssertEqual(plain.headChip?.id, plain.head?.id)
+        XCTAssertEqual(plain.headPips.map(\.id), plain.rest.map(\.id))
+        XCTAssertEqual(plain.headPips.count, 1)
+    }
+
+    func testHeadModeThinBandDoesNotTakeTheWrittenSpot() {
+        // 兩條跨日的重疊：第二條縮成細線。只被細線蓋到的日子，單日的那一件照樣寫字
+        let events = [allDay("long", "去韓國", date(2026, 11, 16), days: 2),
+                      allDay("short", "特賣", date(2026, 11, 17), days: 3),
+                      ev("a", "牙醫", date(2026, 11, 19, 9), cal: "M")]
+        let weeks = builder(today: date(2026, 11, 14)).weeks(from: date(2026, 11, 17), to: date(2026, 11, 17), events: events)
+        let day = weeks[0].days[4]
+        XCTAssertEqual(day.bands.map(\.lane), [1])
+        XCTAssertFalse(day.hasWrittenBand)
+        XCTAssertEqual(day.headChip?.id, "a")
+        XCTAssertTrue(day.headPips.isEmpty)
+    }
+
     // MARK: 週條與清單
 
     func testStripItems() {

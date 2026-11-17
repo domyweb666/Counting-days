@@ -281,6 +281,15 @@ public struct DayModel: Identifiable, Hashable, Sendable {
     public var hasEvents: Bool { !events.isEmpty }
     /// 這一天要算的件數（含跨日）
     public var count: Int { events.count + bands.count }
+
+    /// 主事件樣式：這一天上面有沒有寫字的跨日色帶（縮成細線的不算）
+    public var hasWrittenBand: Bool {
+        bands.contains { !BandStyle.isThin(lane: $0.lane, mode: .head) }
+    }
+    /// 主事件樣式這一格寫字的那一件。一天只有一件寫字的，所以上面已經有寫字的色帶時是 nil。
+    public var headChip: ClassifiedEvent? { hasWrittenBand ? nil : head }
+    /// 主事件樣式這一格的小色塊：寫字那一件以外的單日行程。有寫字的色帶時，單日行程全部都是小色塊。
+    public var headPips: [ClassifiedEvent] { hasWrittenBand ? events : rest }
 }
 
 public struct WeekModel: Identifiable, Hashable, Sendable {
