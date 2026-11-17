@@ -56,14 +56,14 @@ extension ThemePalette {
         destructive: DT.Neutral.destructive,
         categories: [
             0x6F5F8F: CategoryPair(light: 0x6F5F8F, dark: 0xA99BD0), // 工作 霧紫
-            0x4B6C8F: CategoryPair(light: 0x4B6C8F, dark: 0x8FB0D4), // 行程 灰藍
-            0xA65F45: CategoryPair(light: 0xA65F45, dark: 0xDB9C84), // 看診 陶土
-            0x7A6A3A: CategoryPair(light: 0x7A6A3A, dark: 0xC2B078)  // 辦事 橄欖褐
+            0x4B6C8F: CategoryPair(light: 0x4B6C8F, dark: 0x8FB0D4), // 生活 灰藍
+            0xA65F45: CategoryPair(light: 0xA65F45, dark: 0xDB9C84), // 娛樂 陶土
+            0x7A6A3A: CategoryPair(light: 0x7A6A3A, dark: 0xC2B078)  // 休息 橄欖褐
         ]
     )
 
     // 以下六款的色碼來自主題設計稿，每一組「字壓在底色上」都算過對比。
-    // 類別色的 key 固定是設定裡存的預設色碼，順序：工作、行程、看診、辦事。
+    // 類別色的 key 固定是設定裡存的預設色碼，順序：工作、生活、娛樂、休息。
 
     private static func c(_ light: UInt32, _ dark: UInt32) -> Color {
         Color(domyLight: light, domyDark: dark)
@@ -221,7 +221,7 @@ extension ThemePalette {
         all.first { $0.id == id } ?? .sage
     }
 
-    /// 四個預設類別在這款主題裡的顏色，順序是工作、行程、看診、辦事
+    /// 四個預設類別在這款主題裡的顏色，順序是工作、生活、娛樂、休息
     var categoryColors: [Color] {
         Theme.defaultCategoryKeys
             .compactMap { categories[$0] }
@@ -241,7 +241,7 @@ enum Theme {
     /// 目前使用的主題
     static var current: ThemePalette { ThemeState.shared.palette }
 
-    /// 預設四個類別在設定裡存的色碼：工作、行程、看診、辦事
+    /// 預設四個類別在設定裡存的色碼：工作、生活、娛樂、休息
     static let defaultCategoryKeys: [UInt32] = [0x6F5F8F, 0x4B6C8F, 0xA65F45, 0x7A6A3A]
 
     static var bg: Color { current.bg }
@@ -290,8 +290,9 @@ enum Theme {
         static let dayCircle: CGFloat = 30
         static let dayCircleSmall: CGFloat = 26
         static let band: CGFloat = 36
-        static let bandThin: CGFloat = 4
         static let pip: CGFloat = 8
+        /// 不寫字的跨日細條，跟單日小色塊一樣粗
+        static let bandThin: CGFloat = pip
         static let dot: CGFloat = 6
         static let square: CGFloat = 10
         static let ring: CGFloat = 3
@@ -402,56 +403,6 @@ struct FlexRow: Layout {
                 proposal: ProposedViewSize(width: ws[i], height: bounds.height)
             )
             x += ws[i] + spacing
-        }
-    }
-}
-
-/// 一顆接一顆往右排，排不下就換到下一列。新增行程下面那些「+ 什麼」的膠囊用。
-struct WrapRow: Layout {
-    var spacing: CGFloat = DT.Space.s2
-
-    private struct Arrangement {
-        var origins: [CGPoint] = []
-        var width: CGFloat = 0
-        var height: CGFloat = 0
-    }
-
-    private func arrange(width: CGFloat, subviews: Subviews) -> Arrangement {
-        var result = Arrangement()
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var rowHeight: CGFloat = 0
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x > 0, x + size.width > width {
-                x = 0
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            result.origins.append(CGPoint(x: x, y: y))
-            result.width = max(result.width, x + size.width)
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-        }
-        result.height = y + rowHeight
-        return result
-    }
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let limit = proposal.width ?? .infinity
-        let result = arrange(width: limit, subviews: subviews)
-        return CGSize(width: limit.isFinite ? limit : result.width, height: result.height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let result = arrange(width: bounds.width, subviews: subviews)
-        for (index, subview) in subviews.enumerated() {
-            let origin = result.origins[index]
-            subview.place(
-                at: CGPoint(x: bounds.minX + origin.x, y: bounds.minY + origin.y),
-                anchor: .topLeading,
-                proposal: .unspecified
-            )
         }
     }
 }

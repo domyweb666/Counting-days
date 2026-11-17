@@ -534,6 +534,12 @@ public enum EventText {
         return "\(c.month ?? 0)/\(c.day ?? 0) 週\(weekdayName(date, calendar: calendar))"
     }
 
+    /// 「2026年11月17日 週二」，新增行程卡上的開始、結束日期用
+    public static func fullDay(_ date: Date, calendar: Calendar) -> String {
+        let c = calendar.dateComponents([.year, .month, .day], from: date)
+        return "\(c.year ?? 0)年\(c.month ?? 0)月\(c.day ?? 0)日 週\(weekdayName(date, calendar: calendar))"
+    }
+
     /// 「2026年12月」
     public static func month(_ date: Date, calendar: Calendar) -> String {
         let c = calendar.dateComponents([.year, .month], from: date)

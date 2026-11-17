@@ -41,7 +41,6 @@ struct SettingsScreen: View {
                 displaySection
                 weatherSection
                 calendarSection
-                categoryLink
                 countdownSection
                 generalSection
                 purchaseSection
@@ -278,7 +277,7 @@ struct SettingsScreen: View {
 
     // MARK: 行事曆
 
-    /// 行事曆的事（加入、移除、排順序、節日與預設類別、建立新的）都收在第二頁，這裡只留一列入口
+    /// 行事曆的事（加入、移除、節日與預設類別、建立新的）和類別都收在第二頁，這裡兩列入口放同一張卡
     private var calendarSection: some View {
         let count = app.vm.shownCalendars.count
         return SectionCard(title: "行事曆") {
@@ -288,22 +287,16 @@ struct SettingsScreen: View {
                 VeggieRow(icon: "list.bullet", title: "管理行事曆", value: count == 0 ? "還沒加入" : "\(count) 本", accessory: .push)
             }
             .buttonStyle(PressStyle())
-        }
-        .sheet(isPresented: $showManageCalendars) {
-            ManageCalendarsScreen()
-        }
-    }
-
-    // MARK: 類別（收在第二頁）
-
-    private var categoryLink: some View {
-        SectionCard {
+            Hairline()
             Button {
                 showCategories = true
             } label: {
                 VeggieRow(icon: "tag", title: "類別與顏色", accessory: .push)
             }
             .buttonStyle(PressStyle())
+        }
+        .sheet(isPresented: $showManageCalendars) {
+            ManageCalendarsScreen()
         }
     }
 
@@ -642,14 +635,9 @@ struct DisplayModeSettingsScreen: View {
     private var purchase: PurchaseStore { app.purchase }
     private var current: DisplayMode { settings.effectiveMode }
 
-    private var footer: String {
-        if purchase.isUnlocked { return "四種樣式都可以用，點一種上面的預覽就會換。" }
-        return "上鎖的樣式可以點一下試看，離開這一頁就會換回原本那種。"
-    }
-
     var body: some View {
-        VStack(spacing: 0) {
-            // 這一段不跟著捲，點哪一種都看得到預覽
+        // 這頁很短，整頁一起捲就好
+        ScrollView {
             VStack(alignment: .leading, spacing: DT.Space.s4) {
                 HStack {
                     Spacer()
@@ -660,18 +648,15 @@ struct DisplayModeSettingsScreen: View {
                     .foregroundStyle(Theme.ink)
                     .accessibilityAddTraits(.isHeader)
                 if let previewWeek { preview(previewWeek) }
-            }
-            .padding(.horizontal, DT.Size.screenMargin)
-            .padding(.top, DT.Space.s4)
-            .padding(.bottom, DT.Space.s3)
-            ScrollView {
-                VStack(alignment: .leading, spacing: DT.Space.s6) {
-                    SectionCard(footer: footer) {
-                        ForEach(Array(DisplayMode.allCases.enumerated()), id: \.element) { index, mode in
-                            if index > 0 { Hairline() }
-                            row(mode)
-                        }
+                SectionCard {
+                    ForEach(Array(DisplayMode.allCases.enumerated()), id: \.element) { index, mode in
+                        if index > 0 { Hairline() }
+                        row(mode)
                     }
+                }
+                .padding(.top, DT.Space.s2)
+                // 已經買了就不用再看購買說明
+                if !purchase.isUnlocked {
                     FullVersionOffer {
                         // 付款視窗跳出來時這一頁可能先收到離開通知，所以先記下正在試看哪一種
                         let wanted = settings.previewingMode
@@ -680,11 +665,12 @@ struct DisplayModeSettingsScreen: View {
                             if let wanted { settings.selectMode(wanted) }
                         }
                     }
+                    .padding(.top, DT.Space.s2)
                 }
-                .padding(.horizontal, DT.Size.screenMargin)
-                .padding(.top, DT.Space.s2)
-                .padding(.bottom, DT.Space.s8)
             }
+            .padding(.horizontal, DT.Size.screenMargin)
+            .padding(.top, DT.Space.s4)
+            .padding(.bottom, DT.Space.s8)
         }
         .background(Theme.bg.ignoresSafeArea())
         .tint(Theme.accent)
@@ -1113,7 +1099,6 @@ struct ManageCalendarsScreen: View {
             .padding(.horizontal, DT.Size.screenMargin)
             .padding(.top, DT.Space.s4)
             .padding(.bottom, DT.Space.s2)
-            // 拖著排用 iPhone 內建的清單，一直開著編輯狀態，右邊才有可以拖的把手
             List {
                 shownSection
                 removedSection
@@ -1121,7 +1106,6 @@ struct ManageCalendarsScreen: View {
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
-            .environment(\.editMode, .constant(.active))
         }
         .background(Theme.bg.ignoresSafeArea())
         .tint(Theme.accent)
@@ -1156,7 +1140,7 @@ struct ManageCalendarsScreen: View {
         }
     }
 
-    // MARK: 已加入的：排順序、移除、節日與預設類別
+    // MARK: 已加入的：移除、節日與預設類別
 
     private var shownSection: some View {
         let shown = app.vm.shownCalendars
@@ -1185,9 +1169,6 @@ struct ManageCalendarsScreen: View {
                     CalendarRoleMenu(settings: settings, calendar: cal)
                 }
                 .listRowBackground(Theme.card)
-            }
-            .onMove { source, destination in
-                app.vm.moveShownCalendar(from: source, to: destination)
             }
         } header: {
             sectionTitle("已加入的")

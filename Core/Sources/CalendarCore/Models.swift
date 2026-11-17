@@ -54,7 +54,7 @@ public struct EventCategory: Codable, Hashable, Identifiable, Sendable {
     public var name: String
     /// 例如 "#6F5F8F"
     public var colorHex: String
-    /// 挑主事件時優先（預設：看診、行程）。
+    /// 挑主事件時優先（預設：工作、生活）。
     public var isPriority: Bool
 
     public init(id: String, name: String, colorHex: String, isPriority: Bool = false) {
@@ -129,14 +129,15 @@ public struct AppSettings: Codable, Equatable, Sendable {
     /// 使用者替某一筆行程自己選的類別：事件系列識別碼 → 類別識別碼。沒選過的不在裡面，照行事曆的預設類別。
     public var eventCategory: [String: String]
 
-    public static let fallbackCategoryID = "trip"
+    /// 新加入的行事曆、沒分到類別的行程都歸這一類，所以選最廣的「生活」
+    public static let fallbackCategoryID = "life"
     public static let defaultThemeID = "sage"
 
     public static let defaultCategories: [EventCategory] = [
-        EventCategory(id: "work", name: "工作", colorHex: "#6F5F8F"),
-        EventCategory(id: "trip", name: "行程", colorHex: "#4B6C8F", isPriority: true),
-        EventCategory(id: "med", name: "看診", colorHex: "#A65F45", isPriority: true),
-        EventCategory(id: "errand", name: "辦事", colorHex: "#7A6A3A")
+        EventCategory(id: "work", name: "工作", colorHex: "#6F5F8F", isPriority: true),
+        EventCategory(id: "life", name: "生活", colorHex: "#4B6C8F", isPriority: true),
+        EventCategory(id: "fun", name: "娛樂", colorHex: "#A65F45"),
+        EventCategory(id: "rest", name: "休息", colorHex: "#7A6A3A")
     ]
 
     public init(

@@ -6,9 +6,9 @@ enum SampleEvents {
     /// 範例行程掛在這幾本假的行事曆上，各自對到一個預設類別
     static let calendarCategory: [String: String] = [
         "demo.work": "work",
-        "demo.trip": "trip",
-        "demo.med": "med",
-        "demo.errand": "errand"
+        "demo.life": "life",
+        "demo.fun": "fun",
+        "demo.rest": "rest"
     ]
 
     /// 從今天起三週內的範例行程
@@ -30,13 +30,14 @@ enum SampleEvents {
         return [
             timed("record", "錄影", "demo.work", 0, 10, 12),
             timed("mail", "回覆合作信", "demo.work", 0, 14, 14.5),
-            timed("dentist", "牙醫", "demo.med", 2, 15.5, 16.5, location: "安和牙醫"),
+            timed("dentist", "牙醫", "demo.life", 2, 15.5, 16.5, location: "安和牙醫"),
             timed("draft", "交稿", "demo.work", 4, 12, 13),
-            timed("parcel", "領包裹", "demo.errand", 4, 17, 17.5),
-            timed("dinner", "聚餐", "demo.trip", 6, 18.5, 21, location: "永康街"),
+            timed("parcel", "領包裹", "demo.life", 4, 17, 17.5),
+            timed("dinner", "聚餐", "demo.fun", 6, 18.5, 21, location: "永康街"),
+            timed("spa", "按摩", "demo.rest", 8, 15, 16),
             timed("live", "直播", "demo.work", 9, 20, 21.5),
             CalEvent(id: "demo.tainan", title: "台南行", start: day(11),
-                     end: day(14).addingTimeInterval(-1), isAllDay: true, calendarID: "demo.trip")
+                     end: day(14).addingTimeInterval(-1), isAllDay: true, calendarID: "demo.fun")
         ]
     }
 }

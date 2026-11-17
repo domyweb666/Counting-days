@@ -6,8 +6,8 @@ import CalendarCore
 /// 蒜日子自己的新增與編輯行程畫面（規格第 20 節）。
 /// 帶入什麼、起訖怎麼推、月曆點兩下、畫面上的日期文字都問 Core 的 `NewEventRules`、`EventText`；
 /// 寫進系統行事曆交給 `EventStore` 的 `addEvent`、`updateEvent`、`deleteEvent`。
-/// 版面照使用者給的原型：標題、類別、一張「開始／結束」的卡（各有日期與時間，點了在卡裡展開月曆或滾輪）、
-/// 整日、行事曆，其餘是一顆一顆「+ 什麼」的膠囊，點了才長出那一格。
+/// 版面：標題、類別、一張「開始／結束」的卡（上下兩列，各有含年份的日期與時間，點了在卡裡展開月曆或滾輪）、
+/// 整日、行事曆，下面一張卡直列排提醒、重複、地點、備註、分享、倒數日。
 /// 表單改不了的行程（唯讀的行事曆）由月曆那邊改開系統的編輯畫面（`EventEditor`）。
 struct NewEventScreen: View {
     @Environment(AppModel.self) private var app
@@ -31,8 +31,6 @@ struct NewEventScreen: View {
     /// 月曆上面的「2026年11月」點開了沒：點開是年、月兩個滾輪，用來一次跳很遠
     @State private var pickingYearMonth = false
     @State private var pickingCalendar = false
-    @State private var showLocation = false
-    @State private var showNotes = false
     @State private var problem: String?
     @State private var confirmDiscard = false
     /// 存好、而且要分享時，換成「已加進行事曆」那一頁
@@ -458,37 +456,34 @@ struct NewEventScreen: View {
 
     // MARK: 開始、結束
 
-    /// 開始與結束各一欄：上面日期、下面時間。點哪一格，卡裡就展開那一格的月曆或滾輪。下面接「整日」和行事曆。
+    /// 開始、結束上下各一列：左邊標題，右邊日期（含年份）和時間。點哪一格，卡裡就展開那一格的月曆或滾輪。下面接「整日」和行事曆。
     private var whenCard: some View {
         let allDay = NewEventRules.isAllDay(draft)
         let isWrong = !NewEventRules.hasValidTime(draft)
         let endDay = NewEventRules.endDay(draft, calendar: calendar)
         return VStack(spacing: 0) {
-            HStack(alignment: .center, spacing: DT.Space.s1) {
-                whenColumn("開始") {
+            VStack(alignment: .leading, spacing: DT.Space.s2) {
+                whenRow("開始") {
                     whenButton(
-                        EventText.shortDay(NewEventRules.startDay(draft), calendar: calendar),
+                        EventText.fullDay(NewEventRules.startDay(draft), calendar: calendar),
                         part: .startDay, label: "開始日期"
                     )
                     if !allDay {
-                        whenButton(EventText.clock24(draft.startMinutes), part: .startTime, label: "開始時間", isBig: true)
+                        whenButton(EventText.clock24(draft.startMinutes), part: .startTime, label: "開始時間")
                     }
                 }
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Theme.sub)
-                    .accessibilityHidden(true)
-                whenColumn("結束") {
-                    whenButton(EventText.shortDay(endDay, calendar: calendar), part: .endDay, label: "結束日期", isWrong: isWrong)
+                whenRow("結束") {
+                    whenButton(EventText.fullDay(endDay, calendar: calendar), part: .endDay, label: "結束日期", isWrong: isWrong)
                     if !allDay {
                         whenButton(
                             EventText.clock24(NewEventRules.endClock(draft, calendar: calendar)),
-                            part: .endTime, label: "結束時間", isBig: true, isWrong: isWrong
+                            part: .endTime, label: "結束時間", isWrong: isWrong
                         )
                     }
                 }
             }
-            .padding(DT.Space.s2)
+            .padding(.horizontal, DT.Space.s4)
+            .padding(.vertical, DT.Space.s3)
             if isWrong {
                 Text("結束比開始早，改一下才能存。")
                     .dFont(DT.TypeScale.footnote)
@@ -531,20 +526,20 @@ struct NewEventScreen: View {
         )
     }
 
-    private func whenColumn<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: DT.Space.s1) {
+    private func whenRow<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(spacing: DT.Space.s2) {
             Text(title)
-                .dFont(DT.TypeScale.footnote)
+                .dFont(DT.TypeScale.body)
                 .foregroundStyle(Theme.sub)
-                .padding(.leading, DT.Space.s1)
+                .frame(minWidth: 40, alignment: .leading)
             content()
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity)
     }
 
     /// 卡上的一格：日期或時間。正在調的那一格有主色外框；起訖顛倒時結束那兩格劃掉。
     private func whenButton(
-        _ text: String, part: WhenPart, label: String, isBig: Bool = false, isWrong: Bool = false
+        _ text: String, part: WhenPart, label: String, isWrong: Bool = false
     ) -> some View {
         let isOn = picking == part
         return Button {
@@ -552,12 +547,12 @@ struct NewEventScreen: View {
         } label: {
             Text(text)
                 .strikethrough(isWrong)
-                .dFont(isBig ? DT.TypeScale.title3 : DT.TypeScale.callout)
+                .dFont(DT.TypeScale.body)
                 .foregroundStyle(isWrong ? Theme.destructive : Theme.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .padding(.horizontal, DT.Space.s3)
-                .frame(maxWidth: .infinity, minHeight: DT.Size.touch, alignment: .leading)
+                .frame(minHeight: DT.Size.touch)
                 .background(RoundedRectangle(cornerRadius: DT.Radius.md).fill(Theme.bg))
                 .overlay(
                     RoundedRectangle(cornerRadius: DT.Radius.md)
@@ -981,188 +976,105 @@ struct NewEventScreen: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    // MARK: 六顆選項的膠囊
-
-    /// 選項的樣子：虛線框寫「+ 什麼」是還沒設；設了變實心，有內容的直接寫內容（「30 分鐘前」「每週」）
-    private func optionLabel(_ title: String, systemImage: String, isSet: Bool, value: String? = nil) -> some View {
-        HStack(spacing: DT.Space.s1) {
-            Image(systemName: systemImage).font(.system(size: 13, weight: .semibold))
-            Text(value ?? (isSet ? title : "+ " + title))
-                .dFont(DT.TypeScale.subheadline)
-                .lineLimit(1)
-        }
-        .foregroundStyle(isSet ? Theme.strong : Theme.sub)
-        .padding(.horizontal, DT.Space.s3)
-        .frame(minHeight: DT.Size.touch)
-        .background(Capsule().fill(isSet ? Theme.soft : Color.clear))
-        .overlay(
-            Capsule()
-                .strokeBorder(Theme.tertiary, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                .opacity(isSet ? 0 : 1)
-        )
-        .contentShape(Capsule())
-    }
-
+    // MARK: 六個選項
+    /// 提醒、重複、地點、備註、分享、倒數日，照設定頁的樣子一列一列排在同一張卡裡
     private var optionsSection: some View {
-        let hasLocation = showLocation || !draft.location.isEmpty
-        let hasNotes = showNotes || !draft.notes.isEmpty
         let reminders = draft.kind == .timed ? EventReminder.timedCases : EventReminder.allDayCases
-        return VStack(alignment: .leading, spacing: DT.Space.s3) {
-            WrapRow(spacing: DT.Space.s2) {
-                Menu {
-                    Button("不提醒") { draft.reminder = nil }
-                    ForEach(reminders, id: \.self) { option in
-                        Button(option.label) { draft.reminder = option }
-                    }
-                } label: {
-                    optionLabel("提醒", systemImage: "bell", isSet: draft.reminder != nil, value: draft.reminder?.label)
+        let reminderText = draft.reminder?.label ?? keptReminderNote ?? "不提醒"
+        let repeatText = draft.repeats?.label ?? keptRepeatNote ?? "不重複"
+        return SectionCard {
+            Menu {
+                Button("不提醒") { draft.reminder = nil }
+                ForEach(reminders, id: \.self) { option in
+                    Button(option.label) { draft.reminder = option }
                 }
-                // 選單不指定樣式的話，系統會自己套一層灰底，把裡面的字擠成刪節號
-                .buttonStyle(.plain)
-                .accessibilityLabel("提醒")
-                .accessibilityValue(draft.reminder?.label ?? "不提醒")
-                Menu {
-                    Button("不重複") { draft.repeats = nil }
-                    ForEach(EventRepeat.allCases, id: \.self) { option in
-                        Button(option.label) { draft.repeats = option }
-                    }
-                } label: {
-                    optionLabel("重複", systemImage: "repeat", isSet: draft.repeats != nil, value: draft.repeats?.label)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("重複")
-                .accessibilityValue(draft.repeats?.label ?? "不重複")
-                Button {
-                    toggleField(.location)
-                } label: {
-                    optionLabel("地點", systemImage: "mappin.and.ellipse", isSet: hasLocation)
-                }
-                .buttonStyle(PressStyle())
-                Button {
-                    toggleField(.notes)
-                } label: {
-                    optionLabel("備註", systemImage: "text.alignleft", isSet: hasNotes)
-                }
-                .buttonStyle(PressStyle())
-                Button {
-                    draft.wantsShare.toggle()
-                } label: {
-                    optionLabel("分享", systemImage: "square.and.arrow.up", isSet: draft.wantsShare)
-                }
-                .buttonStyle(PressStyle())
-                .accessibilityLabel("存好之後分享給別人")
-                .accessibilityAddTraits(draft.wantsShare ? .isSelected : [])
-                Button {
-                    toggleCountdown()
-                } label: {
-                    optionLabel("倒數日", systemImage: "hourglass", isSet: isCountdown)
-                }
-                .buttonStyle(PressStyle())
-                .accessibilityLabel("加入倒數日")
-                .accessibilityAddTraits(isCountdown ? .isSelected : [])
+            } label: {
+                menuRow("提醒", icon: "bell", value: reminderText)
             }
-            if hasLocation || hasNotes || keptReminderNote != nil || keptRepeatNote != nil {
-                optionDetails(hasLocation: hasLocation, hasNotes: hasNotes)
+            // 選單不指定樣式的話，系統會自己套一層灰底
+            .buttonStyle(.plain)
+            .accessibilityLabel("提醒")
+            .accessibilityValue(reminderText)
+            Hairline()
+            Menu {
+                Button("不重複") { draft.repeats = nil }
+                ForEach(EventRepeat.allCases, id: \.self) { option in
+                    Button(option.label) { draft.repeats = option }
+                }
+            } label: {
+                menuRow("重複", icon: "repeat", value: repeatText)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("重複")
+            .accessibilityValue(repeatText)
+            Hairline()
+            HStack(spacing: DT.Space.s3) {
+                VeggieRowIcon(systemName: "mappin.and.ellipse")
+                TextField("地點", text: $draft.location)
+                    .dFont(DT.TypeScale.body)
+                    .foregroundStyle(Theme.ink)
+                    .focused($focus, equals: .location)
+                    .submitLabel(.done)
+            }
+            .frame(minHeight: DT.Size.row)
+            .id(Field.location)
+            Hairline()
+            HStack(alignment: .firstTextBaseline, spacing: DT.Space.s3) {
+                VeggieRowIcon(systemName: "text.alignleft")
+                TextField("備註", text: $draft.notes, axis: .vertical)
+                    .dFont(DT.TypeScale.body)
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(1...8)
+                    .focused($focus, equals: .notes)
+            }
+            .padding(.vertical, DT.Space.s4)
+            .frame(minHeight: DT.Size.row)
+            .id(Field.notes)
+            Hairline()
+            SettingsRow(label: "存好後分享", icon: "square.and.arrow.up") {
+                Toggle("存好後分享", isOn: $draft.wantsShare)
+                    .labelsHidden()
+                    .tint(Theme.accent)
+            }
+            Hairline()
+            SettingsRow(label: "加入倒數日", icon: "hourglass") {
+                Toggle("加入倒數日", isOn: Binding(get: { isCountdown }, set: { on in
+                    if on != isCountdown { toggleCountdown() }
+                }))
+                .labelsHidden()
+                .tint(Theme.accent)
             }
         }
     }
 
-    /// 點「地點」「備註」：還沒打開就打開並把游標放進去；開著而且是空的就收起來
-    private func toggleField(_ field: Field) {
-        switch field {
-        case .location:
-            if showLocation, draft.location.isEmpty {
-                withAnimation(.easeOut(duration: fieldAnimation)) { showLocation = false }
-                if focus == .location { focus = nil }
-                return
-            }
-            withAnimation(.easeOut(duration: fieldAnimation)) { showLocation = true }
-        case .notes:
-            if showNotes, draft.notes.isEmpty {
-                withAnimation(.easeOut(duration: fieldAnimation)) { showNotes = false }
-                if focus == .notes { focus = nil }
-                return
-            }
-            withAnimation(.easeOut(duration: fieldAnimation)) { showNotes = true }
-        case .title:
-            break
-        }
-        // 同一刻就把游標放進去的話，那一格還不在畫面上，游標會放不進去或跳一下
-        DispatchQueue.main.async { focus = field }
-    }
-
-    /// 原本的提醒、重複規則表單上沒有對應的選項時，寫一行讓人知道它還在。在選單選了別的就會換掉。
-    private var keptReminderNote: String? {
-        keepsOtherReminder && draft.reminder == nil ? "原本的提醒照舊" : nil
-    }
-
-    private var keptRepeatNote: String? {
-        keepsOtherRepeat && draft.repeats == nil ? "原本的重複規則照舊" : nil
-    }
-
-    private func detailRow(_ systemImage: String, _ text: String) -> some View {
+    /// 點了會跳選單的一列：右邊是目前選的，加上下箭頭
+    private func menuRow(_ title: String, icon: String, value: String) -> some View {
         HStack(spacing: DT.Space.s3) {
-            Image(systemName: systemImage)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Theme.strong)
-                .frame(width: DT.Space.s6)
-            Text(text)
+            VeggieRowIcon(systemName: icon)
+            Text(title)
                 .dFont(DT.TypeScale.body)
                 .foregroundStyle(Theme.ink)
                 .frame(maxWidth: .infinity, alignment: .leading)
+            Text(value)
+                .dFont(DT.TypeScale.body)
+                .foregroundStyle(Theme.sub)
+                .lineLimit(1)
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.sub)
+                .accessibilityHidden(true)
         }
-        .frame(minHeight: DT.Size.touch)
-        .accessibilityElement(children: .combine)
+        .frame(minHeight: DT.Size.row)
+        .contentShape(Rectangle())
     }
 
-    private func optionDetails(hasLocation: Bool, hasNotes: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if let keptReminderNote {
-                detailRow("bell", keptReminderNote)
-            }
-            if let keptRepeatNote {
-                detailRow("repeat", keptRepeatNote)
-            }
-            if hasLocation {
-                HStack(spacing: DT.Space.s3) {
-                    Image(systemName: "mappin.and.ellipse")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Theme.strong)
-                        .frame(width: DT.Space.s6)
-                    TextField("地點", text: $draft.location)
-                        .dFont(DT.TypeScale.body)
-                        .foregroundStyle(Theme.ink)
-                        .focused($focus, equals: .location)
-                        .submitLabel(.done)
-                }
-                .frame(minHeight: DT.Size.touch)
-                .id(Field.location)
-            }
-            if hasNotes {
-                HStack(alignment: .top, spacing: DT.Space.s3) {
-                    Image(systemName: "text.alignleft")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Theme.strong)
-                        .frame(width: DT.Space.s6)
-                        .padding(.top, DT.Space.s3)
-                    VStack(alignment: .leading, spacing: DT.Space.s1) {
-                        TextField("備註", text: $draft.notes, axis: .vertical)
-                            .dFont(DT.TypeScale.body)
-                            .foregroundStyle(Theme.ink)
-                            .lineLimit(3...8)
-                            .focused($focus, equals: .notes)
-                        Text("只能放文字。網址照貼就好。")
-                            .dFont(DT.TypeScale.footnote)
-                            .foregroundStyle(Theme.sub)
-                    }
-                    .padding(.vertical, DT.Space.s3)
-                }
-                .id(Field.notes)
-            }
-        }
-        .padding(.horizontal, DT.Space.s4)
-        .frame(maxWidth: .infinity)
-        .background(RoundedRectangle(cornerRadius: DT.Radius.lg).fill(Theme.card))
+    /// 原本的提醒、重複規則表單上沒有對應的選項時，讓人知道它還在。在選單選了別的就會換掉。
+    private var keptReminderNote: String? {
+        keepsOtherReminder && draft.reminder == nil ? "原本的照舊" : nil
+    }
+
+    private var keptRepeatNote: String? {
+        keepsOtherRepeat && draft.repeats == nil ? "原本的照舊" : nil
     }
 }
 
