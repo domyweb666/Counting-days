@@ -54,7 +54,7 @@ public struct EventCategory: Codable, Hashable, Identifiable, Sendable {
     public var name: String
     /// 例如 "#6F5F8F"
     public var colorHex: String
-    /// 挑主事件時優先（預設：看診、行程）。
+    /// 挑主事件時優先（預設：生活）。
     public var isPriority: Bool
 
     public init(id: String, name: String, colorHex: String, isPriority: Bool = false) {
@@ -129,14 +129,15 @@ public struct AppSettings: Codable, Equatable, Sendable {
     /// 使用者替某一筆行程自己選的類別：事件系列識別碼 → 類別識別碼。沒選過的不在裡面，照行事曆的預設類別。
     public var eventCategory: [String: String]
 
-    public static let fallbackCategoryID = "trip"
+    /// 新加入的行事曆、沒分到類別的行程都歸這一類，所以選最廣的「生活」
+    public static let fallbackCategoryID = "life"
     public static let defaultThemeID = "sage"
 
     public static let defaultCategories: [EventCategory] = [
         EventCategory(id: "work", name: "工作", colorHex: "#6F5F8F"),
-        EventCategory(id: "trip", name: "行程", colorHex: "#4B6C8F", isPriority: true),
-        EventCategory(id: "med", name: "看診", colorHex: "#A65F45", isPriority: true),
-        EventCategory(id: "errand", name: "辦事", colorHex: "#7A6A3A")
+        EventCategory(id: "life", name: "生活", colorHex: "#4B6C8F", isPriority: true),
+        EventCategory(id: "fun", name: "娛樂", colorHex: "#A65F45"),
+        EventCategory(id: "rest", name: "休息", colorHex: "#7A6A3A")
     ]
 
     public init(
@@ -281,6 +282,15 @@ public struct DayModel: Identifiable, Hashable, Sendable {
     public var hasEvents: Bool { !events.isEmpty }
     /// 這一天要算的件數（含跨日）
     public var count: Int { events.count + bands.count }
+
+    /// 主事件樣式：這一天上面有沒有寫字的跨日色帶（縮成細線的不算）
+    public var hasWrittenBand: Bool {
+        bands.contains { !BandStyle.isThin(lane: $0.lane, mode: .head) }
+    }
+    /// 主事件樣式這一格寫字的那一件。一天只有一件寫字的，所以上面已經有寫字的色帶時是 nil。
+    public var headChip: ClassifiedEvent? { hasWrittenBand ? nil : head }
+    /// 主事件樣式這一格的小色塊：寫字那一件以外的單日行程。有寫字的色帶時，單日行程全部都是小色塊。
+    public var headPips: [ClassifiedEvent] { hasWrittenBand ? events : rest }
 }
 
 public struct WeekModel: Identifiable, Hashable, Sendable {

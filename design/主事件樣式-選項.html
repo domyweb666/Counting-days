@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>主事件樣式 選項</title>
+<style>
+  :root {
+    --bg: #F3F3F5; --card: #FFFFFF; --ink: #1C1C1E; --sub: #6A6A70; --ter: #B4B4BA;
+    --muted: #E6E6EA; --accent: #4F6B57; --strong: #3F5746; --soft: #E3ECE5;
+    --red: #C4372C; --page: #D9D9DE;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 16px 64px; background: var(--page); color: var(--ink);
+    font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  }
+  main { max-width: 1240px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 24px 0 6px; }
+  .lead { font-size: 15px; line-height: 1.7; color: #3a3a3e; max-width: 860px; margin: 0 0 12px; }
+
+  .tools {
+    position: sticky; top: 0; z-index: 5; background: var(--page);
+    padding: 10px 0 12px; margin-bottom: 8px; border-bottom: 1px solid #c6c6cc;
+  }
+  .tools .line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+  .tools .name { font-size: 13px; color: var(--sub); width: 44px; flex: none; }
+  .tools button {
+    font: inherit; font-size: 15px; font-weight: 600; color: var(--ink);
+    background: var(--card); border: 0; border-radius: 999px; padding: 9px 16px; cursor: pointer;
+  }
+  .tools button.on { background: var(--accent); color: #fff; }
+  .story { font-size: 14px; line-height: 1.6; color: #3a3a3e; margin: 10px 0 0; min-height: 22px; }
+
+  .wrap { display: flex; flex-wrap: wrap; gap: 28px 24px; align-items: flex-start; margin-top: 16px; }
+  figure { margin: 0; width: 375px; flex: none; }
+  figcaption { font-size: 17px; font-weight: 700; margin-bottom: 2px; }
+  figcaption i { font-style: normal; display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 15px; margin-right: 8px; }
+  .desc { font-size: 13.5px; line-height: 1.6; color: #44444a; margin: 0 0 10px; min-height: 44px; }
+
+  /* 手機那一塊：左右各留 8，一格之間 3，跟 app 裡的月曆一樣 */
+  .phone { --k: 1; background: var(--bg); border-radius: 28px; padding: 12px 8px 14px; box-shadow: 0 8px 30px rgba(0,0,0,.16); overflow: hidden; }
+  .big .phone { --k: 1.28; }
+  .g { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); column-gap: 3px; }
+  .dow { font-size: 13px; color: var(--sub); text-align: center; margin-bottom: 6px; }
+  .week { background: var(--card); border-radius: 20px; padding: 8px 0 12px; margin-bottom: 8px; }
+  .week:last-child { margin-bottom: 0; }
+
+  .date { text-align: center; padding: 2px 0 4px; }
+  .date b { display: inline-grid; place-items: center; min-width: calc(28px * var(--k)); height: calc(28px * var(--k)); border-radius: 50%; font-size: calc(17px * var(--k)); font-weight: 600; }
+  .date small { display: block; font-size: calc(10.5px * var(--k)); color: var(--sub); line-height: 1.2; }
+  .date.today b { background: var(--accent); color: #fff; }
+  .date.past b { color: var(--ter); }
+  .date.red b, .date.red small { color: var(--red); }
+
+  .bands { margin-bottom: 4px; }
+  .band {
+    height: 36px; border-radius: 12px; background: var(--c); color: #fff;
+    display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 12px;
+    font-size: calc(15px * var(--k)); font-weight: 600; white-space: nowrap; overflow: hidden;
+  }
+  .band span { overflow: hidden; text-overflow: ellipsis; }
+  .band small { font-size: calc(12.5px * var(--k)); flex: none; }
+  .band.short { padding: 0 4px; justify-content: center; }
+  .band.thin { height: 4px; padding: 0; border-radius: 2px; }
+  .band.openL { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  .band.openR { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  .band.past { background: var(--muted); color: var(--sub); }
+
+  .cells { align-items: start; }
+  .cell { padding: 0 1px; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .cl2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-all; }
+  .pips { display: flex; gap: 3px; align-items: center; min-height: 8px; }
+  .pips i { width: 8px; height: 8px; border-radius: 2px; background: var(--c); }
+  .pips b { font-size: 10px; color: var(--sub); line-height: 8px; }
+
+  /* A 現在的樣子：實心，兩行 */
+  .chip { width: 100%; border-radius: 8px; padding: 5px 2px; background: var(--c); color: #fff; font-size: calc(13px * var(--k)); font-weight: 600; line-height: 1.2; text-align: center; }
+  .chip.past { background: var(--muted); color: var(--sub); }
+
+  /* B 一行實心膠囊 */
+  .pill { width: 100%; height: calc(24px * var(--k)); line-height: calc(24px * var(--k)); border-radius: 999px; background: var(--c); color: #fff; font-weight: 600; text-align: center; white-space: nowrap; overflow: hidden; }
+  .pill.past { background: var(--muted); color: var(--sub); }
+
+  /* C 色點加字 */
+  .plain { width: 100%; text-align: center; font-size: calc(12.5px * var(--k)); font-weight: 600; line-height: 1.2; color: var(--ink); }
+  .plain::before { content: ""; display: block; width: 16px; height: 4px; border-radius: 2px; background: var(--c); margin: 2px auto 4px; }
+  .plain.past { color: var(--ter); }
+
+  /* D 淡色底 */
+  .cells.stretch { align-items: stretch; }
+  .cells.stretch .cell { justify-content: flex-start; }
+  .tint { width: 100%; flex: 1; border-radius: 8px; padding: 5px 2px 6px; background: color-mix(in srgb, var(--c) 16%, #fff); color: color-mix(in srgb, var(--c) 82%, #000); font-size: calc(12.5px * var(--k)); font-weight: 700; line-height: 1.2; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .tint.past { background: #F0F0F3; color: var(--ter); }
+
+  /* E 左邊一條色線 */
+  .side { width: 100%; border-left: 3px solid var(--c); padding: 1px 0 1px 4px; font-size: calc(12px * var(--k)); font-weight: 600; line-height: 1.2; text-align: left; color: var(--ink); }
+  .side small { display: block; font-size: calc(10.5px * var(--k)); color: var(--sub); font-weight: 600; margin-top: 2px; }
+  .side.past { color: var(--ter); }
+
+  /* F 空心膠囊 */
+  .ring { width: 100%; height: calc(24px * var(--k)); line-height: calc(24px * var(--k) - 3px); border-radius: 999px; border: 1.5px solid var(--c); color: color-mix(in srgb, var(--c) 88%, #000); font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden; }
+  .ring.past { color: var(--ter); }
+</style>
+</head>
+<body>
+<main>
+  <h1>主事件樣式：六種畫法</h1>
+  <p class="lead">同一批行程，用六種畫法各畫一次。上面可以換情境、換字的大小，六張會一起換。看中哪一張，跟我說字母就好。跨日的色帶六張都一樣，這次只比單日那一格怎麼畫。你選的是 A。「規則」那一排可以切換改之前、改之後：改之後，上面有寫字的跨日色帶的日子，單日行程都縮成小色塊。</p>
+
+  <div class="tools">
+    <div class="line"><span class="name">情境</span><span id="scenes"></span></div>
+    <div class="line"><span class="name">字</span>
+      <button data-size="big" class="on">大字（你手機現在的大小）</button>
+      <button data-size="std">標準字</button>
+    </div>
+    <div class="line"><span class="name">規則</span>
+      <button data-rule="new" class="on">改之後：一天只有一件寫字的</button>
+      <button data-rule="old">改之前</button>
+    </div>
+    <p class="story" id="story"></p>
+  </div>
+
+  <div class="wrap big" id="wrap"></div>
+</main>
+
+<script>
+const CAT = { work: '#6F5F8F', trip: '#4B6C8F', med: '#A65F45', errand: '#7A6A3A' };
+const GREY = '#B4B4BA';
+const COL = (375 - 16 - 18) / 7;   // 一格的寬度
+
+// 一天：日期、農曆或節氣、當天的事（第一件是主事件）、旗標 p 過去 t 今天 r 紅字
+function D(n, sub, ev, f) {
+  f = f || '';
+  return { n, sub, ev: ev || [], past: f.includes('p'), today: f.includes('t'), red: f.includes('r') };
+}
+// 跨日色帶：從第幾格開始、佔幾格、標題、類別、右邊的字、第幾條、旗標 L 從上週接過來 R 接到下週 p 過去
+function B(s, n, t, c, right, lane, f) {
+  f = f || '';
+  return { s, n, t, c, right, lane: lane || 0, openL: f.includes('L'), openR: f.includes('R'), past: f.includes('p') };
+}
+
+const SCENES = [
+  {
+    name: '你截圖的那幾週',
+    story: '照你傳的第一張圖排的：17 號打籃球、26 號牙齒、月底去韓國八天。',
+    weeks: [
+      { days: [D('15','初七',[],'p'), D('16','初八',[],'p'), D('17','初九',[['打籃球','trip']],'t'), D('18','初十'), D('19','十一'), D('20','十二'), D('21','十三')],
+        bands: [B(2,2,'(沒有標題)','trip')] },
+      { days: [D('22','小雪',[],'r'), D('23','十五'), D('24','十六'), D('25','十七'), D('26','十八',[['牙齒','trip']]), D('27','十九'), D('28','二十')], bands: [] },
+      { days: [D('29','廿一'), D('30','廿二',[['填寫韓國入境','trip']]), D('12/1','廿三'), D('2','廿四',[['測試','trip']]), D('3','廿五'), D('4','廿六'), D('5','廿七')],
+        bands: [B(2,5,'去韓國','trip','共 8 天',0,'R'), B(3,4,'','trip','',1,'R')] },
+      { days: [D('6','廿八'), D('7','大雪',[],'r'), D('8','三十'), D('9','冬月'), D('10','初二'), D('11','初三'), D('12','初四')],
+        bands: [B(0,3,'去韓國','trip','12/8 結束',0,'L'), B(0,3,'','trip','',1,'L')] }
+    ]
+  },
+  {
+    name: '平常的兩週',
+    story: '一天頂多一件事，中間有幾天空的。類別有工作、看診、辦事，顏色不一樣。',
+    weeks: [
+      { days: [D('15','初七',[],'p'), D('16','初八',[['讀書會','work']],'p'), D('17','初九',[['打籃球','trip']],'t'), D('18','初十'), D('19','十一',[['牙醫','med']]), D('20','十二'), D('21','十三',[['聚餐','trip']])], bands: [] },
+      { days: [D('22','小雪',[],'r'), D('23','十五',[['週會','work']]), D('24','十六'), D('25','十七',[['交稿','work']]), D('26','十八',[['回診','med']]), D('27','十九'), D('28','二十',[['搬家','errand']])], bands: [] }
+    ]
+  },
+  {
+    name: '很滿的一週',
+    story: '每天都有事，24 號有六件。主事件只寫一件，其他的要靠小色塊或「+5」看出來。',
+    weeks: [
+      { days: [
+          D('22','小雪',[['家庭日','trip']],'r'),
+          D('23','十五',[['週會','work'],['錄影','work'],['繳費','errand']]),
+          D('24','十六',[['錄影','work'],['剪片','work'],['回信','work'],['健身','trip'],['買菜','errand'],['倒垃圾','errand']]),
+          D('25','十七',[['交稿','work'],['牙醫','med']]),
+          D('26','十八',[['直播','work'],['彩排','work'],['接小孩','errand']]),
+          D('27','十九',[['課程上架','work'],['開會','work']]),
+          D('28','二十',[['聚餐','trip'],['看電影','trip']])
+        ], bands: [] }
+    ]
+  },
+  {
+    name: '出國那兩週',
+    story: '去韓國八天，中間每天還有自己的行程，另外有一條「換季特賣」跟它重疊。',
+    weeks: [
+      { days: [D('29','廿一'), D('30','廿二',[['換韓元','errand']]), D('12/1','廿三',[['機場接送','trip']]), D('2','廿四',[['景福宮','trip']]), D('3','廿五',[['弘大','trip'],['韓服體驗','trip']]), D('4','廿六',[['樂天世界','trip']]), D('5','廿七',[['明洞','trip'],['看秀','trip']])],
+        bands: [B(2,5,'去韓國','trip','共 8 天',0,'R'), B(4,3,'','work','',1,'R')] },
+      { days: [D('6','廿八',[['南山塔','trip']]), D('7','大雪',[['買伴手禮','errand']],'r'), D('8','三十',[['回程班機','trip']]), D('9','冬月'), D('10','初二',[['交稿','work']]), D('11','初三'), D('12','初四',[['聚餐','trip']])],
+        bands: [B(0,3,'去韓國','trip','12/8 結束',0,'L'), B(0,2,'','work','',1,'L')] }
+    ]
+  },
+  {
+    name: '標題很長或沒寫',
+    story: '有的標題十幾個字，有的英文，有的根本沒打。一格只有三個字寬，看每種畫法怎麼處理。',
+    weeks: [
+      { days: [
+          D('22','小雪',[['A','work']],'r'),
+          D('23','十五',[['台大醫院心臟內科回診拿藥','med']]),
+          D('24','十六',[['(沒有標題)','trip']]),
+          D('25','十七',[['Costco','errand'],['Zoom 會議','work']]),
+          D('26','十八',[['填寫韓國入境','trip']]),
+          D('27','十九',[['接小孩','errand']]),
+          D('28','二十',[['Podcast 錄音','work']])
+        ], bands: [B(5,2,'(沒有標題)','trip')] }
+    ]
+  },
+  {
+    name: '過去的日子',
+    story: '今天是 19 號。過完的日子會變灰，看灰掉之後還認不認得出來。',
+    weeks: [
+      { days: [D('8','三十',[['讀書會','work']],'p'), D('9','冬月',[['回診','med'],['繳費','errand']],'p'), D('10','初二',[],'p'), D('11','初三',[['聚餐','trip']],'p'), D('12','初四',[],'p'), D('13','初五',[['交稿','work']],'p'), D('14','初六',[],'p')],
+        bands: [B(3,3,'台南行','trip','共 3 天',0,'p')] },
+      { days: [D('15','初七',[['錄影','work']],'p'), D('16','初八',[],'p'), D('17','初九',[['打籃球','trip'],['牙醫','med']],'p'), D('18','初十',[['週會','work']],'p'), D('19','十一',[['直播','work'],['彩排','work']],'t'), D('20','十二',[['牙醫','med']]), D('21','十三',[['聚餐','trip']])], bands: [] }
+    ]
+  }
+];
+
+// 一個字多寬：中文算 1，英數算 0.58
+function units(s) { let x = 0; for (const ch of s) x += ch.charCodeAt(0) < 128 ? 0.58 : 1; return x; }
+// 一行塞進一格：最多四個字寬，先縮字，再長就截掉
+function fit(t, k) {
+  let out = '', acc = 0;
+  for (const ch of t) {
+    const w = ch.charCodeAt(0) < 128 ? 0.58 : 1;
+    if (acc + w > 4) break;
+    out += ch; acc += w;
+  }
+  const fs = Math.max(9.5, Math.min(13 * k, (COL - 12) / Math.max(acc, 1)));
+  return { out, fs };
+}
+function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+function pips(rest, past) {
+  if (!rest.length) return '';
+  const dots = rest.slice(0, 4).map(e => `<i style="--c:${past ? GREY : CAT[e[1]]}"></i>`).join('');
+  return `<div class="pips">${dots}${rest.length > 4 ? '<b>+</b>' : ''}</div>`;
+}
+
+const OPTIONS = [
+  { id: 'A', name: '現在的樣子', desc: '實心色塊，放不下就折成兩行。字一大，三個字也會折，每格高高低低。',
+    cell(d, k, c, p) { return `<div class="chip${p}" style="--c:${c}"><span class="cl2">${esc(d.ev[0][0])}</span></div>${pips(d.ev.slice(1), d.past)}`; } },
+  { id: 'B', name: '一行實心膠囊', desc: '固定一行，每格一樣高。放不下先把字縮小，超過四個字就截掉後面。',
+    cell(d, k, c, p) { const f = fit(d.ev[0][0], k); return `<div class="pill${p}" style="--c:${c};font-size:${f.fs}px">${esc(f.out)}</div>${pips(d.ev.slice(1), d.past)}`; } },
+  { id: 'C', name: '色線加字', desc: '單日的事不塗底，上面一小段類別色。有塗滿的只剩跨日色帶，一眼分得出來。',
+    cell(d, k, c, p) { return `<div class="plain${p}" style="--c:${c}"><span class="cl2">${esc(d.ev[0][0])}</span></div>${pips(d.ev.slice(1), d.past)}`; } },
+  { id: 'D', name: '淡色底', stretch: true, desc: '單日是淡色底配深色字，跨日才是實心。同一週的色塊一樣高，小色塊收在裡面。',
+    cell(d, k, c, p) { return `<div class="tint${p}" style="--c:${c}"><span class="cl2">${esc(d.ev[0][0])}</span>${pips(d.ev.slice(1), d.past)}</div>`; } },
+  { id: 'E', name: '左邊一條色線', desc: '字靠左、最多兩行，像清單。其他的事不畫小色塊，直接寫「+2」。',
+    cell(d, k, c, p) { const n = d.ev.length - 1; return `<div class="side${p}" style="--c:${c}"><span class="cl2">${esc(d.ev[0][0])}</span>${n ? `<small>+${n}</small>` : ''}</div>`; } },
+  { id: 'F', name: '空心膠囊', desc: '單日只有外框，跨日是實心。固定一行，縮字和截字的規則跟 B 一樣。',
+    cell(d, k, c, p) { const f = fit(d.ev[0][0], k); return `<div class="ring${p}" style="--c:${c};font-size:${f.fs}px">${esc(f.out)}</div>${pips(d.ev.slice(1), d.past)}`; } }
+];
+
+function weekHTML(week, opt, k) {
+  const dates = week.days.map(d =>
+    `<div class="date${d.today ? ' today' : ''}${d.past ? ' past' : ''}${d.red ? ' red' : ''}"><b>${d.n}</b><small>${d.sub}</small></div>`).join('');
+  const lanes = [...new Set(week.bands.map(b => b.lane))].sort();
+  const bands = lanes.map(lane => {
+    const items = week.bands.filter(b => b.lane === lane).map(b => {
+      const cls = ['band', lane > 0 ? 'thin' : '', b.n === 1 ? 'short' : '', b.openL ? 'openL' : '', b.openR ? 'openR' : '', b.past ? 'past' : ''].join(' ');
+      const inner = lane > 0 ? '' : `<span>${esc(b.t)}</span>${b.n >= 3 && b.right ? `<small>${b.right}</small>` : ''}`;
+      // 色帶上的字放不下時最多縮到七成，跟 app 一樣
+      const room = b.n * COL + (b.n - 1) * 3 - (b.n === 1 ? 8 : 24) - (b.n >= 3 && b.right ? units(b.right) * 12.5 * k + 6 : 0);
+      const fs = Math.max(15 * k * 0.7, Math.min(15 * k, room / Math.max(units(b.t), 1)));
+      return `<div class="${cls}" style="--c:${CAT[b.c]};grid-column:${b.s + 1}/span ${b.n};font-size:${fs}px">${inner}</div>`;
+    }).join('');
+    return `<div class="g bands">${items}</div>`;
+  }).join('');
+  const cells = week.days.map((d, col) => {
+    if (!d.ev.length) return '<div class="cell"></div>';
+    // 一天只有一件寫字的：上面有寫字的色帶（第一條）時，單日的全部縮成小色塊
+    const covered = week.bands.some(b => b.lane === 0 && col >= b.s && col < b.s + b.n);
+    if (rule === 'new' && covered) return `<div class="cell">${pips(d.ev, d.past)}</div>`;
+    const c = d.past ? GREY : CAT[d.ev[0][1]];
+    return `<div class="cell">${opt.cell(d, k, c, d.past ? ' past' : '')}</div>`;
+  }).join('');
+  return `<div class="week"><div class="g">${dates}</div>${bands}<div class="g cells${opt.stretch ? ' stretch' : ''}">${cells}</div></div>`;
+}
+
+let scene = 0, size = 'big', rule = 'new';
+function draw() {
+  const k = size === 'big' ? 1.28 : 1;
+  const wrap = document.getElementById('wrap');
+  wrap.className = 'wrap' + (size === 'big' ? ' big' : '');
+  const s = SCENES[scene];
+  document.getElementById('story').textContent = s.story;
+  const dow = '<div class="g dow">' + ['日','一','二','三','四','五','六'].map(x => `<div>${x}</div>`).join('') + '</div>';
+  wrap.innerHTML = OPTIONS.map(o =>
+    `<figure><figcaption><i>${o.id}</i>${o.name}</figcaption><p class="desc">${o.desc}</p>
+     <div class="phone">${dow}${s.weeks.map(w => weekHTML(w, o, k)).join('')}</div></figure>`).join('');
+}
+
+const scenes = document.getElementById('scenes');
+scenes.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
+SCENES.forEach((s, i) => {
+  const b = document.createElement('button');
+  b.textContent = s.name;
+  if (i === 0) b.className = 'on';
+  b.onclick = () => { scene = i; [...scenes.children].forEach(x => x.classList.toggle('on', x === b)); draw(); };
+  scenes.appendChild(b);
+});
+document.querySelectorAll('[data-size]').forEach(b => {
+  b.onclick = () => {
+    size = b.dataset.size;
+    document.querySelectorAll('[data-size]').forEach(x => x.classList.toggle('on', x === b));
+    draw();
+  };
+});
+document.querySelectorAll('[data-rule]').forEach(b => {
+  b.onclick = () => {
+    rule = b.dataset.rule;
+    document.querySelectorAll('[data-rule]').forEach(x => x.classList.toggle('on', x === b));
+    draw();
+  };
+});
+draw();
+</script>
+</body>
+</html>

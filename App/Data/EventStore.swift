@@ -1,4 +1,5 @@
 import EventKit
+import CoreLocation
 import Foundation
 import Observation
 import CalendarCore
@@ -177,6 +178,7 @@ final class EventStore {
         }
         let place = draft.location.trimmingCharacters(in: .whitespacesAndNewlines)
         if !place.isEmpty { event.location = place }
+        if let point = draft.place { event.structuredLocation = structuredLocation(point) }
         let notes = draft.notes.trimmingCharacters(in: .whitespacesAndNewlines)
         if !notes.isEmpty { event.notes = notes }
         do {
@@ -207,6 +209,9 @@ final class EventStore {
         // 讀出來的標題沒有的話會補成「（沒有標題）」，表單要拿原本的
         draft.title = found.title ?? ""
         draft.notes = found.notes ?? ""
+        draft.place = placePoint(of: found)
+        // 有座標的地點，欄位上只放名稱，地址另外寫在下面
+        if let point = draft.place { draft.location = point.name }
         draft.reminder = reminder(of: found)
         draft.repeats = repeats(of: found)
         draft.categoryID = ownCategoryID
@@ -216,6 +221,28 @@ final class EventStore {
             keepsOtherReminder: draft.reminder == nil && !(found.alarms ?? []).isEmpty,
             keepsOtherRepeat: draft.repeats == nil && found.hasRecurrenceRules
         )
+    }
+
+    /// 行程上有座標的地點，讀成表單用的樣子
+    private func placePoint(of event: EKEvent) -> PlacePoint? {
+        guard let structured = event.structuredLocation, let geo = structured.geoLocation else { return nil }
+        let name = (event.location ?? structured.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        // 內建行事曆存的是「名稱＋換行＋地址」，拆成兩段
+        let lines = name.split(whereSeparator: \.isNewline).map(String.init)
+        return PlacePoint(
+            name: lines.first ?? name,
+            address: lines.dropFirst().joined(separator: " "),
+            latitude: geo.coordinate.latitude,
+            longitude: geo.coordinate.longitude
+        )
+    }
+
+    /// 寫進行事曆的地點：跟內建行事曆一樣存「名稱＋換行＋地址」，再帶座標
+    private func structuredLocation(_ point: PlacePoint) -> EKStructuredLocation {
+        let title = point.address.isEmpty ? point.name : point.name + "\n" + point.address
+        let structured = EKStructuredLocation(title: title)
+        structured.geoLocation = CLLocation(latitude: point.latitude, longitude: point.longitude)
+        return structured
     }
 
     /// 原本只有一個提醒、而且對得上表單的選項，才回傳那一種
@@ -287,8 +314,14 @@ final class EventStore {
             }
         }
         let place = draft.location.trimmingCharacters(in: .whitespacesAndNewlines)
-        if place != original.location.trimmingCharacters(in: .whitespacesAndNewlines) {
-            event.location = place.isEmpty ? nil : place
+        if place != original.location.trimmingCharacters(in: .whitespacesAndNewlines) || draft.place != original.place {
+            if let point = draft.place {
+                event.structuredLocation = structuredLocation(point)
+            } else {
+                // 改成自己打的字：拿掉原本的座標，只留字
+                event.structuredLocation = nil
+                event.location = place.isEmpty ? nil : place
+            }
         }
         let notes = draft.notes.trimmingCharacters(in: .whitespacesAndNewlines)
         if notes != original.notes.trimmingCharacters(in: .whitespacesAndNewlines) {

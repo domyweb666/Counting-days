@@ -95,6 +95,22 @@ public enum EventRepeat: String, CaseIterable, Sendable {
     }
 }
 
+/// 地圖上的一個地點：名稱、地址、座標。新增行程選了地圖建議時存進行事曆，行程就帶得到地圖。
+public struct PlacePoint: Hashable, Sendable {
+    public var name: String
+    /// 地址那一行。從行事曆讀回來的沒有，是空的。
+    public var address: String
+    public var latitude: Double
+    public var longitude: Double
+
+    public init(name: String, address: String = "", latitude: Double, longitude: Double) {
+        self.name = name
+        self.address = address
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+}
+
 /// 表單上正在填的那一筆
 public struct NewEventDraft: Equatable, Sendable {
     public enum Kind: Equatable, Sendable {
@@ -121,6 +137,8 @@ public struct NewEventDraft: Equatable, Sendable {
     public var reminder: EventReminder?
     public var repeats: EventRepeat?
     public var location: String
+    /// 從地圖建議選的地點（有座標）。使用者自己打的字、或選完又改了字，就是 nil。
+    public var place: PlacePoint?
     public var notes: String
     /// 存好之後要不要出現分享那一頁
     public var wantsShare: Bool
@@ -139,6 +157,7 @@ public struct NewEventDraft: Equatable, Sendable {
         reminder: EventReminder? = nil,
         repeats: EventRepeat? = nil,
         location: String = "",
+        place: PlacePoint? = nil,
         notes: String = "",
         wantsShare: Bool = false,
         categoryID: String? = nil
@@ -154,6 +173,7 @@ public struct NewEventDraft: Equatable, Sendable {
         self.reminder = reminder
         self.repeats = repeats
         self.location = location
+        self.place = place
         self.notes = notes
         self.wantsShare = wantsShare
         self.categoryID = categoryID
@@ -534,6 +554,11 @@ public enum EventText {
         return "\(c.month ?? 0)/\(c.day ?? 0) 週\(weekdayName(date, calendar: calendar))"
     }
 
+    /// 「2026年」，新增行程卡上放在日期上面的小字
+    public static func year(_ date: Date, calendar: Calendar) -> String {
+        "\(calendar.component(.year, from: date))年"
+    }
+
     /// 「2026年12月」
     public static func month(_ date: Date, calendar: Calendar) -> String {
         let c = calendar.dateComponents([.year, .month], from: date)
@@ -739,5 +764,36 @@ public enum ICSFile {
     static func dateOnly(_ date: Date, calendar: Calendar) -> String {
         let c = calendar.dateComponents([.year, .month, .day], from: date)
         return four(c.year ?? 0) + two(c.month ?? 0) + two(c.day ?? 0)
+    }
+}
+
+/// 循環滾輪：同一組數字重複很多輪排成一長條，打開時停在中間那一輪，所以 23 下面是 0、59 下面是 00，往上往下都滾得下去。
+public enum LoopWheelRules {
+    /// 重複幾輪。打開時在正中間，往上、往下各有一半可以滾
+    public static let laps = 20
+
+    public static func rowCount(_ count: Int) -> Int { count * laps }
+
+    /// 中間那一輪裡、第 `index` 個數字的那一列
+    public static func middleRow(index: Int, count: Int) -> Int {
+        (laps / 2) * count + index
+    }
+
+    /// 這一列上是第幾個數字
+    public static func index(ofRow row: Int, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        return ((row % count) + count) % count
+    }
+
+    /// 數字從外面被改掉時（例如點了「1 小時」），滾輪要轉到哪一列：離現在這一列最近的那個。
+    /// 快滾到長條的頭或尾了就回中間那一輪。
+    public static func nearestRow(toIndex target: Int, from row: Int, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        var delta = target - index(ofRow: row, count: count)
+        if delta > count / 2 { delta -= count }
+        if delta < -(count / 2) { delta += count }
+        let next = row + delta
+        guard next >= 0, next < rowCount(count) else { return middleRow(index: target, count: count) }
+        return next
     }
 }

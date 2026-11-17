@@ -10,7 +10,7 @@ final class CalendarCoreTests: XCTestCase {
         c.timeZone = TimeZone(identifier: "Asia/Taipei")!
         c.firstWeekday = 1
         cal = c
-        settings = AppSettings(calendarCategory: ["W": "work", "M": "med", "E": "errand"], holidayCalendarIDs: ["H"])
+        settings = AppSettings(calendarCategory: ["W": "work", "M": "life", "E": "rest"], holidayCalendarIDs: ["H"])
     }
 
     func date(_ y: Int, _ m: Int, _ d: Int, _ h: Int = 0, _ min: Int = 0) -> Date {
@@ -37,12 +37,12 @@ final class CalendarCoreTests: XCTestCase {
 
     func testCategoryFromCalendarAndFallback() {
         XCTAssertEqual(Classifier.categoryID(for: ev("1", "週會", date(2026, 11, 16, 10)), settings: settings), "work")
-        XCTAssertEqual(Classifier.categoryID(for: ev("2", "吃飯", date(2026, 11, 16, 10), cal: "?"), settings: settings), "trip")
+        XCTAssertEqual(Classifier.categoryID(for: ev("2", "吃飯", date(2026, 11, 16, 10), cal: "?"), settings: settings), "life")
     }
 
     func testKeywordRuleOverridesCalendar() {
-        settings.keywordRules = [KeywordRule(keyword: "回診", categoryID: "med")]
-        XCTAssertEqual(Classifier.categoryID(for: ev("1", "牙科回診", date(2026, 11, 16, 10)), settings: settings), "med")
+        settings.keywordRules = [KeywordRule(keyword: "回診", categoryID: "life")]
+        XCTAssertEqual(Classifier.categoryID(for: ev("1", "牙科回診", date(2026, 11, 16, 10)), settings: settings), "life")
     }
 
     func testRuleWithUnknownCategoryIsIgnored() {
@@ -230,6 +230,42 @@ final class CalendarCoreTests: XCTestCase {
         let day = weeks[0].days[1]
         XCTAssertEqual(day.head?.id, "b")
         XCTAssertEqual(day.head?.label, "入境表")
+    }
+
+    func testHeadModeWritesOnlyOneThingPerDay() {
+        // 11/17 到 11/18 有一條跨日的；17 號還有兩件單日的；19 號沒有色帶，有兩件單日的
+        let events = [allDay("trip", "出差", date(2026, 11, 17), days: 2),
+                      ev("a", "打籃球", date(2026, 11, 17, 19)),
+                      ev("b", "牙醫", date(2026, 11, 17, 9), cal: "M"),
+                      ev("c", "週會", date(2026, 11, 19, 10)),
+                      ev("d", "聚餐", date(2026, 11, 19, 18))]
+        let weeks = builder(today: date(2026, 11, 14)).weeks(from: date(2026, 11, 17), to: date(2026, 11, 17), events: events)
+        let covered = weeks[0].days[2]
+        // 上面有寫字的色帶：這一格不再寫字，單日的兩件都是小色塊
+        XCTAssertTrue(covered.hasWrittenBand)
+        XCTAssertNil(covered.headChip)
+        XCTAssertEqual(Set(covered.headPips.map(\.id)), ["a", "b"])
+        // 主事件本身沒有變，點開那一天的時間表照舊
+        XCTAssertNotNil(covered.head)
+        // 沒有色帶的日子照舊：一件寫字，其餘小色塊
+        let plain = weeks[0].days[4]
+        XCTAssertFalse(plain.hasWrittenBand)
+        XCTAssertEqual(plain.headChip?.id, plain.head?.id)
+        XCTAssertEqual(plain.headPips.map(\.id), plain.rest.map(\.id))
+        XCTAssertEqual(plain.headPips.count, 1)
+    }
+
+    func testHeadModeThinBandDoesNotTakeTheWrittenSpot() {
+        // 兩條跨日的重疊：第二條縮成細線。只被細線蓋到的日子，單日的那一件照樣寫字
+        let events = [allDay("long", "去韓國", date(2026, 11, 16), days: 2),
+                      allDay("short", "特賣", date(2026, 11, 17), days: 3),
+                      ev("a", "牙醫", date(2026, 11, 19, 9), cal: "M")]
+        let weeks = builder(today: date(2026, 11, 14)).weeks(from: date(2026, 11, 17), to: date(2026, 11, 17), events: events)
+        let day = weeks[0].days[4]
+        XCTAssertEqual(day.bands.map(\.lane), [1])
+        XCTAssertFalse(day.hasWrittenBand)
+        XCTAssertEqual(day.headChip?.id, "a")
+        XCTAssertTrue(day.headPips.isEmpty)
     }
 
     // MARK: 週條與清單
@@ -661,6 +697,7 @@ final class CalendarCoreTests: XCTestCase {
     func testEventTexts() {
         XCTAssertEqual(EventText.day(date(2026, 11, 16), calendar: cal), "11月16日 週一")
         XCTAssertEqual(EventText.shortDay(date(2026, 11, 26), calendar: cal), "11/26 週四")
+        XCTAssertEqual(EventText.year(date(2026, 11, 17), calendar: cal), "2026年")
         XCTAssertEqual(EventText.month(date(2026, 12, 5), calendar: cal), "2026年12月")
         XCTAssertEqual(EventText.time(0), "上午 12:00")
         XCTAssertEqual(EventText.time(12 * 60 + 5), "下午 12:05")
@@ -742,39 +779,39 @@ final class CalendarCoreTests: XCTestCase {
     // MARK: 每筆行程自己的類別、編輯既有的行程
 
     func testOwnCategoryBeatsKeywordAndCalendar() {
-        var s = AppSettings(calendarCategory: ["CAL": "work"], keywordRules: [KeywordRule(keyword: "看牙", categoryID: "med")])
+        var s = AppSettings(calendarCategory: ["CAL": "work"], keywordRules: [KeywordRule(keyword: "看牙", categoryID: "life")])
         let e = CalEvent(id: "E1|0", seriesID: "E1", title: "看牙", start: date(2026, 11, 17, 9), end: date(2026, 11, 17, 10), calendarID: "CAL")
         // 沒選過：關鍵字規則先，其次行事曆的預設
-        XCTAssertEqual(Classifier.categoryID(for: e, settings: s), "med")
-        s.eventCategory["E1"] = "errand"
-        XCTAssertEqual(Classifier.categoryID(for: e, settings: s), "errand")
+        XCTAssertEqual(Classifier.categoryID(for: e, settings: s), "life")
+        s.eventCategory["E1"] = "rest"
+        XCTAssertEqual(Classifier.categoryID(for: e, settings: s), "rest")
         // 同一本行事曆的另一筆不受影響
         let other = CalEvent(id: "E2|0", seriesID: "E2", title: "週會", start: date(2026, 11, 17, 9), end: date(2026, 11, 17, 10), calendarID: "CAL")
         XCTAssertEqual(Classifier.categoryID(for: other, settings: s), "work")
         // 選的那個類別被刪掉了，就回到原本的規則
         s.eventCategory["E1"] = "gone"
-        XCTAssertEqual(Classifier.categoryID(for: e, settings: s), "med")
+        XCTAssertEqual(Classifier.categoryID(for: e, settings: s), "life")
     }
 
     func testEventCategoryRoundTripsAndOldSettingsStillLoad() throws {
         var s = AppSettings()
-        s.eventCategory["E1"] = "med"
+        s.eventCategory["E1"] = "life"
         let round = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s))
-        XCTAssertEqual(round.eventCategory, ["E1": "med"])
+        XCTAssertEqual(round.eventCategory, ["E1": "life"])
         let old = try JSONDecoder().decode(AppSettings.self, from: Data("{}".utf8))
         XCTAssertTrue(old.eventCategory.isEmpty)
     }
 
     func testShownCategoryOnTheForm() {
-        let s = AppSettings(calendarCategory: ["CAL": "work"], keywordRules: [KeywordRule(keyword: "看牙", categoryID: "med")])
+        let s = AppSettings(calendarCategory: ["CAL": "work"], keywordRules: [KeywordRule(keyword: "看牙", categoryID: "life")])
         var d = NewEventDraft(title: "週會", day: date(2026, 11, 17), startMinutes: 540, calendarID: "CAL")
         XCTAssertEqual(NewEventRules.shownCategoryID(d, settings: s), "work")
         d.title = "看牙"
-        XCTAssertEqual(NewEventRules.shownCategoryID(d, settings: s), "med")
-        d.categoryID = "errand"
-        XCTAssertEqual(NewEventRules.shownCategoryID(d, settings: s), "errand")
+        XCTAssertEqual(NewEventRules.shownCategoryID(d, settings: s), "life")
+        d.categoryID = "rest"
+        XCTAssertEqual(NewEventRules.shownCategoryID(d, settings: s), "rest")
         d.categoryID = "gone"
-        XCTAssertEqual(NewEventRules.shownCategoryID(d, settings: s), "med")
+        XCTAssertEqual(NewEventRules.shownCategoryID(d, settings: s), "life")
         d.calendarID = nil
         d.title = ""
         XCTAssertEqual(NewEventRules.shownCategoryID(d, settings: s), AppSettings.fallbackCategoryID)
@@ -1068,7 +1105,7 @@ final class CalendarCoreTests: XCTestCase {
         let w = WidgetRules.today(events: events, now: now, calendar: cal, settings: settings)
         XCTAssertEqual(w.rows.map(\.id), ["full", "going", "later"])
         XCTAssertEqual(w.rows.map(\.timeText), ["全天", "13:30", "16:00"])
-        XCTAssertEqual(w.rows.map(\.categoryID), ["trip", "med", "errand"])
+        XCTAssertEqual(w.rows.map(\.categoryID), ["life", "life", "rest"])
         XCTAssertEqual(w.moreCount, 0)
     }
 
@@ -1111,5 +1148,36 @@ final class CalendarCoreTests: XCTestCase {
 
         let empty = WidgetRules.today(events: [], now: date(2026, 11, 18, 0, 0), calendar: cal, settings: settings)
         XCTAssertEqual(empty, WidgetToday(rows: [], moreCount: 0))
+    }
+
+    func testLoopWheelWrapsAroundBothEnds() {
+        // 小時：23 的下一列是 0，0 的上一列是 23
+        let at23 = LoopWheelRules.middleRow(index: 23, count: 24)
+        XCTAssertEqual(LoopWheelRules.index(ofRow: at23, count: 24), 23)
+        XCTAssertEqual(LoopWheelRules.index(ofRow: at23 + 1, count: 24), 0)
+        let at0 = LoopWheelRules.middleRow(index: 0, count: 24)
+        XCTAssertEqual(LoopWheelRules.index(ofRow: at0 - 1, count: 24), 23)
+        // 分鐘：59 的下一列是 0
+        let at59 = LoopWheelRules.middleRow(index: 59, count: 60)
+        XCTAssertEqual(LoopWheelRules.index(ofRow: at59 + 1, count: 60), 0)
+        // 打開時上下都還有很多列
+        XCTAssertGreaterThan(at0, 24 * 5)
+        XCTAssertLessThan(at23, LoopWheelRules.rowCount(24) - 24 * 5)
+    }
+
+    func testLoopWheelTurnsTheShortWayWhenValueChangesOutside() {
+        let at23 = LoopWheelRules.middleRow(index: 23, count: 24)
+        // 23 點變 0 點：往下一格，不是往回轉 23 格
+        XCTAssertEqual(LoopWheelRules.nearestRow(toIndex: 0, from: at23, count: 24), at23 + 1)
+        // 0 點變 22 點：往上兩格
+        let at0 = LoopWheelRules.middleRow(index: 0, count: 24)
+        XCTAssertEqual(LoopWheelRules.nearestRow(toIndex: 22, from: at0, count: 24), at0 - 2)
+        // 沒變就不動
+        XCTAssertEqual(LoopWheelRules.nearestRow(toIndex: 23, from: at23, count: 24), at23)
+        // 已經在長條最尾巴還要往下：回中間那一輪
+        let last = LoopWheelRules.rowCount(24) - 1
+        XCTAssertEqual(LoopWheelRules.nearestRow(toIndex: 0, from: last, count: 24), LoopWheelRules.middleRow(index: 0, count: 24))
+        // 最頭還要往上也一樣
+        XCTAssertEqual(LoopWheelRules.nearestRow(toIndex: 23, from: 0, count: 24), LoopWheelRules.middleRow(index: 23, count: 24))
     }
 }

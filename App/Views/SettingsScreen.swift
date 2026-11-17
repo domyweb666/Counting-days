@@ -41,7 +41,6 @@ struct SettingsScreen: View {
                 displaySection
                 weatherSection
                 calendarSection
-                categoryLink
                 countdownSection
                 generalSection
                 purchaseSection
@@ -149,12 +148,7 @@ struct SettingsScreen: View {
                 }
             }
         )
-        return SectionCard(
-            title: "一般",
-            footer: usesDevice
-                ? "月曆跟著 iPhone 的時區。出國時想照家裡的時間看行程，可以關掉自己選。"
-                : "月曆照選的時區排日期和時間。新增、修改行程的畫面是 iPhone 內建的，上面的時間還是照手機的時區。"
-        ) {
+        return SectionCard(title: "一般") {
             Menu {
                 Picker(VeggieText.appearance, selection: $appearance) {
                     ForEach(Appearance.allCases) { option in
@@ -198,12 +192,7 @@ struct SettingsScreen: View {
         let city = WeatherCity.find(settings.value.weatherCityID)
         let weather = app.weather
         let today = app.forecast(for: app.vm.today)
-        return SectionCard(
-            title: "天氣",
-            footer: enabled && city == nil
-                ? "選一個縣市才會顯示天氣。"
-                : "打開後，蒜日子會連網向 Apple 天氣查你選的縣市未來十天的預報。只送縣市，不送行程。"
-        ) {
+        return SectionCard(title: "天氣") {
             SettingsRow(label: "顯示天氣", icon: "cloud.sun") {
                 Toggle("顯示天氣", isOn: settings.binding(\.weatherEnabled))
                     .labelsHidden()
@@ -288,35 +277,26 @@ struct SettingsScreen: View {
 
     // MARK: 行事曆
 
-    /// 行事曆的事（加入、移除、排順序、節日與預設類別、建立新的）都收在第二頁，這裡只留一列入口
+    /// 行事曆的事（加入、移除、節日與預設類別、建立新的）和類別都收在第二頁，這裡兩列入口放同一張卡
     private var calendarSection: some View {
         let count = app.vm.shownCalendars.count
-        return SectionCard(
-            title: "行事曆",
-            footer: "加入、移除、排順序，或指定哪一本是節日、預設歸哪一類。這些都只改蒜日子的顯示方式，不會動到系統行事曆。"
-        ) {
+        return SectionCard(title: "行事曆") {
             Button {
                 showManageCalendars = true
             } label: {
                 VeggieRow(icon: "list.bullet", title: "管理行事曆", value: count == 0 ? "還沒加入" : "\(count) 本", accessory: .push)
             }
             .buttonStyle(PressStyle())
-        }
-        .sheet(isPresented: $showManageCalendars) {
-            ManageCalendarsScreen()
-        }
-    }
-
-    // MARK: 類別（收在第二頁）
-
-    private var categoryLink: some View {
-        SectionCard(footer: "改類別的名稱、顏色，或指定哪一類優先當主事件。") {
+            Hairline()
             Button {
                 showCategories = true
             } label: {
                 VeggieRow(icon: "tag", title: "類別與顏色", accessory: .push)
             }
             .buttonStyle(PressStyle())
+        }
+        .sheet(isPresented: $showManageCalendars) {
+            ManageCalendarsScreen()
         }
     }
 
@@ -347,11 +327,10 @@ struct SettingsScreen: View {
         }
     }
 
-    private var countdownFooter: String {
-        let base = "在某一天的時間表裡長按行程，可以加入倒數日。"
-        // 退款之後超過上限的不刪，只是月曆上先不顯示
-        guard settings.visibleCountdowns.count < settings.value.countdowns.count else { return base }
-        return base + "免費版在月曆上只顯示最上面 \(FullVersionAccess.freeCountdownLimit) 個，其餘留在這裡，解鎖完整版後會回來。"
+    /// 平常不放說明。只有退款之後超過上限、月曆上少了幾個的時候，才講它們去哪了
+    private var countdownFooter: String? {
+        guard settings.visibleCountdowns.count < settings.value.countdowns.count else { return nil }
+        return "免費版在月曆上只顯示最上面 \(FullVersionAccess.freeCountdownLimit) 個，其餘留在這裡，解鎖完整版後會回來。"
     }
 
     // MARK: 購買
@@ -656,14 +635,9 @@ struct DisplayModeSettingsScreen: View {
     private var purchase: PurchaseStore { app.purchase }
     private var current: DisplayMode { settings.effectiveMode }
 
-    private var footer: String {
-        if purchase.isUnlocked { return "四種樣式都可以用，點一種上面的預覽就會換。" }
-        return "上鎖的樣式可以點一下試看，離開這一頁就會換回原本那種。"
-    }
-
     var body: some View {
-        VStack(spacing: 0) {
-            // 這一段不跟著捲，點哪一種都看得到預覽
+        // 這頁很短，整頁一起捲就好
+        ScrollView {
             VStack(alignment: .leading, spacing: DT.Space.s4) {
                 HStack {
                     Spacer()
@@ -674,18 +648,15 @@ struct DisplayModeSettingsScreen: View {
                     .foregroundStyle(Theme.ink)
                     .accessibilityAddTraits(.isHeader)
                 if let previewWeek { preview(previewWeek) }
-            }
-            .padding(.horizontal, DT.Size.screenMargin)
-            .padding(.top, DT.Space.s4)
-            .padding(.bottom, DT.Space.s3)
-            ScrollView {
-                VStack(alignment: .leading, spacing: DT.Space.s6) {
-                    SectionCard(footer: footer) {
-                        ForEach(Array(DisplayMode.allCases.enumerated()), id: \.element) { index, mode in
-                            if index > 0 { Hairline() }
-                            row(mode)
-                        }
+                SectionCard {
+                    ForEach(Array(DisplayMode.allCases.enumerated()), id: \.element) { index, mode in
+                        if index > 0 { Hairline() }
+                        row(mode)
                     }
+                }
+                .padding(.top, DT.Space.s2)
+                // 已經買了就不用再看購買說明
+                if !purchase.isUnlocked {
                     FullVersionOffer {
                         // 付款視窗跳出來時這一頁可能先收到離開通知，所以先記下正在試看哪一種
                         let wanted = settings.previewingMode
@@ -694,11 +665,12 @@ struct DisplayModeSettingsScreen: View {
                             if let wanted { settings.selectMode(wanted) }
                         }
                     }
+                    .padding(.top, DT.Space.s2)
                 }
-                .padding(.horizontal, DT.Size.screenMargin)
-                .padding(.top, DT.Space.s2)
-                .padding(.bottom, DT.Space.s8)
             }
+            .padding(.horizontal, DT.Size.screenMargin)
+            .padding(.top, DT.Space.s4)
+            .padding(.bottom, DT.Space.s8)
         }
         .background(Theme.bg.ignoresSafeArea())
         .tint(Theme.accent)
@@ -1127,7 +1099,6 @@ struct ManageCalendarsScreen: View {
             .padding(.horizontal, DT.Size.screenMargin)
             .padding(.top, DT.Space.s4)
             .padding(.bottom, DT.Space.s2)
-            // 拖著排用 iPhone 內建的清單，一直開著編輯狀態，右邊才有可以拖的把手
             List {
                 shownSection
                 removedSection
@@ -1135,7 +1106,6 @@ struct ManageCalendarsScreen: View {
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
-            .environment(\.editMode, .constant(.active))
         }
         .background(Theme.bg.ignoresSafeArea())
         .tint(Theme.accent)
@@ -1147,12 +1117,6 @@ struct ManageCalendarsScreen: View {
             .foregroundStyle(Theme.ink)
             .textCase(nil)
             .accessibilityAddTraits(.isHeader)
-    }
-
-    private func sectionFooter(_ text: String) -> some View {
-        Text(text)
-            .dFont(DT.TypeScale.footnote)
-            .foregroundStyle(Theme.sub)
     }
 
     /// 色點、名稱、底下一行帳號
@@ -1176,7 +1140,7 @@ struct ManageCalendarsScreen: View {
         }
     }
 
-    // MARK: 已加入的：排順序、移除、節日與預設類別
+    // MARK: 已加入的：移除、節日與預設類別
 
     private var shownSection: some View {
         let shown = app.vm.shownCalendars
@@ -1206,13 +1170,8 @@ struct ManageCalendarsScreen: View {
                 }
                 .listRowBackground(Theme.card)
             }
-            .onMove { source, destination in
-                app.vm.moveShownCalendar(from: source, to: destination)
-            }
         } header: {
             sectionTitle("已加入的")
-        } footer: {
-            sectionFooter("按住右邊的三條線上下拖可以排順序：開始時間一樣的行程，排前面的行事曆會顯示在上面。紅色減號是從蒜日子移除，系統行事曆裡還在，下面可以加回來。膠囊是這本行事曆的預設類別，選「節日」就變成日期下的小字；行程自己選過類別的，照它自己的。")
         }
     }
 
@@ -1246,8 +1205,6 @@ struct ManageCalendarsScreen: View {
             }
         } header: {
             sectionTitle("手機上還沒加入的")
-        } footer: {
-            sectionFooter("訂閱行事曆和節日行事曆要到 iPhone 的「行事曆」app 加。加好之後回到蒜日子，它會自動出現在上面。")
         }
     }
 
@@ -1290,13 +1247,11 @@ struct ManageCalendarsScreen: View {
         } header: {
             sectionTitle("建立新的行事曆")
         } footer: {
-            VStack(alignment: .leading, spacing: DT.Space.s2) {
-                if let createMessage {
-                    Text(createMessage)
-                        .dFont(DT.TypeScale.footnote)
-                        .foregroundStyle(createFailed ? Theme.destructive : Theme.strong)
-                }
-                sectionFooter("會寫進 iPhone 的行事曆：有開 iCloud 行事曆就放在 iCloud，沒有就放在這支手機上。之後要刪掉它，得到 iPhone 的行事曆 app 刪。")
+            // 只留建立之後的結果（成功或原因），沒有常駐的說明
+            if let createMessage {
+                Text(createMessage)
+                    .dFont(DT.TypeScale.footnote)
+                    .foregroundStyle(createFailed ? Theme.destructive : Theme.strong)
             }
         }
     }

@@ -247,7 +247,7 @@ final class CalendarViewModel {
             start: previewBuilder.addDays(today, 3),
             end: previewBuilder.addDays(today, 6).addingTimeInterval(-1),
             isAllDay: true,
-            calendarID: "demo.trip"
+            calendarID: "demo.fun"
         ))
         return previewBuilder.weeks(from: today, to: lastDay, events: events).first
     }
@@ -299,13 +299,6 @@ final class CalendarViewModel {
         let byID = Dictionary(shown.map { ($0.calendarIdentifier, $0) }, uniquingKeysWith: { first, _ in first })
         return CalendarOrder.sorted(shown.map(\.calendarIdentifier), by: settings.value.calendarOrder)
             .compactMap { byID[$0] }
-    }
-
-    /// 使用者在「管理行事曆」那一頁拖了一列
-    func moveShownCalendar(from source: IndexSet, to destination: Int) {
-        var ids = shownCalendars.map(\.calendarIdentifier)
-        ids.move(fromOffsets: source, toOffset: destination)
-        settings.update { $0.calendarOrder = ids }
     }
 
     /// 從蒜日子移除的行事曆。手機上還在，隨時可以加回來。

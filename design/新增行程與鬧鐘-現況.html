@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>新增行程與鬧鐘 現況</title>
+<style>
+  :root {
+    --bg: #F3F3F5; --card: #FFFFFF; --ink: #1C1C1E; --sub: #6A6A70; --ter: #B4B4BA;
+    --sep: #E5E1D8; --accent: #4F6B57; --strong: #3F5746; --soft: #E3ECE5;
+    --blue: #4A6A8F; --purple: #6F5F8F; --clay: #A65F45; --olive: #7A6A3A; --page: #D9D9DE;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 16px 64px; background: var(--page); color: var(--ink);
+    font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; }
+  main { max-width: 1480px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  h2 { font-size: 20px; margin: 40px 0 6px; }
+  .lead { font-size: 15px; line-height: 1.7; color: #3a3a3e; max-width: 920px; margin: 0 0 18px; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+  figure { margin: 0; width: 390px; max-width: 100%; }
+  figcaption { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .tag { display: inline-block; font-size: 12px; font-weight: 700; color: #fff; background: var(--accent); border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
+  .tag.gray { background: #8a8a90; }
+  .desc { font-size: 13.5px; line-height: 1.6; color: #44444a; margin: 0 0 10px; min-height: 44px; }
+  .phone { width: 100%; background: var(--bg); border-radius: 32px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,.18); padding: 14px 20px 22px; position: relative; }
+  .bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .bar b { font-size: 16px; }
+  .bar .cancel { color: var(--sub); font-size: 16px; }
+  .ok { width: 38px; height: 38px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; }
+  .ok.off { opacity: .4; }
+  .done { background: var(--card); border-radius: 999px; padding: 8px 14px; font-weight: 700; color: var(--strong); font-size: 15px; }
+  .title { background: var(--card); border-radius: 14px; padding: 16px; font-size: 20px; color: var(--ter); margin-bottom: 12px; }
+  .title.filled { color: var(--ink); font-weight: 600; }
+  .cats { display: flex; gap: 8px; overflow: hidden; margin-bottom: 12px; }
+  .cats span { background: var(--card); border-radius: 999px; padding: 9px 13px; font-size: 15px; font-weight: 600; white-space: nowrap; }
+  .cats .on { background: var(--soft); color: var(--strong); outline: 1.5px solid var(--accent); outline-offset: -1.5px; }
+  .sq { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
+  .card { background: var(--card); border-radius: 14px; margin-bottom: 12px; }
+  .when { display: flex; align-items: center; gap: 4px; padding: 8px; }
+  .col { flex: 1; min-width: 0; }
+  .col small { display: block; font-size: 12.5px; color: var(--sub); margin: 0 0 4px 4px; }
+  .cell { background: var(--bg); border-radius: 10px; padding: 0 12px; height: 44px; display: flex; align-items: center; font-size: 16px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; }
+  .cell.big { font-size: 20px; }
+  .cell.two { height: 54px; flex-direction: column; align-items: flex-start; justify-content: center; line-height: 1.15; }
+  .cell.two em { font-style: normal; font-size: 12px; color: var(--sub); font-weight: 600; }
+  .arrow { color: var(--sub); font-weight: 700; flex: none; }
+  .line { display: flex; justify-content: space-between; align-items: center; min-height: 50px; padding: 0 16px; font-size: 16px; border-top: 1px solid var(--sep); gap: 8px; }
+  .line .k { color: var(--sub); }
+  .line .v { color: var(--sub); margin-left: auto; }
+  .line.new { background: #FFF6D6; }
+  .sw { width: 50px; height: 30px; border-radius: 15px; background: #D4D4D8; padding: 3px; display: flex; flex: none; }
+  .sw i { width: 24px; height: 24px; border-radius: 50%; background: #fff; }
+  .sw.on { background: var(--accent); justify-content: flex-end; }
+  .list { padding: 0 16px; }
+  .opt { display: flex; align-items: center; gap: 12px; min-height: 50px; font-size: 16px; border-top: 1px solid var(--sep); }
+  .opt:first-child { border-top: 0; }
+  .opt svg { width: 20px; height: 20px; flex: none; color: var(--accent); }
+  .opt .n { flex: 1; }
+  .opt .v { color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
+  .opt .v.set { color: var(--strong); font-weight: 600; }
+  .opt .chev { color: var(--sub); font-size: 13px; font-weight: 700; }
+  .opt .ph { flex: 1; color: var(--ter); }
+  .opt .tx { flex: 1; }
+  .opt.new { background: #FFF6D6; margin: 0 -16px; padding: 0 16px; }
+  .sec-t { font-size: 19px; font-weight: 800; margin: 14px 4px 8px; }
+  .foot { font-size: 13px; color: var(--sub); line-height: 1.55; margin: 6px 6px 0; }
+  .sug { background: var(--card); border-radius: 14px; margin: -6px 0 12px; box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+  .sug div { padding: 10px 16px; border-top: 1px solid var(--sep); }
+  .sug div:first-child { border-top: 0; }
+  .sug b { display: block; font-size: 15px; }
+  .sug small { color: var(--sub); font-size: 12.5px; }
+  .map { height: 110px; border-radius: 10px; margin: 0 0 10px 32px; background:
+      linear-gradient(90deg, transparent 48%, #fff 48% 52%, transparent 52%),
+      linear-gradient(0deg, transparent 45%, #fff 45% 50%, transparent 50%),
+      linear-gradient(35deg, #E6EBDD, #DCE6EC); position: relative; }
+  .map::after { content: "📍"; position: absolute; left: 50%; top: 42%; transform: translate(-50%,-50%); font-size: 22px; }
+  .note { flex: 1; background: var(--card); border-radius: 14px; padding: 16px; font-size: 16px; line-height: 1.6; min-height: 420px; }
+  .note .ph { color: var(--ter); }
+  .caret { display: inline-block; width: 2px; height: 18px; background: var(--accent); vertical-align: -3px; }
+  .kb { margin: 12px -20px -22px; background: #CDD0D6; height: 190px; display: grid; place-items: center; color: #777; font-size: 14px; }
+  .ring { background: linear-gradient(#2b3a30, #18211b); color: #fff; height: 640px; display: flex; flex-direction: column; align-items: center; padding-top: 90px; }
+  .ring .t { font-size: 15px; opacity: .8; }
+  .ring .clock { font-size: 64px; font-weight: 300; margin: 6px 0 40px; }
+  .ring .what { font-size: 24px; font-weight: 700; text-align: center; padding: 0 24px; }
+  .ring .stop { margin-top: auto; margin-bottom: 70px; background: #fff; color: #1c1c1e; border-radius: 999px; padding: 16px 64px; font-weight: 700; font-size: 18px; }
+  .flow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 15px; margin: 8px 0 18px; }
+  .flow span { background: var(--card); border-radius: 10px; padding: 10px 14px; }
+  .flow i { font-style: normal; color: var(--sub); font-weight: 700; }
+  .menu { position: absolute; right: 28px; background: rgba(250,250,252,.97); border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25); width: 200px; font-size: 15px; z-index: 2; }
+  .menu div { padding: 11px 16px; border-top: 1px solid #e3e3e8; }
+  .menu div:first-child { border-top: 0; }
+  .menu .chk::before { content: "✓ "; color: var(--accent); font-weight: 700; }
+  .hl { background: #FFF6D6; border-radius: 4px; padding: 0 3px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></symbol>
+  <symbol id="notes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 11h16M4 16h10"/></symbol>
+  <symbol id="share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5v9h14v-9h-1"/></symbol>
+  <symbol id="glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10M7 21h10M8 3c0 5 8 5 8 9s-8 4-8 9M16 3c0 5-8 5-8 9s8 4 8 9"/></symbol>
+  <symbol id="alarm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7"/><path d="M12 10v3l2 2M5 4 3 6M19 4l2 2"/></symbol>
+  <symbol id="music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></symbol>
+</svg>
+<main>
+  <h1>新增行程與鬧鐘：現在做好的樣子</h1>
+  <p class="lead">黃底的地方是這次新加或搬過位置的。第一部分是新增行程頁；第二部分是鬧鐘現在怎麼運作；第三部分是鬧鐘設定放哪裡的三種做法，給你挑。</p>
+
+  <h2>一、新增行程頁</h2>
+  <div class="wrap">
+    <figure>
+      <figcaption>還沒填</figcaption>
+      <p class="desc">日期左右兩欄，年份小字在上面（A4）。「重複」搬到「整日」底下。下面剩五列。</p>
+      <div class="phone">
+        <div class="bar"><span class="cancel">取消</span><b>新增行程</b><span class="ok off">✓</span></div>
+        <div class="title">要做什麼？</div>
+        <div class="cats"><span><i class="sq" style="background:var(--purple)"></i>工作</span><span class="on"><i class="sq" style="background:var(--blue)"></i>生活</span><span><i class="sq" style="background:var(--clay)"></i>娛樂</span><span><i class="sq" style="background:var(--olive)"></i>休息</span></div>
+        <div class="card">
+          <div class="when">
+            <div class="col"><small>開始</small><div class="cell two"><em>2026年</em>11/17 週二</div><div class="cell big">23:00</div></div>
+            <span class="arrow">›</span>
+            <div class="col"><small>結束</small><div class="cell two"><em>2026年</em>11/18 週三</div><div class="cell big">0:00</div></div>
+          </div>
+          <div class="line"><span>整日</span><span class="sw"><i></i></span></div>
+          <div class="line new"><span>重複</span><span class="v">不重複 ⌃⌄</span></div>
+          <div class="line"><span class="k">行事曆</span><span><i class="sq" style="background:var(--blue)"></i>charlie81…mail.com ⌃⌄</span></div>
+        </div>
+        <div class="card list">
+          <div class="opt"><svg><use href="#bell"/></svg><span class="n">提醒</span><span class="v">不提醒</span><span class="chev">⌃⌄</span></div>
+          <div class="opt"><svg><use href="#pin"/></svg><span class="ph">地點</span></div>
+          <div class="opt new"><svg><use href="#notes"/></svg><span class="n">備註</span><span class="v">未填</span><span class="chev">›</span></div>
+          <div class="opt"><svg><use href="#share"/></svg><span class="n">存好後分享</span><span class="sw"><i></i></span></div>
+          <div class="opt"><svg><use href="#glass"/></svg><span class="n">加入倒數日</span><span class="sw"><i></i></span></div>
+        </div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>點「提醒」</figcaption>
+      <p class="desc">跳出選單選幾分鐘前。這一顆就是你說的「提醒按鈕」。</p>
+      <div class="phone">
+        <div class="bar"><span class="cancel">取消</span><b>新增行程</b><span class="ok">✓</span></div>
+        <div class="title filled">牙齒回診</div>
+        <div class="cats"><span><i class="sq" style="background:var(--purple)"></i>工作</span><span class="on"><i class="sq" style="background:var(--blue)"></i>生活</span><span><i class="sq" style="background:var(--clay)"></i>娛樂</span><span><i class="sq" style="background:var(--olive)"></i>休息</span></div>
+        <div class="card">
+          <div class="when">
+            <div class="col"><small>開始</small><div class="cell two"><em>2026年</em>11/26 週四</div><div class="cell big">14:30</div></div>
+            <span class="arrow">›</span>
+            <div class="col"><small>結束</small><div class="cell two"><em>2026年</em>11/26 週四</div><div class="cell big">15:30</div></div>
+          </div>
+          <div class="line"><span>整日</span><span class="sw"><i></i></span></div>
+          <div class="line"><span>重複</span><span class="v">不重複 ⌃⌄</span></div>
+          <div class="line"><span class="k">行事曆</span><span><i class="sq" style="background:var(--blue)"></i>charlie81…mail.com ⌃⌄</span></div>
+        </div>
+        <div class="menu" style="top:548px">
+          <div>不提醒</div><div>準時</div><div>5 分鐘前</div><div>10 分鐘前</div><div class="chk">30 分鐘前</div><div>1 小時前</div><div>1 天前</div>
+        </div>
+        <div class="card list">
+          <div class="opt"><svg><use href="#bell"/></svg><span class="n">提醒</span><span class="v set">30 分鐘前</span><span class="chev">⌃⌄</span></div>
+          <div class="opt"><svg><use href="#pin"/></svg><span class="ph">地點</span></div>
+          <div class="opt"><svg><use href="#notes"/></svg><span class="n">備註</span><span class="v">未填</span><span class="chev">›</span></div>
+          <div class="opt"><svg><use href="#share"/></svg><span class="n">存好後分享</span><span class="sw"><i></i></span></div>
+          <div class="opt"><svg><use href="#glass"/></svg><span class="n">加入倒數日</span><span class="sw"><i></i></span></div>
+        </div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>點「備註」開記事本<span class="tag">新</span></figcaption>
+      <p class="desc">整頁都是打字的地方，打開就有游標，按「完成」回到上一頁。清單上只顯示第一行。</p>
+      <div class="phone" style="display:flex;flex-direction:column;height:700px">
+        <div class="bar"><span style="width:60px"></span><b>備註</b><span class="done">完成</span></div>
+        <div class="note">帶健保卡<br>問一下要不要照 X 光<span class="caret"></span></div>
+        <div class="kb">鍵盤</div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>地點打字時跳地圖建議<span class="tag gray">這次要做</span></figcaption>
+      <p class="desc">打「安和牙」就列出地圖上找得到的地方。選了之後存成有座標的地點，下面出現小地圖；不選也可以，照打的字存。</p>
+      <div class="phone">
+        <div class="bar"><span class="cancel">取消</span><b>新增行程</b><span class="ok">✓</span></div>
+        <div class="title filled">牙齒回診</div>
+        <div class="card list">
+          <div class="opt"><svg><use href="#bell"/></svg><span class="n">提醒</span><span class="v set">30 分鐘前</span><span class="chev">⌃⌄</span></div>
+          <div class="opt"><svg><use href="#pin"/></svg><span class="tx">安和牙<span class="caret"></span></span></div>
+        </div>
+        <div class="sug">
+          <div><b>安和牙醫診所</b><small>台北市大安區安和路二段 63 號</small></div>
+          <div><b>安和牙醫</b><small>新北市永和區中正路 456 號</small></div>
+          <div><b>安和路</b><small>台北市大安區</small></div>
+        </div>
+        <p class="foot" style="margin-bottom:12px">選了之後 ↓</p>
+        <div class="card list">
+          <div class="opt"><svg><use href="#pin"/></svg><span class="tx">安和牙醫診所<br><small style="color:var(--sub);font-size:12.5px">台北市大安區安和路二段 63 號</small></span><span class="chev">✕</span></div>
+          <div class="map"></div>
+        </div>
+      </div>
+    </figure>
+  </div>
+
+  <h2>二、鬧鐘現在怎麼運作</h2>
+  <div class="flow">
+    <span>新增行程時<br>「提醒」選 30 分鐘前</span><i>→</i>
+    <span>寫進 iPhone 行事曆<br>（跟原本一樣）</span><i>→</i>
+    <span>設定裡「提醒用鬧鐘響」<br><b>有打開</b>的話，蒜日子另外排一個鬧鐘</span><i>→</i>
+    <span>時間到：<br>通知跳一則＋鬧鐘全螢幕響</span>
+  </div>
+  <p class="lead">所以現在其實有兩道開關：每筆行程的「提醒」決定要不要提醒、幾分鐘前；設定裡的「提醒用鬧鐘響」決定提醒是一般通知，還是鬧鐘。你看不懂的應該就是這第二道。</p>
+  <div class="wrap">
+    <figure>
+      <figcaption>設定頁現在多的那一區</figcaption>
+      <p class="desc">在「倒數日」和「一般」中間。開關打開後才出現「鈴聲」。</p>
+      <div class="phone">
+        <div class="sec-t">倒數日</div>
+        <div class="card list"><div class="opt"><span class="n">牙齒</span><span class="chev">✕</span></div><div class="opt"><span class="n">上架行事曆 app</span><span class="chev">✕</span></div></div>
+        <div style="background:#FFF6D6;border-radius:16px;padding:2px 6px 8px;margin:0 -6px">
+          <div class="sec-t">提醒</div>
+          <div class="card list" style="margin-bottom:0">
+            <div class="opt"><svg><use href="#alarm"/></svg><span class="n">提醒用鬧鐘響</span><span class="sw on"><i></i></span></div>
+            <div class="opt"><svg><use href="#music"/></svg><span class="n">鈴聲</span><span class="v">風鈴</span><span class="chev">›</span></div>
+          </div>
+          <p class="foot">行事曆原本的提醒照舊。打開後，有設提醒的行程會在這支手機上再響一次鬧鐘，靜音模式也會響。</p>
+        </div>
+        <div class="sec-t">一般</div>
+        <div class="card list"><div class="opt"><span class="n">外觀</span><span class="v">跟隨系統</span><span class="chev">›</span></div></div>
+      </div>
+    </figure>
+    <figure>
+      <figcaption>時間到的時候</figcaption>
+      <p class="desc">像時鐘 app 的鬧鐘一樣蓋住整個畫面，靜音也會響，按「關掉」才停。</p>
+      <div class="phone" style="padding:0">
+        <div class="ring"><div class="t">11月26日 週四</div><div class="clock">14:00</div><div class="what">30 分鐘後：牙齒回診</div><div class="stop">關掉</div></div>
+      </div>
+    </figure>
+  </div>
+
+  <h2>三、鬧鐘的設定放哪裡：三種做法</h2>
+  <p class="lead">你說「倒數日下面不用再多一個提醒」，所以下面兩種把那一區拿掉。差別在「哪些提醒會變成鬧鐘」。</p>
+  <div class="wrap">
+    <figure>
+      <figcaption>甲：現在的做法<span class="tag gray">你不要的</span></figcaption>
+      <p class="desc">設定裡一個總開關。打開後，所有有設提醒的行程都變鬧鐘；關掉就都是一般通知。</p>
+      <div class="phone">
+        <div class="sec-t">提醒</div>
+        <div class="card list">
+          <div class="opt"><svg><use href="#alarm"/></svg><span class="n">提醒用鬧鐘響</span><span class="sw on"><i></i></span></div>
+          <div class="opt"><svg><use href="#music"/></svg><span class="n">鈴聲</span><span class="v">風鈴</span><span class="chev">›</span></div>
+        </div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>乙：設了提醒就是鬧鐘<span class="tag">推薦</span></figcaption>
+      <p class="desc">拿掉總開關。只要「提醒」有選時間，到了就用鬧鐘響。設定頁只在「一般」裡多一列「提醒鈴聲」。第一次選提醒時跳鬧鐘權限視窗。缺點：別的 app 或 Google 日曆建的有提醒的行程，也會跟著響鬧鐘。</p>
+      <div class="phone">
+        <div class="sec-t">一般</div>
+        <div class="card list">
+          <div class="opt"><span class="n">外觀</span><span class="v">跟隨系統</span><span class="chev">›</span></div>
+          <div class="opt new"><svg><use href="#music"/></svg><span class="n">提醒鈴聲</span><span class="v">風鈴</span><span class="chev">›</span></div>
+          <div class="opt"><span class="n">使用裝置時區</span><span class="sw on"><i></i></span></div>
+        </div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>丙：每一筆自己選要不要鬧鐘</figcaption>
+      <p class="desc">提醒選單裡分兩種：「通知」和「鬧鐘」。只有選了鬧鐘的那筆會響鬧鐘，其他照一般通知。設定頁一樣只在「一般」多一列「提醒鈴聲」。最有彈性，但選單比較長，別的 app 建的行程不會響鬧鐘。</p>
+      <div class="phone" style="min-height:430px">
+        <div class="card list">
+          <div class="opt"><svg><use href="#bell"/></svg><span class="n">提醒</span><span class="v set">30 分鐘前・鬧鐘</span><span class="chev">⌃⌄</span></div>
+          <div class="opt"><svg><use href="#pin"/></svg><span class="ph">地點</span></div>
+        </div>
+        <div class="menu" style="top:76px;width:230px">
+          <div>不提醒</div><div>準時</div><div>10 分鐘前</div><div>30 分鐘前</div><div>1 小時前</div>
+          <div style="color:var(--sub);font-size:13px;background:#f0f0f3">提醒方式</div>
+          <div>通知</div><div class="chk">鬧鐘</div>
+        </div>
+      </div>
+    </figure>
+  </div>
+</main>
+</body>
+</html>

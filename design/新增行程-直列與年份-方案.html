@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>新增行程 直列與年份</title>
+<style>
+  :root {
+    --bg: #F3F3F5; --card: #FFFFFF; --ink: #1C1C1E; --sub: #6A6A70; --ter: #B4B4BA;
+    --sep: #E5E1D8; --accent: #4F6B57; --strong: #3F5746; --soft: #E3ECE5;
+    --blue: #4A6A8F; --purple: #6F5F8F; --clay: #A65F45; --olive: #7A6A3A; --page: #D9D9DE;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px 64px; background: var(--page); color: var(--ink);
+    font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  }
+  main { max-width: 1480px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  h2 { font-size: 20px; margin: 40px 0 6px; }
+  .lead { font-size: 15px; line-height: 1.7; color: #3a3a3e; max-width: 900px; margin: 0 0 18px; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+  figure { margin: 0; width: 390px; max-width: 100%; }
+  figcaption { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .tag { display: inline-block; font-size: 12px; font-weight: 700; color: #fff; background: var(--accent); border-radius: 6px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
+  .tag.bad { background: #C4372C; }
+  .desc { font-size: 13.5px; line-height: 1.6; color: #44444a; margin: 0 0 10px; min-height: 66px; }
+  .phone { width: 100%; background: var(--bg); border-radius: 32px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,.18); padding: 14px 20px 22px; }
+  .phone.short { padding-bottom: 16px; }
+  .bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .bar b { font-size: 16px; }
+  .bar .cancel { color: var(--sub); font-size: 16px; }
+  .ok { width: 38px; height: 38px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; opacity: .4; }
+  .title { background: var(--card); border-radius: 14px; padding: 16px; font-size: 20px; color: var(--ter); margin-bottom: 12px; }
+  .cats { display: flex; gap: 8px; overflow: hidden; margin-bottom: 12px; }
+  .cats span { background: var(--card); border-radius: 999px; padding: 9px 13px; font-size: 15px; font-weight: 600; white-space: nowrap; }
+  .cats .on { background: var(--soft); color: var(--strong); outline: 1.5px solid var(--accent); outline-offset: -1.5px; }
+  .sq { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
+  .card { background: var(--card); border-radius: 14px; margin-bottom: 12px; }
+  .group-t { font-size: 13px; color: var(--sub); margin: 0 0 6px 6px; }
+
+  /* 左右兩欄 */
+  .when { display: flex; align-items: center; gap: 4px; padding: 8px; }
+  .col { flex: 1; min-width: 0; }
+  .col small { display: block; font-size: 12.5px; color: var(--sub); margin: 0 0 4px 4px; }
+  .cell { background: var(--bg); border-radius: 10px; padding: 0 10px; height: 44px; display: flex; align-items: center; font-size: 16px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; }
+  .cell.big { font-size: 20px; }
+  .cell.cut { text-overflow: ellipsis; display: block; line-height: 44px; }
+  .cell.two { height: 54px; flex-direction: column; align-items: flex-start; justify-content: center; line-height: 1.15; }
+  .cell.two em { font-style: normal; font-size: 12px; color: var(--sub); font-weight: 600; }
+  .cell.s13 { font-size: 13px; padding: 0 8px; }
+  .arrow { color: var(--sub); font-weight: 700; flex: none; }
+
+  /* 上下兩列 */
+  .rows { padding: 12px 16px; display: grid; gap: 8px; }
+  .wrow { display: flex; align-items: center; gap: 8px; }
+  .wrow .k { width: 40px; color: var(--sub); font-size: 16px; flex: none; }
+  .pill { background: var(--bg); border-radius: 10px; padding: 0 12px; height: 44px; display: flex; align-items: center; font-size: 16px; font-weight: 600; white-space: nowrap; }
+
+  .line { display: flex; justify-content: space-between; align-items: center; min-height: 50px; padding: 0 16px; font-size: 16px; border-top: 1px solid var(--sep); }
+  .line .k { color: var(--sub); }
+  .sw { width: 50px; height: 30px; border-radius: 15px; background: #D4D4D8; padding: 3px; display: flex; flex: none; }
+  .sw i { width: 24px; height: 24px; border-radius: 50%; background: #fff; }
+  .sw.on { background: var(--accent); justify-content: flex-end; }
+
+  /* 直列選項 */
+  .list { padding: 0 16px; }
+  .opt { display: flex; align-items: center; gap: 12px; min-height: 50px; font-size: 16px; border-top: 1px solid var(--sep); }
+  .opt:first-child { border-top: 0; }
+  .opt svg { width: 20px; height: 20px; flex: none; color: var(--accent); }
+  .opt .n { flex: 1; }
+  .opt .v { color: var(--sub); white-space: nowrap; }
+  .opt .v.set { color: var(--strong); font-weight: 600; }
+  .opt .chev { color: var(--sub); font-size: 13px; font-weight: 700; }
+  .opt .ph { flex: 1; color: var(--ter); }
+  .opt .tx { flex: 1; }
+  .opt.tall { align-items: flex-start; padding: 14px 0; min-height: 76px; }
+  .opt.tall svg { margin-top: 1px; }
+  .opt.sub { padding-left: 32px; min-height: 44px; font-size: 15px; color: var(--sub); }
+  .opt.noicon svg { display: none; }
+  .big-t { font-size: 13px; color: var(--sub); font-weight: 600; margin: 4px 0 6px 6px; }
+  .note { font-size: 12.5px; color: var(--sub); margin: -4px 6px 0; line-height: 1.5; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11V9a3 3 0 0 1 3-3h12l-3-3"/><path d="M20 13v2a3 3 0 0 1-3 3H5l3 3"/></symbol>
+  <symbol id="pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></symbol>
+  <symbol id="notes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 11h16M4 16h10"/></symbol>
+  <symbol id="share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5v9h14v-9h-1"/></symbol>
+  <symbol id="glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10M7 21h10M8 3c0 5 8 5 8 9s-8 4-8 9M16 3c0 5-8 5-8 9s8 4 8 9"/></symbol>
+</svg>
+<main>
+  <h1>新增行程：日期帶年份、六個選項改直列</h1>
+  <p class="lead">上半部比較「開始、結束」放不放得下年份；下半部比較六個選項改成直列清單的幾種排法。手機寬度照 iPhone 一般尺寸（約 390 點）畫。</p>
+
+  <h2>一、開始、結束：塞進年份還能左右放嗎？</h2>
+  <p class="lead">結論：左右兩欄每欄只剩大約 150 點寬，「2026年11月17日 週二」放不下，只能縮字、截斷，或把年份拆成小字。要完整寫出年份，上下兩列比較舒服。</p>
+  <div class="wrap">
+
+    <figure>
+      <figcaption>A1 左右兩欄＋完整年份<span class="tag bad">放不下</span></figcaption>
+      <p class="desc">照原本的字級硬塞，後半截被切掉，看不到星期幾。</p>
+      <div class="phone short">
+        <div class="card"><div class="when">
+          <div class="col"><small>開始</small><div class="cell cut">2026年11月17日 週二</div><div class="cell big">23:00</div></div>
+          <span class="arrow">›</span>
+          <div class="col"><small>結束</small><div class="cell cut">2026年11月18日 週三</div><div class="cell big">0:00</div></div>
+        </div></div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>A2 左右兩欄＋縮小字</figcaption>
+      <p class="desc">字縮到 13 點才塞得下。塞得進去，但日期字比時間小很多，看起來擠，老花的人不好讀。</p>
+      <div class="phone short">
+        <div class="card"><div class="when">
+          <div class="col"><small>開始</small><div class="cell s13">2026年11月17日 週二</div><div class="cell big">23:00</div></div>
+          <span class="arrow">›</span>
+          <div class="col"><small>結束</small><div class="cell s13">2026年11月18日 週三</div><div class="cell big">0:00</div></div>
+        </div></div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>A3 左右兩欄＋斜線寫法</figcaption>
+      <p class="desc">寫成「2026/11/17 週二」，數字比中文窄，原本字級剛好放得下。缺點是一眼看過去比較像表單，不像圖 2 那麼好讀。</p>
+      <div class="phone short">
+        <div class="card"><div class="when">
+          <div class="col"><small>開始</small><div class="cell" style="font-size:15px">2026/11/17 週二</div><div class="cell big">23:00</div></div>
+          <span class="arrow">›</span>
+          <div class="col"><small>結束</small><div class="cell" style="font-size:15px">2026/11/18 週三</div><div class="cell big">0:00</div></div>
+        </div></div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>A4 左右兩欄＋年份小字在上</figcaption>
+      <p class="desc">年份用小灰字放在日期上面，日期本身維持「11/17 週二」。版面幾乎不變，只是日期那格高一點。跨年的行程最容易看出來。</p>
+      <div class="phone short">
+        <div class="card"><div class="when">
+          <div class="col"><small>開始</small><div class="cell two"><em>2026年</em>11/17 週二</div><div class="cell big">23:00</div></div>
+          <span class="arrow">›</span>
+          <div class="col"><small>結束</small><div class="cell two"><em>2026年</em>11/18 週三</div><div class="cell big">0:00</div></div>
+        </div></div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>A5 上下兩列（現在做好的）<span class="tag">推薦</span></figcaption>
+      <p class="desc">跟圖 2 一樣，開始一列、結束一列，年份完整寫出來、字不用縮。代價是卡片高一點點。</p>
+      <div class="phone short">
+        <div class="card"><div class="rows">
+          <div class="wrow"><span class="k">開始</span><span class="pill">2026年11月17日 週二</span><span class="pill">23:00</span></div>
+          <div class="wrow"><span class="k">結束</span><span class="pill">2026年11月18日 週三</span><span class="pill">0:00</span></div>
+        </div></div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>A6 上下兩列，日期時間各一行</figcaption>
+      <p class="desc">更像圖 2：日期一行、時間在下一行。字可以放更大，但卡片會再高一截，下面的選項會被往下擠。</p>
+      <div class="phone short">
+        <div class="card"><div class="rows">
+          <div class="wrow" style="align-items:flex-start"><span class="k" style="line-height:44px">開始</span><div style="display:grid;gap:6px"><span class="pill">2026年11月17日 週二</span><span class="pill" style="width:max-content">23:00</span></div></div>
+          <div style="border-top:1px solid var(--sep);margin:4px 0"></div>
+          <div class="wrow" style="align-items:flex-start"><span class="k" style="line-height:44px">結束</span><div style="display:grid;gap:6px"><span class="pill">2026年11月18日 週三</span><span class="pill" style="width:max-content">0:00</span></div></div>
+        </div></div>
+      </div>
+    </figure>
+  </div>
+
+  <h2>二、六個選項改成直列清單</h2>
+  <p class="lead">每張都是整個新增行程畫面（開始、結束用 A5）。第三張「B1 填好之後」是同一個排法填滿的樣子，方便看填了之後會不會太長。</p>
+
+  <div class="wrap">
+
+    <figure>
+      <figcaption>B1 一張卡排六列（現在做好的）<span class="tag">推薦</span></figcaption>
+      <p class="desc">圖示＋名稱，右邊寫目前的選擇。地點、備註直接在那一列打字；分享、倒數日是開關。跟設定頁圖 3 同一個樣子。</p>
+      <div class="phone">
+        <div class="bar"><span class="cancel">取消</span><b>新增行程</b><span class="ok">✓</span></div>
+        <div class="title">要做什麼？</div>
+        <div class="cats"><span><i class="sq" style="background:var(--purple)"></i>工作</span><span class="on"><i class="sq" style="background:var(--blue)"></i>生活</span><span><i class="sq" style="background:var(--clay)"></i>娛樂</span><span><i class="sq" style="background:var(--olive)"></i>休息</span></div>
+        <div class="card"><div class="rows">
+          <div class="wrow"><span class="k">開始</span><span class="pill">2026年11月17日 週二</span><span class="pill">23:00</span></div>
+          <div class="wrow"><span class="k">結束</span><span class="pill">2026年11月18日 週三</span><span class="pill">0:00</span></div>
+        </div>
+          <div class="line"><span>整日</span><span class="sw"><i></i></span></div>
+          <div class="line"><span class="k">行事曆</span><span><i class="sq" style="background:var(--blue)"></i>charlie81…mail.com ⌃⌄</span></div>
+        </div>
+        <div class="card list">
+          <div class="opt"><svg><use href="#bell"/></svg><span class="n">提醒</span><span class="v">不提醒</span><span class="chev">⌃⌄</span></div>
+          <div class="opt"><svg><use href="#repeat"/></svg><span class="n">重複</span><span class="v">不重複</span><span class="chev">⌃⌄</span></div>
+          <div class="opt"><svg><use href="#pin"/></svg><span class="ph">地點</span></div>
+          <div class="opt"><svg><use href="#notes"/></svg><span class="ph">備註</span></div>
+          <div class="opt"><svg><use href="#share"/></svg><span class="n">存好後分享</span><span class="sw"><i></i></span></div>
+          <div class="opt"><svg><use href="#glass"/></svg><span class="n">加入倒數日</span><span class="sw"><i></i></span></div>
+        </div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>B2 分三張卡</figcaption>
+      <p class="desc">提醒與重複一張、地點與備註一張、分享與倒數日一張，像圖 2 那樣分組。比較好找，但整頁變長，小手機要捲。</p>
+      <div class="phone">
+        <div class="bar"><span class="cancel">取消</span><b>新增行程</b><span class="ok">✓</span></div>
+        <div class="title">要做什麼？</div>
+        <div class="cats"><span><i class="sq" style="background:var(--purple)"></i>工作</span><span class="on"><i class="sq" style="background:var(--blue)"></i>生活</span><span><i class="sq" style="background:var(--clay)"></i>娛樂</span><span><i class="sq" style="background:var(--olive)"></i>休息</span></div>
+        <div class="card"><div class="rows">
+          <div class="wrow"><span class="k">開始</span><span class="pill">2026年11月17日 週二</span><span class="pill">23:00</span></div>
+          <div class="wrow"><span class="k">結束</span><span class="pill">2026年11月18日 週三</span><span class="pill">0:00</span></div>
+        </div>
+          <div class="line"><span>整日</span><span class="sw"><i></i></span></div>
+          <div class="line"><span class="k">行事曆</span><span><i class="sq" style="background:var(--blue)"></i>charlie81…mail.com ⌃⌄</span></div>
+        </div>
+        <div class="card list">
+          <div class="opt"><svg><use href="#bell"/></svg><span class="n">提醒</span><span class="v">不提醒</span><span class="chev">⌃⌄</span></div>
+          <div class="opt"><svg><use href="#repeat"/></svg><span class="n">重複</span><span class="v">不重複</span><span class="chev">⌃⌄</span></div>
+        </div>
+        <div class="card list">
+          <div class="opt"><svg><use href="#pin"/></svg><span class="ph">地點</span></div>
+          <div class="opt"><svg><use href="#notes"/></svg><span class="ph">備註</span></div>
+        </div>
+        <div class="card list">
+          <div class="opt"><svg><use href="#share"/></svg><span class="n">存好後分享</span><span class="sw"><i></i></span></div>
+          <div class="opt"><svg><use href="#glass"/></svg><span class="n">加入倒數日</span><span class="sw"><i></i></span></div>
+        </div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>B1 填好之後</figcaption>
+      <p class="desc">選了提醒、每週重複、打了地點和兩行備註、開了倒數日。備註會往下長，最多 8 行。</p>
+      <div class="phone">
+        <div class="bar"><span class="cancel">取消</span><b>新增行程</b><span class="ok" style="opacity:1">✓</span></div>
+        <div class="title" style="color:var(--ink);font-weight:600">牙齒回診</div>
+        <div class="cats"><span><i class="sq" style="background:var(--purple)"></i>工作</span><span class="on"><i class="sq" style="background:var(--blue)"></i>生活</span><span><i class="sq" style="background:var(--clay)"></i>娛樂</span><span><i class="sq" style="background:var(--olive)"></i>休息</span></div>
+        <div class="card"><div class="rows">
+          <div class="wrow"><span class="k">開始</span><span class="pill">2026年11月26日 週四</span><span class="pill">14:30</span></div>
+          <div class="wrow"><span class="k">結束</span><span class="pill">2026年11月26日 週四</span><span class="pill">15:30</span></div>
+        </div>
+          <div class="line"><span>整日</span><span class="sw"><i></i></span></div>
+          <div class="line"><span class="k">行事曆</span><span><i class="sq" style="background:var(--blue)"></i>charlie81…mail.com ⌃⌄</span></div>
+        </div>
+        <div class="card list">
+          <div class="opt"><svg><use href="#bell"/></svg><span class="n">提醒</span><span class="v set">1 小時前</span><span class="chev">⌃⌄</span></div>
+          <div class="opt"><svg><use href="#repeat"/></svg><span class="n">重複</span><span class="v set">每週</span><span class="chev">⌃⌄</span></div>
+          <div class="opt"><svg><use href="#pin"/></svg><span class="tx">安和牙醫</span></div>
+          <div class="opt tall"><svg><use href="#notes"/></svg><span class="tx">帶健保卡<br>問一下要不要照 X 光</span></div>
+          <div class="opt"><svg><use href="#share"/></svg><span class="n">存好後分享</span><span class="sw"><i></i></span></div>
+          <div class="opt"><svg><use href="#glass"/></svg><span class="n">加入倒數日</span><span class="sw on"><i></i></span></div>
+        </div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>B3 地點、備註點了才展開</figcaption>
+      <p class="desc">六列都長得一樣，右邊寫「未填」；點地點或備註才在下面展開打字的格子。版面最整齊，但要多點一下。</p>
+      <div class="phone">
+        <div class="bar"><span class="cancel">取消</span><b>新增行程</b><span class="ok">✓</span></div>
+        <div class="title">要做什麼？</div>
+        <div class="cats"><span><i class="sq" style="background:var(--purple)"></i>工作</span><span class="on"><i class="sq" style="background:var(--blue)"></i>生活</span><span><i class="sq" style="background:var(--clay)"></i>娛樂</span><span><i class="sq" style="background:var(--olive)"></i>休息</span></div>
+        <div class="card"><div class="rows">
+          <div class="wrow"><span class="k">開始</span><span class="pill">2026年11月17日 週二</span><span class="pill">23:00</span></div>
+          <div class="wrow"><span class="k">結束</span><span class="pill">2026年11月18日 週三</span><span class="pill">0:00</span></div>
+        </div>
+          <div class="line"><span>整日</span><span class="sw"><i></i></span></div>
+          <div class="line"><span class="k">行事曆</span><span><i class="sq" style="background:var(--blue)"></i>charlie81…mail.com ⌃⌄</span></div>
+        </div>
+        <div class="card list">
+          <div class="opt"><svg><use href="#bell"/></svg><span class="n">提醒</span><span class="v">不提醒</span><span class="chev">⌃⌄</span></div>
+          <div class="opt"><svg><use href="#repeat"/></svg><span class="n">重複</span><span class="v">不重複</span><span class="chev">⌃⌄</span></div>
+          <div class="opt"><svg><use href="#pin"/></svg><span class="n">地點</span><span class="v">未填</span><span class="chev">›</span></div>
+          <div class="opt"><svg><use href="#notes"/></svg><span class="n">備註</span><span class="v">未填</span><span class="chev">›</span></div>
+          <div class="opt"><svg><use href="#share"/></svg><span class="n">分享</span><span class="v">不分享</span><span class="chev">⌃⌄</span></div>
+          <div class="opt"><svg><use href="#glass"/></svg><span class="n">倒數日</span><span class="v">不加入</span><span class="chev">⌃⌄</span></div>
+        </div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>B4 不放圖示，只寫字</figcaption>
+      <p class="desc">拿掉左邊圖示，像 iPhone 內建行事曆圖 2 那樣只寫名稱。比較安靜，但一眼掃過去比較難認。</p>
+      <div class="phone">
+        <div class="bar"><span class="cancel">取消</span><b>新增行程</b><span class="ok">✓</span></div>
+        <div class="title">要做什麼？</div>
+        <div class="cats"><span><i class="sq" style="background:var(--purple)"></i>工作</span><span class="on"><i class="sq" style="background:var(--blue)"></i>生活</span><span><i class="sq" style="background:var(--clay)"></i>娛樂</span><span><i class="sq" style="background:var(--olive)"></i>休息</span></div>
+        <div class="card"><div class="rows">
+          <div class="wrow"><span class="k">開始</span><span class="pill">2026年11月17日 週二</span><span class="pill">23:00</span></div>
+          <div class="wrow"><span class="k">結束</span><span class="pill">2026年11月18日 週三</span><span class="pill">0:00</span></div>
+        </div>
+          <div class="line"><span>整日</span><span class="sw"><i></i></span></div>
+          <div class="line"><span class="k">行事曆</span><span><i class="sq" style="background:var(--blue)"></i>charlie81…mail.com ⌃⌄</span></div>
+        </div>
+        <div class="card list">
+          <div class="opt noicon"><svg><use href="#bell"/></svg><span class="n">提醒</span><span class="v">不提醒</span><span class="chev">⌃⌄</span></div>
+          <div class="opt noicon"><svg><use href="#repeat"/></svg><span class="n">重複</span><span class="v">不重複</span><span class="chev">⌃⌄</span></div>
+          <div class="opt noicon"><svg><use href="#pin"/></svg><span class="ph">地點</span></div>
+          <div class="opt noicon"><svg><use href="#notes"/></svg><span class="ph">備註</span></div>
+          <div class="opt noicon"><svg><use href="#share"/></svg><span class="n">存好後分享</span><span class="sw"><i></i></span></div>
+          <div class="opt noicon"><svg><use href="#glass"/></svg><span class="n">加入倒數日</span><span class="sw"><i></i></span></div>
+        </div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>B5 常用的放上面、少用的收起來</figcaption>
+      <p class="desc">提醒、地點一直看得到；重複、備註、分享、倒數日收在「更多選項」裡，點了才展開。畫面最短，但第一次用的人可能找不到倒數日。</p>
+      <div class="phone">
+        <div class="bar"><span class="cancel">取消</span><b>新增行程</b><span class="ok">✓</span></div>
+        <div class="title">要做什麼？</div>
+        <div class="cats"><span><i class="sq" style="background:var(--purple)"></i>工作</span><span class="on"><i class="sq" style="background:var(--blue)"></i>生活</span><span><i class="sq" style="background:var(--clay)"></i>娛樂</span><span><i class="sq" style="background:var(--olive)"></i>休息</span></div>
+        <div class="card"><div class="rows">
+          <div class="wrow"><span class="k">開始</span><span class="pill">2026年11月17日 週二</span><span class="pill">23:00</span></div>
+          <div class="wrow"><span class="k">結束</span><span class="pill">2026年11月18日 週三</span><span class="pill">0:00</span></div>
+        </div>
+          <div class="line"><span>整日</span><span class="sw"><i></i></span></div>
+          <div class="line"><span class="k">行事曆</span><span><i class="sq" style="background:var(--blue)"></i>charlie81…mail.com ⌃⌄</span></div>
+        </div>
+        <div class="card list">
+          <div class="opt"><svg><use href="#bell"/></svg><span class="n">提醒</span><span class="v">不提醒</span><span class="chev">⌃⌄</span></div>
+          <div class="opt"><svg><use href="#pin"/></svg><span class="ph">地點</span></div>
+          <div class="opt"><span class="n" style="color:var(--strong);font-weight:600;padding-left:32px">更多選項</span><span class="v" style="font-size:14px">重複、備註、分享、倒數日</span><span class="chev">⌄</span></div>
+        </div>
+      </div>
+    </figure>
+
+  </div>
+</main>
+</body>
+</html>

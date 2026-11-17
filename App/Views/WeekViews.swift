@@ -176,9 +176,12 @@ struct DayColumn: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                 }
-            } else if let head = day.head {
-                EventChip(vm: vm, label: head.label, categoryID: head.categoryID, isPast: day.isPast)
-                PipRow(vm: vm, events: day.rest, isPast: day.isPast)
+            } else if day.hasEvents {
+                // 一天只有一件寫字的：上面有寫字的跨日色帶時，單日的全部縮成小色塊
+                if let head = day.headChip {
+                    EventChip(vm: vm, label: head.label, categoryID: head.categoryID, isPast: day.isPast)
+                }
+                PipRow(vm: vm, events: day.headPips, isPast: day.isPast)
             }
         }
         .padding(.horizontal, 1)
