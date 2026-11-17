@@ -31,6 +31,7 @@ final class AppModel {
     let vm: CalendarViewModel
     let purchase: PurchaseStore
     let weather: WeatherStore
+    let alarms: AlarmScheduler
 
     init() {
         let store = EventStore()
@@ -40,6 +41,12 @@ final class AppModel {
         self.purchase = PurchaseStore(onChange: { settings.setUnlocked($0) })
         self.vm = CalendarViewModel(store: store, settings: settings)
         self.weather = WeatherStore()
+        self.alarms = AlarmScheduler()
+    }
+
+    /// 照目前的行事曆與設定重排鬧鐘（「提醒用鬧鐘響」）
+    func syncAlarms() async {
+        await alarms.sync(store: store, calendars: vm.shownCalendars, settings: settings.value)
     }
 
     /// 那一天要顯示的天氣。沒開天氣、沒選縣市、那天沒有預報（過去的日子、十天以後）都是 nil，畫面上就不顯示。

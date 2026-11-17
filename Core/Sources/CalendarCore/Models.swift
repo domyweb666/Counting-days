@@ -128,6 +128,10 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var lastEventCalendarID: String?
     /// 使用者替某一筆行程自己選的類別：事件系列識別碼 → 類別識別碼。沒選過的不在裡面，照行事曆的預設類別。
     public var eventCategory: [String: String]
+    /// 提醒用鬧鐘響（iOS 26 以上才有）。預設關，照系統行事曆的通知。
+    public var alarmEnabled: Bool = false
+    /// 鬧鐘鈴聲（`AlarmSound.id`）
+    public var alarmSoundID: String = AlarmSound.defaultID
 
     /// 新加入的行事曆、沒分到類別的行程都歸這一類，所以選最廣的「生活」
     public static let fallbackCategoryID = "life"
@@ -211,6 +215,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         timeZoneID = try c.decodeIfPresent(String.self, forKey: .timeZoneID)
         lastEventCalendarID = try c.decodeIfPresent(String.self, forKey: .lastEventCalendarID)
         eventCategory = try c.decodeIfPresent([String: String].self, forKey: .eventCategory) ?? d.eventCategory
+        alarmEnabled = try c.decodeIfPresent(Bool.self, forKey: .alarmEnabled) ?? d.alarmEnabled
+        alarmSoundID = try c.decodeIfPresent(String.self, forKey: .alarmSoundID) ?? d.alarmSoundID
         if categories.isEmpty { categories = d.categories }
     }
 

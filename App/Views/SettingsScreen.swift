@@ -1,5 +1,6 @@
 import SwiftUI
 import EventKit
+import AVFoundation
 import CalendarCore
 
 struct SettingsScreen: View {
@@ -17,6 +18,8 @@ struct SettingsScreen: View {
     @State private var showMail = false
     /// 上方跳一下的提示（例：已複製版本資訊）
     @State private var toast: String?
+    /// 選鈴聲時試聽用
+    @State private var soundPlayer: AVAudioPlayer?
 
     private var settings: SettingsStore { app.settings }
     private let config = VeggieConfig.current
@@ -42,6 +45,7 @@ struct SettingsScreen: View {
                 weatherSection
                 calendarSection
                 countdownSection
+                if AlarmScheduler.isSupported { alarmSection }
                 generalSection
                 purchaseSection
                 supportSection
@@ -134,6 +138,88 @@ struct SettingsScreen: View {
     }
 
     // MARK: 一般
+
+    // MARK: 提醒（鬧鐘）
+
+    /// 提醒用鬧鐘響、選鈴聲。iOS 26 以上才有這一區。
+    private var alarmSection: some View {
+        let alarms = app.alarms
+        let enabled = settings.value.alarmEnabled
+        let sound = AlarmSound.find(settings.value.alarmSoundID)
+        let enabledBinding = Binding(
+            get: { settings.value.alarmEnabled && alarms.permission != .denied },
+            set: { on in
+                guard on else {
+                    settings.update { $0.alarmEnabled = false }
+                    return
+                }
+                Task {
+                    let granted = await alarms.requestPermission()
+                    settings.update { $0.alarmEnabled = granted }
+                }
+            }
+        )
+        return SectionCard(
+            title: "提醒",
+            footer: alarms.permission == .denied
+                ? "鬧鐘權限被關掉了，要到 iPhone 的「設定」打開才能用。"
+                : "行事曆原本的提醒照舊。打開後，有設提醒的行程會在這支手機上再響一次鬧鐘，靜音模式也會響。"
+        ) {
+            SettingsRow(label: "提醒用鬧鐘響", icon: "alarm") {
+                Toggle("提醒用鬧鐘響", isOn: enabledBinding)
+                    .labelsHidden()
+                    .tint(Theme.accent)
+                    .disabled(alarms.permission == .denied)
+            }
+            if alarms.permission == .denied {
+                Hairline()
+                Button {
+                    if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                } label: {
+                    VeggieRow(icon: "gearshape", title: "到 iPhone 設定打開", accessory: .external)
+                }
+                .buttonStyle(PressStyle())
+            } else if enabled {
+                Hairline()
+                Menu {
+                    Picker("鈴聲", selection: Binding(
+                        get: { settings.value.alarmSoundID },
+                        set: { id in
+                            settings.update { $0.alarmSoundID = id }
+                            preview(AlarmSound.find(id))
+                        }
+                    )) {
+                        ForEach(AlarmSound.all) { option in
+                            Text(option.name).tag(option.id)
+                        }
+                    }
+                } label: {
+                    VeggieRow(icon: "music.note", title: "鈴聲", value: sound.name, accessory: .push)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("鈴聲：\(sound.name)")
+            }
+        }
+        .onAppear { alarms.refreshPermission() }
+    }
+
+    /// 選了鈴聲就放幾秒給你聽。系統鬧鐘聲拿不到檔案，不試聽。
+    private func preview(_ sound: AlarmSound) {
+        soundPlayer?.stop()
+        guard let name = sound.fileName,
+              let url = Bundle.main.url(forResource: name, withExtension: nil) else {
+            soundPlayer = nil
+            return
+        }
+        try? AVAudioSession.sharedInstance().setCategory(.playback)
+        let player = try? AVAudioPlayer(contentsOf: url)
+        player?.play()
+        soundPlayer = player
+        Task {
+            try? await Task.sleep(for: .seconds(4))
+            if soundPlayer === player { player?.stop() }
+        }
+    }
 
     private var generalSection: some View {
         let usesDevice = settings.value.usesDeviceTimeZone

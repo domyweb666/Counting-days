@@ -34,6 +34,8 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSCalendarsFullAccessUsageDescription: 蒜日子需要讀取你的行事曆，才能把行程畫成月曆；新增與修改行程時會寫回系統行事曆。蒜日子不會把行程傳到任何伺服器，只有你自己按「分享」時才會送出那一筆。
+        # 「提醒用鬧鐘響」打開時跳的權限視窗（iOS 26 的 AlarmKit）
+        NSAlarmKitUsageDescription: 開啟後，行程的提醒會像鬧鐘一樣響，靜音模式也聽得到。只排你行事曆上有設提醒的行程。
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

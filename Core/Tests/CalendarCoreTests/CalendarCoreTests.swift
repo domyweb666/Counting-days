@@ -697,7 +697,7 @@ final class CalendarCoreTests: XCTestCase {
     func testEventTexts() {
         XCTAssertEqual(EventText.day(date(2026, 11, 16), calendar: cal), "11月16日 週一")
         XCTAssertEqual(EventText.shortDay(date(2026, 11, 26), calendar: cal), "11/26 週四")
-        XCTAssertEqual(EventText.fullDay(date(2026, 11, 17), calendar: cal), "2026年11月17日 週二")
+        XCTAssertEqual(EventText.year(date(2026, 11, 17), calendar: cal), "2026年")
         XCTAssertEqual(EventText.month(date(2026, 12, 5), calendar: cal), "2026年12月")
         XCTAssertEqual(EventText.time(0), "上午 12:00")
         XCTAssertEqual(EventText.time(12 * 60 + 5), "下午 12:05")
@@ -1179,5 +1179,49 @@ final class CalendarCoreTests: XCTestCase {
         XCTAssertEqual(LoopWheelRules.nearestRow(toIndex: 0, from: last, count: 24), LoopWheelRules.middleRow(index: 0, count: 24))
         // 最頭還要往上也一樣
         XCTAssertEqual(LoopWheelRules.nearestRow(toIndex: 23, from: 0, count: 24), LoopWheelRules.middleRow(index: 23, count: 24))
+    }
+}
+
+final class AlarmPlanTests: XCTestCase {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    func testPlansOnlyFutureWithinHorizonSorted() {
+        let sources = [
+            AlarmSource(occurrenceID: "a", title: "牙醫", start: now.addingTimeInterval(7200), relativeOffsets: [-1800, -3600]),
+            // 提醒時間已經過了
+            AlarmSource(occurrenceID: "b", title: "晨會", start: now.addingTimeInterval(600), relativeOffsets: [-1800]),
+            // 太遠
+            AlarmSource(occurrenceID: "c", title: "旅行", start: now.addingTimeInterval(40 * 86_400), relativeOffsets: [0]),
+            AlarmSource(occurrenceID: "d", title: "繳費", start: now, absoluteDates: [now.addingTimeInterval(60)])
+        ]
+        let plan = AlarmPlan.planned(sources, now: now)
+        XCTAssertEqual(plan.map(\.title), ["繳費", "牙醫", "牙醫"])
+        XCTAssertEqual(plan[1].fireDate, now.addingTimeInterval(3600))
+    }
+
+    func testLimitAndDuplicateOffsets() {
+        let s = AlarmSource(occurrenceID: "a", title: "x", start: now.addingTimeInterval(7200), relativeOffsets: [-60, -60, -120])
+        XCTAssertEqual(AlarmPlan.planned([s], now: now).count, 2)
+        XCTAssertEqual(AlarmPlan.planned([s], now: now, limit: 1).count, 1)
+    }
+
+    func testDiff() {
+        let keep = PlannedAlarm(key: "k1", title: "a", fireDate: now)
+        let new = PlannedAlarm(key: "k2", title: "b", fireDate: now)
+        let d = AlarmPlan.diff(scheduled: ["k1": UUID(), "old": UUID()], wanted: [keep, new])
+        XCTAssertEqual(d.cancel, ["old"])
+        XCTAssertEqual(d.add.map(\.key), ["k2"])
+    }
+
+    func testAlertTitle() {
+        let start = now.addingTimeInterval(3600)
+        func t(_ before: TimeInterval) -> String {
+            AlarmPlan.alertTitle(PlannedAlarm(key: "", title: "牙醫", fireDate: start.addingTimeInterval(-before)), start: start)
+        }
+        XCTAssertEqual(t(0), "牙醫")
+        XCTAssertEqual(t(1800), "30 分鐘後：牙醫")
+        XCTAssertEqual(t(3600), "1 小時後：牙醫")
+        XCTAssertEqual(t(86_400), "1 天後：牙醫")
+        XCTAssertEqual(AlarmSound.find("nope").id, "system")
     }
 }
