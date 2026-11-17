@@ -1,5 +1,14 @@
 import Foundation
 
+/// 蒜日子與小工具共用的抽屜（App Group）。蒜日子每次存設定多寫一份進去，小工具只讀。
+/// 裡面只放設定，「買了沒」不准放。
+public enum WidgetShared {
+    /// 要跟 project.yml 兩支程式的權利宣告、Apple 開發者後台的 App Group 一樣
+    public static let appGroupID = "group.com.domyweb.countingdays"
+    /// 抽屜裡放設定的那一格，內容是 AppSettings 的 JSON
+    public static let settingsKey = "settings.v1"
+}
+
 /// 小工具上的一列行程
 public struct WidgetRow: Identifiable, Hashable, Sendable {
     /// 「全天」或開始時間（例："14:30"）
