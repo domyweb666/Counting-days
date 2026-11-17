@@ -820,8 +820,119 @@ final class CalendarCoreTests: XCTestCase {
         let allDay = CalEvent(id: "4", title: "a", start: date(2026, 11, 17), end: date(2026, 11, 30), isAllDay: true)
         XCTAssertTrue(NewEventRules.canEditHere(short))
         XCTAssertTrue(NewEventRules.canEditHere(overnight))
-        XCTAssertFalse(NewEventRules.canEditHere(long))
+        // 有時間又跨好幾天的：表單的開始、結束各有日期，改得了
+        XCTAssertTrue(NewEventRules.canEditHere(long))
         XCTAssertTrue(NewEventRules.canEditHere(allDay))
+        // 結束比開始早的怪資料交給系統的畫面
+        let backwards = CalEvent(id: "5", title: "a", start: date(2026, 11, 17, 6), end: date(2026, 11, 17, 5))
+        XCTAssertFalse(NewEventRules.canEditHere(backwards))
+    }
+
+    // MARK: 開始、結束各有日期與時間
+
+    func testLongTimedEventRoundTrips() {
+        // 12/1 晚上 8:00 到 12/8 晚上 10:30
+        let trip = CalEvent(id: "K", title: "去韓國", start: date(2026, 12, 1, 20), end: date(2026, 12, 8, 22, 30))
+        let d = NewEventRules.draft(editing: trip, calendar: cal)
+        XCTAssertEqual(d.kind, .timed)
+        XCTAssertEqual(NewEventRules.startDay(d), date(2026, 12, 1))
+        XCTAssertEqual(d.startMinutes, 20 * 60)
+        XCTAssertEqual(NewEventRules.endDay(d, calendar: cal), date(2026, 12, 8))
+        XCTAssertEqual(NewEventRules.endClock(d, calendar: cal), 22 * 60 + 30)
+        let back = NewEventRules.resolve(d, calendar: cal)
+        XCTAssertEqual(back?.start, trip.start)
+        XCTAssertEqual(back?.end, trip.end)
+        XCTAssertEqual(EventText.when(d, calendar: cal), "12月1日 週二 下午 8:00 到 12月8日 週二 下午 10:30")
+    }
+
+    func testSettingStartAndEndOfTimedEvent() {
+        // 11/17 下午 5:00 到 6:00
+        var d = NewEventDraft(day: date(2026, 11, 17), startMinutes: 17 * 60)
+        XCTAssertEqual(NewEventRules.endDay(d, calendar: cal), date(2026, 11, 17))
+        XCTAssertEqual(NewEventRules.endClock(d, calendar: cal), 18 * 60)
+
+        // 改開始的日期：長度不變，結束跟著移
+        d = NewEventRules.settingStartDay(date(2026, 11, 20), in: d, calendar: cal)
+        XCTAssertEqual(d.day, date(2026, 11, 20))
+        XCTAssertEqual(NewEventRules.endDay(d, calendar: cal), date(2026, 11, 20))
+        XCTAssertEqual(d.durationMinutes, 60)
+
+        // 改結束的日期：開始不動，鐘點不動
+        d = NewEventRules.settingEndDay(date(2026, 11, 22), in: d, calendar: cal)
+        XCTAssertEqual(d.day, date(2026, 11, 20))
+        XCTAssertEqual(NewEventRules.endDay(d, calendar: cal), date(2026, 11, 22))
+        XCTAssertEqual(NewEventRules.endClock(d, calendar: cal), 18 * 60)
+        XCTAssertEqual(d.durationMinutes, 2 * 1440 + 60)
+        XCTAssertEqual(NewEventRules.resolve(d, calendar: cal)?.end, date(2026, 11, 22, 18))
+
+        // 結束的日期不能比開始那天早
+        XCTAssertEqual(NewEventRules.settingEndDay(date(2026, 11, 19), in: d, calendar: cal), d)
+
+        // 改結束的鐘點：日期不動
+        d = NewEventRules.settingEndClock(9 * 60 + 30, in: d, calendar: cal)
+        XCTAssertEqual(NewEventRules.endDay(d, calendar: cal), date(2026, 11, 22))
+        XCTAssertEqual(NewEventRules.endClock(d, calendar: cal), 9 * 60 + 30)
+        XCTAssertTrue(NewEventRules.hasValidTime(d))
+
+        // 改開始的鐘點：結束跟著移
+        let before = d.durationMinutes
+        d = NewEventRules.settingStart(8 * 60, in: d)
+        XCTAssertEqual(d.durationMinutes, before)
+
+        // 直接點一種長度
+        d = NewEventRules.settingDuration(120, in: d)
+        XCTAssertEqual(NewEventRules.endDay(d, calendar: cal), date(2026, 11, 20))
+        XCTAssertEqual(NewEventRules.endClock(d, calendar: cal), 10 * 60)
+
+        // 同一天裡把結束調到開始之前：顛倒，不能存
+        d = NewEventRules.settingEndClock(7 * 60, in: d, calendar: cal)
+        XCTAssertFalse(NewEventRules.hasValidTime(d))
+        XCTAssertEqual(NewEventRules.endDay(d, calendar: cal), date(2026, 11, 20))
+        XCTAssertEqual(NewEventRules.endClock(d, calendar: cal), 7 * 60)
+    }
+
+    func testAllDaySwitchAndDays() {
+        // 11/17 下午 5:00 到 6:00，設了「30 分鐘前」
+        var d = NewEventDraft(day: date(2026, 11, 17), startMinutes: 17 * 60, reminder: .minutes30)
+        d = NewEventRules.settingAllDay(true, in: d, calendar: cal)
+        XCTAssertEqual(d.kind, .allDay)
+        XCTAssertTrue(NewEventRules.isAllDay(d))
+        // 有時間的提醒在整日用不了
+        XCTAssertNil(d.reminder)
+        XCTAssertEqual(NewEventRules.resolve(d, calendar: cal),
+                       ResolvedEventTime(start: date(2026, 11, 17), end: date(2026, 11, 17), isAllDay: true))
+
+        // 結束改到 11/19：變成三天
+        d = NewEventRules.settingEndDay(date(2026, 11, 19), in: d, calendar: cal)
+        XCTAssertEqual(d.kind, .multiDay)
+        XCTAssertEqual(NewEventRules.rangeDayCount(d, calendar: cal), 3)
+        XCTAssertEqual(NewEventRules.resolve(d, calendar: cal),
+                       ResolvedEventTime(start: date(2026, 11, 17), end: date(2026, 11, 19), isAllDay: true))
+
+        // 開始改到 11/24：天數不變，結束跟著移到 11/26
+        d = NewEventRules.settingStartDay(date(2026, 11, 24), in: d, calendar: cal)
+        XCTAssertEqual(NewEventRules.startDay(d), date(2026, 11, 24))
+        XCTAssertEqual(NewEventRules.endDay(d, calendar: cal), date(2026, 11, 26))
+
+        // 結束改回開始那天：變回單日
+        d = NewEventRules.settingEndDay(date(2026, 11, 24), in: d, calendar: cal)
+        XCTAssertEqual(d.kind, .allDay)
+        XCTAssertNil(d.rangeStart)
+
+        // 關掉整日：鐘點用回原本的下午 5:00 到 6:00
+        d = NewEventRules.settingAllDay(false, in: d, calendar: cal)
+        XCTAssertEqual(d.kind, .timed)
+        XCTAssertEqual(d.day, date(2026, 11, 24))
+        XCTAssertEqual(d.startMinutes, 17 * 60)
+        XCTAssertEqual(NewEventRules.endDay(d, calendar: cal), date(2026, 11, 24))
+        XCTAssertEqual(NewEventRules.endClock(d, calendar: cal), 18 * 60)
+
+        // 跨日的有時間行程開整日：起訖兩天都留著
+        let long = NewEventRules.settingEndDay(date(2026, 11, 26), in: d, calendar: cal)
+        let whole = NewEventRules.settingAllDay(true, in: long, calendar: cal)
+        XCTAssertEqual(whole.kind, .multiDay)
+        XCTAssertEqual(whole.rangeStart, date(2026, 11, 24))
+        XCTAssertEqual(whole.rangeEnd, date(2026, 11, 26))
     }
 
     func testSameTimeAndReminderMatching() {

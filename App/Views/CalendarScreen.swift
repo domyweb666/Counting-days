@@ -13,6 +13,8 @@ enum SheetKind: Identifiable {
     case settings
     case search
     case monthPicker
+    /// 全部的倒數日，從月曆上面那一列的「還有 N 個」點進來
+    case countdowns
     case fullVersion(FullVersionReason)
 
     var id: String {
@@ -22,6 +24,7 @@ enum SheetKind: Identifiable {
         case .settings: return "settings"
         case .search: return "search"
         case .monthPicker: return "month"
+        case .countdowns: return "countdowns"
         case .fullVersion(let reason): return "full" + reason.rawValue
         }
     }
@@ -66,6 +69,8 @@ struct CalendarScreen: View {
     private let inset = DT.Size.screenMargin - Theme.Grid.margin
     /// 右下角新增鈕的直徑
     private let fabSize: CGFloat = 56
+    /// 月曆上面那一列最多直接放幾個倒數日（手機寬度通常只放得下一到兩個）
+    private let countdownStripMax = 4
     /// 剛進月曆時，等多久再指定一次捲動位置；清掉與放回之間隔多久
     private let settleDelay: Double = 0.15
     private let settleGap: Double = 0.05
@@ -370,28 +375,64 @@ struct CalendarScreen: View {
             .accessibilityHidden(true)
     }
 
+    /// 月曆上面那一列倒數日：由近到遠，放得下幾個放幾個，放不完的收成最後一顆「還有 N 個」，點了看全部。
+    /// 這一列固定一列高，倒數日再多也不會把月曆往下擠。
     private var countdownStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: DT.Space.s2) {
-                ForEach(vm.countdowns) { item in
-                    Button { vm.show(item.date) } label: {
-                        HStack(spacing: DT.Space.s2) {
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(vm.color(item.categoryID))
-                                .frame(width: Theme.Grid.square, height: Theme.Grid.square)
-                            Text(item.title).dFont(DT.TypeScale.subheadline).foregroundStyle(Theme.ink).lineLimit(1)
-                            Text(item.text).dFont(DT.TypeScale.callout).foregroundStyle(Theme.strong)
-                        }
-                        .padding(.horizontal, DT.Space.s4)
-                        .frame(minHeight: DT.Size.touch)
-                        .background(Capsule().fill(Theme.card))
-                    }
-                    .buttonStyle(PressStyle())
-                    .accessibilityLabel("\(item.title)，\(item.text)")
-                }
+        let items = vm.countdowns
+        // 從「最多放幾個」往下試，第一個放得下的就用；一個都放不下時還是放一個，名字太長會自己截短
+        let tries = Array((1...max(min(items.count, countdownStripMax), 1)).reversed())
+        return ViewThatFits(in: .horizontal) {
+            ForEach(tries, id: \.self) { shown in
+                countdownRow(items, shown: shown)
             }
-            .padding(.horizontal, inset)
         }
+        .padding(.horizontal, inset)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func countdownRow(_ items: [CountdownItem], shown: Int) -> some View {
+        let rest = items.count - shown
+        return HStack(spacing: DT.Space.s2) {
+            ForEach(items.prefix(shown)) { item in
+                countdownChip(item)
+            }
+            if rest > 0 {
+                Button {
+                    sheet = .countdowns
+                } label: {
+                    HStack(spacing: DT.Space.s1) {
+                        Text("還有 \(rest) 個")
+                            .dFont(DT.TypeScale.callout)
+                            .lineLimit(1)
+                        Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold))
+                    }
+                    .foregroundStyle(Theme.strong)
+                    .padding(.horizontal, DT.Space.s4)
+                    .frame(minHeight: DT.Size.touch)
+                    .background(Capsule().fill(Theme.soft))
+                    .fixedSize()
+                }
+                .buttonStyle(PressStyle())
+                .accessibilityLabel("還有 \(rest) 個倒數日，看全部")
+            }
+        }
+    }
+
+    private func countdownChip(_ item: CountdownItem) -> some View {
+        Button { vm.show(item.date) } label: {
+            HStack(spacing: DT.Space.s2) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(vm.color(item.categoryID))
+                    .frame(width: Theme.Grid.square, height: Theme.Grid.square)
+                Text(item.title).dFont(DT.TypeScale.subheadline).foregroundStyle(Theme.ink).lineLimit(1)
+                Text(item.text).dFont(DT.TypeScale.callout).foregroundStyle(Theme.strong).lineLimit(1).fixedSize()
+            }
+            .padding(.horizontal, DT.Space.s4)
+            .frame(minHeight: DT.Size.touch)
+            .background(Capsule().fill(Theme.card))
+        }
+        .buttonStyle(PressStyle())
+        .accessibilityLabel("\(item.title)，\(item.text)")
     }
 
     // MARK: 內容
@@ -468,9 +509,73 @@ struct CalendarScreen: View {
             MonthPickerSheet(initial: vm.titleDate, timeZone: vm.calendar.timeZone) { date in
                 vm.jump(to: date, select: false)
             }
+        case .countdowns:
+            CountdownListScreen(vm: vm) { date in
+                sheet = nil
+                vm.show(date)
+            }
         case .fullVersion(let reason):
             FullVersionSheet(reason: reason)
         }
+    }
+}
+
+/// 全部的倒數日，由近到遠。點一個就關掉這一頁、跳到那一天。
+struct CountdownListScreen: View {
+    @Environment(\.dismiss) private var dismiss
+    let vm: CalendarViewModel
+    let open: (Date) -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: DT.Space.s4) {
+                HStack {
+                    Spacer()
+                    PillTextButton(title: "完成") { dismiss() }
+                }
+                Text("倒數日")
+                    .dFont(DT.TypeScale.largeTitle)
+                    .foregroundStyle(Theme.ink)
+                    .accessibilityAddTraits(.isHeader)
+                SectionCard(footer: "長按月曆上的行程，或在新增行程點「倒數日」，就能加進來。要移掉到設定的「倒數日」。") {
+                    ForEach(Array(vm.countdowns.enumerated()), id: \.element.id) { index, item in
+                        if index > 0 { Hairline() }
+                        Button {
+                            open(item.date)
+                        } label: {
+                            HStack(spacing: DT.Space.s3) {
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(vm.color(item.categoryID))
+                                    .frame(width: Theme.Grid.square, height: Theme.Grid.square)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.title)
+                                        .dFont(DT.TypeScale.body)
+                                        .foregroundStyle(Theme.ink)
+                                        .multilineTextAlignment(.leading)
+                                    Text(EventText.day(item.date, calendar: vm.calendar))
+                                        .dFont(DT.TypeScale.footnote)
+                                        .foregroundStyle(Theme.sub)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                Text(item.text)
+                                    .dFont(DT.TypeScale.callout)
+                                    .foregroundStyle(Theme.strong)
+                            }
+                            .padding(.vertical, DT.Space.s2)
+                            .frame(minHeight: DT.Size.row)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(PressStyle())
+                        .accessibilityLabel("\(item.title)，\(item.text)")
+                    }
+                }
+            }
+            .padding(.horizontal, DT.Size.screenMargin)
+            .padding(.top, DT.Space.s4)
+            .padding(.bottom, DT.Space.s8)
+        }
+        .background(Theme.bg.ignoresSafeArea())
+        .tint(Theme.accent)
     }
 }
 

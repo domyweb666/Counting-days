@@ -125,7 +125,7 @@ final class EventStore {
 
     /// 建立一本新的行事曆，寫進 iPhone。成功回傳 nil，失敗回傳要給使用者看的原因。
     /// 蒜日子自己寫進系統行事曆的有四件事：這裡的建立行事曆，和下面的新增、修改、刪除行程。
-    /// 表單改不了的行程（唯讀的行事曆、超過 24 小時的有時間行程）照舊交給系統的編輯畫面。
+    /// 表單改不了的行程（唯讀的行事曆、結束比開始早的怪資料）照舊交給系統的編輯畫面。
     func createCalendar(title: String, color: CGColor) -> String? {
         let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard hasAccess else { return "蒜日子沒有行事曆權限，沒辦法建立。" }
@@ -199,7 +199,7 @@ final class EventStore {
         let keepsOtherRepeat: Bool
     }
 
-    /// 這一筆能用蒜日子自己的畫面改就回傳要帶入的東西；找不到、唯讀、或表單表示不了就回傳 nil，改開系統的編輯畫面。
+    /// 這一筆能用蒜日子自己的畫面改就回傳要帶入的東西；找不到、唯讀、或起訖顛倒就回傳 nil，改開系統的編輯畫面。
     func editSeed(for event: CalEvent, ownCategoryID: String?, calendar: Calendar) -> EditSeed? {
         guard hasAccess, NewEventRules.canEditHere(event), let found = ekEvent(for: event),
               let home = found.calendar, home.allowsContentModifications else { return nil }
