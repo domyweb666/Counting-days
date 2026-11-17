@@ -252,6 +252,13 @@ final class CalendarViewModel {
         return previewBuilder.weeks(from: today, to: lastDay, events: events).first
     }
 
+    /// 月曆樣式頁「清單」預覽下面那幾張「接下來」的卡，從預覽那一週算
+    func themePreviewUpcoming(in week: WeekModel, count: Int = 3) -> [UpcomingCard] {
+        let sampleSettings = AppSettings(calendarCategory: SampleEvents.calendarCategory)
+        let previewBuilder = LayoutBuilder(calendar: calendar, today: today, settings: sampleSettings)
+        return Array(previewBuilder.upcoming(in: [week], limit: count).prefix(count))
+    }
+
     private func makeCountdowns() -> [CountdownItem] {
         let ids = settings.visibleCountdowns
         guard !ids.isEmpty,
