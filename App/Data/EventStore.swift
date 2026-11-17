@@ -239,8 +239,7 @@ final class EventStore {
 
     /// 寫進行事曆的地點：跟內建行事曆一樣存「名稱＋換行＋地址」，再帶座標
     private func structuredLocation(_ point: PlacePoint) -> EKStructuredLocation {
-        let title = point.address.isEmpty ? point.name : "\(point.name)
-\(point.address)"
+        let title = point.address.isEmpty ? point.name : point.name + "\n" + point.address
         let structured = EKStructuredLocation(title: title)
         structured.geoLocation = CLLocation(latitude: point.latitude, longitude: point.longitude)
         return structured
