@@ -1,4 +1,5 @@
 import SwiftUI
+import MapKit
 import UIKit
 import EventKit
 import CalendarCore
@@ -35,6 +36,8 @@ struct NewEventScreen: View {
     @State private var confirmDiscard = false
     /// 備註的記事本開著
     @State private var editingNotes = false
+    /// 地點的地圖建議
+    @State private var placeSearch = PlaceSearch()
     /// 存好、而且要分享時，換成「已加進行事曆」那一頁
     @State private var saved: SavedEvent?
     /// 重複的行程：存檔前問只改這一次還是連之後的；刪除前問要不要刪
@@ -1032,16 +1035,8 @@ struct NewEventScreen: View {
             .accessibilityLabel("提醒")
             .accessibilityValue(reminderText)
             Hairline()
-            HStack(spacing: DT.Space.s3) {
-                VeggieRowIcon(systemName: "mappin.and.ellipse")
-                TextField("地點", text: $draft.location)
-                    .dFont(DT.TypeScale.body)
-                    .foregroundStyle(Theme.ink)
-                    .focused($focus, equals: .location)
-                    .submitLabel(.done)
-            }
-            .frame(minHeight: DT.Size.row)
-            .id(Field.location)
+            locationRow
+                .id(Field.location)
             Hairline()
             // 備註常常很長，點了開一張整頁的記事本來打
             Button {
@@ -1088,6 +1083,102 @@ struct NewEventScreen: View {
         }
     }
 
+    // MARK: 地點
+
+    /// 地點：打字時下面列出地圖建議；選了一個就存座標，地址寫在名稱下面，再附一張小地圖。
+    @ViewBuilder
+    private var locationRow: some View {
+        HStack(spacing: DT.Space.s3) {
+            VeggieRowIcon(systemName: "mappin.and.ellipse")
+            VStack(alignment: .leading, spacing: 2) {
+                TextField("地點", text: locationText)
+                    .dFont(DT.TypeScale.body)
+                    .foregroundStyle(Theme.ink)
+                    .focused($focus, equals: .location)
+                    .submitLabel(.done)
+                if let place = draft.place, !place.address.isEmpty {
+                    Text(place.address)
+                        .dFont(DT.TypeScale.footnote)
+                        .foregroundStyle(Theme.sub)
+                        .lineLimit(2)
+                }
+            }
+            if !draft.location.isEmpty {
+                Button {
+                    draft.location = ""
+                    draft.place = nil
+                    placeSearch.clear()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 17))
+                        .foregroundStyle(Theme.tertiary)
+                        .frame(width: DT.Size.touch, height: DT.Size.touch)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("清除地點")
+            }
+        }
+        .padding(.vertical, draft.place == nil ? 0 : DT.Space.s2)
+        .frame(minHeight: DT.Size.row)
+        if focus == .location, draft.place == nil, !placeSearch.results.isEmpty {
+            ForEach(Array(placeSearch.results.enumerated()), id: \.offset) { _, result in
+                Hairline()
+                Button {
+                    pick(result)
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(result.title)
+                            .dFont(DT.TypeScale.body)
+                            .foregroundStyle(Theme.ink)
+                        if !result.subtitle.isEmpty {
+                            Text(result.subtitle)
+                                .dFont(DT.TypeScale.footnote)
+                                .foregroundStyle(Theme.sub)
+                        }
+                    }
+                    .lineLimit(1)
+                    .padding(.leading, DT.Space.s6 + DT.Space.s3)
+                    .padding(.vertical, DT.Space.s2)
+                    .frame(maxWidth: .infinity, minHeight: DT.Size.touch, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(PressStyle())
+                .accessibilityLabel("\(result.title)，\(result.subtitle)")
+            }
+        }
+        if let place = draft.place {
+            PlaceMapPreview(place: place)
+                .padding(.leading, DT.Space.s6 + DT.Space.s3)
+                .padding(.bottom, DT.Space.s3)
+        }
+    }
+
+    /// 地點欄的字。改了字就不再是選到的那個地方，座標拿掉、重新找建議。
+    private var locationText: Binding<String> {
+        Binding(
+            get: { draft.location },
+            set: { text in
+                guard text != draft.location else { return }
+                draft.location = text
+                draft.place = nil
+                placeSearch.update(text)
+            }
+        )
+    }
+
+    private func pick(_ result: MKLocalSearchCompletion) {
+        draft.location = result.title
+        placeSearch.clear()
+        focus = nil
+        Task {
+            // 查不到座標就只留字
+            if let point = await placeSearch.resolve(result), draft.location == result.title {
+                draft.place = point
+            }
+        }
+    }
+
     /// 點了會跳選單的一列：右邊是目前選的，加上下箭頭
     private func menuRow(_ title: String, icon: String? = nil, value: String) -> some View {
         HStack(spacing: DT.Space.s3) {
@@ -1116,6 +1207,34 @@ struct NewEventScreen: View {
 
     private var keptRepeatNote: String? {
         keepsOtherRepeat && draft.repeats == nil ? "原本的照舊" : nil
+    }
+}
+
+/// 選了地圖上的地點之後，下面那張小地圖。點了用「地圖」app 打開。
+struct PlaceMapPreview: View {
+    let place: PlacePoint
+
+    private var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: place.latitude, longitude: place.longitude)
+    }
+
+    var body: some View {
+        Button {
+            let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
+            item.name = place.name
+            item.openInMaps()
+        } label: {
+            Map(initialPosition: .region(MKCoordinateRegion(
+                center: coordinate, latitudinalMeters: 600, longitudinalMeters: 600
+            ))) {
+                Marker(place.name, coordinate: coordinate)
+            }
+            .allowsHitTesting(false)
+            .frame(height: 120)
+            .clipShape(RoundedRectangle(cornerRadius: DT.Radius.md))
+        }
+        .buttonStyle(PressStyle())
+        .accessibilityLabel("在地圖打開 \(place.name)")
     }
 }
 

@@ -95,6 +95,22 @@ public enum EventRepeat: String, CaseIterable, Sendable {
     }
 }
 
+/// 地圖上的一個地點：名稱、地址、座標。新增行程選了地圖建議時存進行事曆，行程就帶得到地圖。
+public struct PlacePoint: Hashable, Sendable {
+    public var name: String
+    /// 地址那一行。從行事曆讀回來的沒有，是空的。
+    public var address: String
+    public var latitude: Double
+    public var longitude: Double
+
+    public init(name: String, address: String = "", latitude: Double, longitude: Double) {
+        self.name = name
+        self.address = address
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+}
+
 /// 表單上正在填的那一筆
 public struct NewEventDraft: Equatable, Sendable {
     public enum Kind: Equatable, Sendable {
@@ -121,6 +137,8 @@ public struct NewEventDraft: Equatable, Sendable {
     public var reminder: EventReminder?
     public var repeats: EventRepeat?
     public var location: String
+    /// 從地圖建議選的地點（有座標）。使用者自己打的字、或選完又改了字，就是 nil。
+    public var place: PlacePoint?
     public var notes: String
     /// 存好之後要不要出現分享那一頁
     public var wantsShare: Bool
@@ -139,6 +157,7 @@ public struct NewEventDraft: Equatable, Sendable {
         reminder: EventReminder? = nil,
         repeats: EventRepeat? = nil,
         location: String = "",
+        place: PlacePoint? = nil,
         notes: String = "",
         wantsShare: Bool = false,
         categoryID: String? = nil
@@ -154,6 +173,7 @@ public struct NewEventDraft: Equatable, Sendable {
         self.reminder = reminder
         self.repeats = repeats
         self.location = location
+        self.place = place
         self.notes = notes
         self.wantsShare = wantsShare
         self.categoryID = categoryID
