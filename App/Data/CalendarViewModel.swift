@@ -301,7 +301,7 @@ final class CalendarViewModel {
             .compactMap { byID[$0] }
     }
 
-    /// 使用者在「行事曆顯示順序」那一頁拖了一列
+    /// 使用者在「管理行事曆」那一頁拖了一列
     func moveShownCalendar(from source: IndexSet, to destination: Int) {
         var ids = shownCalendars.map(\.calendarIdentifier)
         ids.move(fromOffsets: source, toOffset: destination)

@@ -6,7 +6,9 @@ import CalendarCore
 /// 蒜日子自己的新增與編輯行程畫面（規格第 20 節）。
 /// 帶入什麼、起訖怎麼推、月曆點兩下、畫面上的日期文字都問 Core 的 `NewEventRules`、`EventText`；
 /// 寫進系統行事曆交給 `EventStore` 的 `addEvent`、`updateEvent`、`deleteEvent`。
-/// 表單改不了的行程（唯讀、超過 24 小時的有時間行程）由月曆那邊改開系統的編輯畫面（`EventEditor`）。
+/// 版面照使用者給的原型：標題、類別、一張「開始／結束」的卡（各有日期與時間，點了在卡裡展開月曆或滾輪）、
+/// 整日、行事曆，其餘是一顆一顆「+ 什麼」的膠囊，點了才長出那一格。
+/// 表單改不了的行程（唯讀的行事曆）由月曆那邊改開系統的編輯畫面（`EventEditor`）。
 struct NewEventScreen: View {
     @Environment(AppModel.self) private var app
 
@@ -24,9 +26,10 @@ struct NewEventScreen: View {
     @State private var pristine: NewEventDraft
     /// 月曆現在翻到哪個月
     @State private var shownMonth: Date
-    @State private var pickingOtherDay = false
-    /// 時間卡展開時正在調開始還是結束；nil 是收著
-    @State private var timeField: TimeField?
+    /// 「開始／結束」那張卡正在調哪一格；nil 是收著
+    @State private var picking: WhenPart?
+    /// 月曆上面的「2026年11月」點開了沒：點開是年、月兩個滾輪，用來一次跳很遠
+    @State private var pickingYearMonth = false
     @State private var pickingCalendar = false
     @State private var showLocation = false
     @State private var showNotes = false
@@ -38,14 +41,23 @@ struct NewEventScreen: View {
     @State private var askSaveSpan = false
     @State private var askDelete = false
     @State private var showSystemEditor = false
+    /// 使用者在這一頁動過「倒數」那一顆之後想要的樣子；nil 是沒動過，照原本的
+    @State private var wantsCountdown: Bool?
     @FocusState private var focus: Field?
 
     enum TimeField { case start, end }
+    enum WhenPart { case startDay, startTime, endDay, endTime }
     enum Field { case title, location, notes }
 
     /// 標題那一格的高度、滾輪的高度
     private let titleHeight: CGFloat = 64
     private let wheelHeight: CGFloat = 150
+    /// 地點、備註那一格長出來花多久；長出來之後等多久再捲過去
+    private let fieldAnimation: Double = 0.2
+    private let fieldSettleDelay: Double = 0.3
+    /// 年份滾輪從今年往前、往後各列幾年
+    private let yearsBack = 10
+    private let yearsAhead = 20
 
     init(day: Date, calendar: Calendar, close: @escaping () -> Void) {
         let first = NewEventRules.initialDraft(day: day, now: Date(), calendar: calendar)
@@ -88,12 +100,41 @@ struct NewEventScreen: View {
 
     // MARK: 狀態
 
-    private var isDirty: Bool { draft != pristine }
+    private var isDirty: Bool { draft != pristine || wantsCountdown != nil }
+
+    /// 這一筆原本是不是倒數日（新增的一定不是）
+    private var savedCountdown: Bool {
+        guard let id = editing?.eventIdentifier else { return false }
+        return app.settings.value.countdowns.contains(id)
+    }
+
+    /// 「倒數」那一顆現在亮不亮
+    private var isCountdown: Bool { wantsCountdown ?? savedCountdown }
+
+    /// 點「倒數」。沒買的人放滿之後加不進去，直接說原因，不要等存檔才發現。
+    private func toggleCountdown() {
+        let next = !isCountdown
+        if next, !savedCountdown, !app.settings.canAddCountdown {
+            problem = "免費版最多放 \(FullVersionAccess.freeCountdownLimit) 個倒數日，解鎖完整版就不限數量。"
+            return
+        }
+        problem = nil
+        wantsCountdown = next == savedCountdown ? nil : next
+    }
+
+    /// 存好之後把「倒數」那一顆寫進設定。新增的行程要存好才有識別碼，所以放在存檔之後。
+    private func applyCountdown(to event: EKEvent) {
+        guard let want = wantsCountdown, let id = event.eventIdentifier else { return }
+        if app.settings.value.countdowns.contains(id) != want {
+            _ = app.settings.toggleCountdown(id)
+        }
+    }
 
     private var canSave: Bool {
         !draft.cleanTitle.isEmpty
             && draft.calendarID != nil
             && NewEventRules.resolve(draft, calendar: calendar) != nil
+            && NewEventRules.hasValidTime(draft)
     }
 
     /// 有加入蒜日子、寫得進去、不是節日的行事曆，照顯示順序。
@@ -144,6 +185,12 @@ struct NewEventScreen: View {
                 close()
                 return
             }
+            // 只動了「倒數」：行程本身不用重存，也就不用問重複的範圍
+            if draft == pristine {
+                applyCountdown(to: editing)
+                close()
+                return
+            }
             // 重複的行程先問範圍。動了重複規則的話只能連之後的一起改，就不問了。
             if editing.hasRecurrenceRules, draft.repeats == pristine.repeats {
                 askSaveSpan = true
@@ -175,6 +222,7 @@ struct NewEventScreen: View {
         if let chosen = draft.categoryID, chosen != pristine.categoryID, let id = event.eventIdentifier {
             app.settings.update { $0.eventCategory[id] = chosen }
         }
+        applyCountdown(to: event)
         guard draft.wantsShare else {
             close()
             return
@@ -201,18 +249,27 @@ struct NewEventScreen: View {
     // MARK: 表單
 
     private var form: some View {
+        ScrollViewReader { proxy in
+            formScroll
+                .onChange(of: focus) { _, field in
+                    guard let field, field != .title else { return }
+                    // 那一格剛長出來、鍵盤也還在升。等排好再捲，不然它會停在鍵盤後面看不到。
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(fieldSettleDelay))
+                        withAnimation(.easeOut(duration: fieldAnimation)) {
+                            proxy.scrollTo(field, anchor: .bottom)
+                        }
+                    }
+                }
+        }
+    }
+
+    private var formScroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: DT.Space.s4) {
                 titleField
-                if draft.kind != .multiDay { daySection }
-                durationSection
-                if draft.kind == .multiDay {
-                    monthCard(isRange: true)
-                } else {
-                    timeCard
-                }
-                calendarSection
                 categorySection
+                whenCard
                 optionsSection
                 if let editing { editFooter(editing) }
             }
@@ -346,16 +403,14 @@ struct NewEventScreen: View {
     private var categorySection: some View {
         let settings = app.settings.value
         let shown = NewEventRules.shownCategoryID(draft, settings: settings)
-        return VStack(alignment: .leading, spacing: DT.Space.s2) {
-            sectionLabel("類別")
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: DT.Space.s2) {
-                    ForEach(settings.categories) { category in
-                        categoryChip(category, isOn: category.id == shown)
-                    }
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: DT.Space.s2) {
+                ForEach(settings.categories) { category in
+                    categoryChip(category, isOn: category.id == shown)
                 }
             }
         }
+        .accessibilityLabel("類別")
     }
 
     private func categoryChip(_ category: EventCategory, isOn: Bool) -> some View {
@@ -416,160 +471,163 @@ struct NewEventScreen: View {
             .foregroundStyle(isOn ? Theme.onAccent : Theme.ink)
             .padding(.horizontal, DT.Space.s2)
             .frame(maxWidth: .infinity, minHeight: DT.Size.touch)
-            .background(Capsule().fill(isOn ? Theme.accent : Theme.card))
+            .background(Capsule().fill(isOn ? Theme.accent : Theme.bg))
             .contentShape(Capsule())
         }
         .buttonStyle(PressStyle())
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
-    // MARK: 哪一天
+    // MARK: 開始、結束
 
-    private var daySection: some View {
-        let quick = NewEventRules.quickDayIndex(of: draft.day, today: app.vm.today, calendar: calendar)
-        let names = ["今天", "明天", "後天"]
-        return VStack(alignment: .leading, spacing: DT.Space.s2) {
-            sectionLabel("哪一天")
-            HStack(spacing: DT.Space.s2) {
-                ForEach(0..<NewEventRules.quickDayCount, id: \.self) { index in
-                    chip(names[index], isOn: quick == index) {
-                        if let day = calendar.date(byAdding: .day, value: index, to: app.vm.today) {
-                            draft.day = calendar.startOfDay(for: day)
-                        }
-                        pickingOtherDay = false
+    /// 開始與結束各一欄：上面日期、下面時間。點哪一格，卡裡就展開那一格的月曆或滾輪。下面接「整日」和行事曆。
+    private var whenCard: some View {
+        let allDay = NewEventRules.isAllDay(draft)
+        let isWrong = !NewEventRules.hasValidTime(draft)
+        let endDay = NewEventRules.endDay(draft, calendar: calendar)
+        return VStack(spacing: 0) {
+            HStack(alignment: .center, spacing: DT.Space.s1) {
+                whenColumn("開始") {
+                    whenButton(
+                        EventText.shortDay(NewEventRules.startDay(draft), calendar: calendar),
+                        part: .startDay, label: "開始日期"
+                    )
+                    if !allDay {
+                        whenButton(EventText.clock24(draft.startMinutes), part: .startTime, label: "開始時間", isBig: true)
                     }
                 }
-                chip(
-                    quick == nil ? EventText.shortDay(draft.day, calendar: calendar) : "其他",
-                    isOn: quick == nil,
-                    systemImage: "calendar"
-                ) {
-                    shownMonth = draft.day
-                    pickingOtherDay.toggle()
-                }
-                .accessibilityLabel(quick == nil
-                    ? "其他日期，目前是\(EventText.day(draft.day, calendar: calendar))"
-                    : "選其他日期")
-            }
-            if pickingOtherDay {
-                monthCard(isRange: false)
-            }
-        }
-    }
-
-    // MARK: 多久
-
-    private var durationSection: some View {
-        VStack(alignment: .leading, spacing: DT.Space.s2) {
-            sectionLabel("多久")
-            HStack(spacing: DT.Space.s2) {
-                ForEach(NewEventRules.quickDurations, id: \.self) { minutes in
-                    chip(EventText.duration(minutes), isOn: draft.kind == .timed && draft.durationMinutes == minutes) {
-                        leaveMultiDay()
-                        draft.kind = .timed
-                        draft.durationMinutes = minutes
-                        fitReminder()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Theme.sub)
+                    .accessibilityHidden(true)
+                whenColumn("結束") {
+                    whenButton(EventText.shortDay(endDay, calendar: calendar), part: .endDay, label: "結束日期", isWrong: isWrong)
+                    if !allDay {
+                        whenButton(
+                            EventText.clock24(NewEventRules.endClock(draft, calendar: calendar)),
+                            part: .endTime, label: "結束時間", isBig: true, isWrong: isWrong
+                        )
                     }
                 }
-                chip("整日", isOn: draft.kind == .allDay) {
-                    leaveMultiDay()
-                    draft.kind = .allDay
-                    timeField = nil
-                    fitReminder()
-                }
-                chip("多天", isOn: draft.kind == .multiDay) {
-                    draft.kind = .multiDay
-                    timeField = nil
-                    pickingOtherDay = false
-                    shownMonth = draft.rangeStart ?? draft.day
-                    fitReminder()
-                }
             }
-        }
-    }
-
-    /// 從「多天」換回單日：已經點過開始日就沿用那一天
-    private func leaveMultiDay() {
-        guard draft.kind == .multiDay, let start = draft.rangeStart else { return }
-        draft.day = start
-    }
-
-    private func fitReminder() {
-        draft.reminder = NewEventRules.reminder(draft.reminder, fitting: draft.kind)
-    }
-
-    // MARK: 時間卡
-
-    private var timeCard: some View {
-        VStack(spacing: DT.Space.s2) {
-            if draft.kind == .timed, let field = timeField {
-                timeEditor(field)
-            } else {
-                timeSummary
+            .padding(DT.Space.s2)
+            if isWrong {
+                Text("結束比開始早，改一下才能存。")
+                    .dFont(DT.TypeScale.footnote)
+                    .foregroundStyle(Theme.destructive)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, DT.Space.s4)
+                    .padding(.bottom, DT.Space.s2)
             }
+            if let part = picking {
+                whenPicker(part)
+                    .padding(.horizontal, DT.Space.s2)
+                    .padding(.bottom, DT.Space.s2)
+            }
+            Hairline()
+            Toggle(isOn: allDayBinding) {
+                Text("整日")
+                    .dFont(DT.TypeScale.body)
+                    .foregroundStyle(Theme.ink)
+            }
+            .tint(Theme.accent)
+            .padding(.horizontal, DT.Space.s4)
+            .frame(minHeight: DT.Size.row)
+            Hairline()
+            calendarSection
         }
-        .padding(DT.Space.s2)
         .frame(maxWidth: .infinity)
         .background(RoundedRectangle(cornerRadius: DT.Radius.lg).fill(Theme.card))
     }
 
-    private var dateLine: String {
-        let day = EventText.day(draft.day, calendar: calendar)
-        guard let repeats = draft.repeats else { return day }
-        return day + "起，" + repeats.summary(from: draft.day, calendar: calendar)
-    }
-
-    private var timeSummary: some View {
-        let isTimed = draft.kind == .timed
-        return Button {
-            if isTimed { timeField = .start }
-        } label: {
-            HStack(spacing: DT.Space.s3) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(dateLine)
-                        .dFont(DT.TypeScale.footnote)
-                        .foregroundStyle(Theme.sub)
-                    Text(isTimed
-                        ? EventText.timeRange(startMinutes: draft.startMinutes, durationMinutes: draft.durationMinutes)
-                        : "整日")
-                        .dFont(DT.TypeScale.title3)
-                        .foregroundStyle(Theme.ink)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                if isTimed {
-                    Text("改時間")
-                        .dFont(DT.TypeScale.callout)
-                        .foregroundStyle(Theme.strong)
+    private var allDayBinding: Binding<Bool> {
+        Binding(
+            get: { NewEventRules.isAllDay(draft) },
+            set: { isOn in
+                draft = NewEventRules.settingAllDay(isOn, in: draft, calendar: calendar)
+                // 整日沒有鐘點可以調，正開著滾輪就收起來
+                if isOn, picking == .startTime || picking == .endTime {
+                    picking = nil
                 }
             }
-            .padding(.horizontal, DT.Space.s2)
-            .frame(minHeight: DT.Size.row)
-            .contentShape(Rectangle())
+        )
+    }
+
+    private func whenColumn<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: DT.Space.s1) {
+            Text(title)
+                .dFont(DT.TypeScale.footnote)
+                .foregroundStyle(Theme.sub)
+                .padding(.leading, DT.Space.s1)
+            content()
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// 卡上的一格：日期或時間。正在調的那一格有主色外框；起訖顛倒時結束那兩格劃掉。
+    private func whenButton(
+        _ text: String, part: WhenPart, label: String, isBig: Bool = false, isWrong: Bool = false
+    ) -> some View {
+        let isOn = picking == part
+        return Button {
+            togglePicking(part)
+        } label: {
+            Text(text)
+                .strikethrough(isWrong)
+                .dFont(isBig ? DT.TypeScale.title3 : DT.TypeScale.callout)
+                .foregroundStyle(isWrong ? Theme.destructive : Theme.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, DT.Space.s3)
+                .frame(maxWidth: .infinity, minHeight: DT.Size.touch, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: DT.Radius.md).fill(Theme.bg))
+                .overlay(
+                    RoundedRectangle(cornerRadius: DT.Radius.md)
+                        .strokeBorder(Theme.accent, lineWidth: isOn ? 2 : 0)
+                )
+                .contentShape(Rectangle())
         }
         .buttonStyle(PressStyle())
-        .disabled(!isTimed)
+        .accessibilityLabel("\(label) \(text)")
+        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
-    private func timeEditor(_ field: TimeField) -> some View {
+    private func togglePicking(_ part: WhenPart) {
+        if picking == part {
+            picking = nil
+            return
+        }
+        // 月曆、滾輪要有地方長出來，先把鍵盤收掉
+        focus = nil
+        pickingCalendar = false
+        pickingYearMonth = false
+        shownMonth = part == .endDay
+            ? NewEventRules.endDay(draft, calendar: calendar)
+            : NewEventRules.startDay(draft)
+        picking = part
+    }
+
+    private func whenPicker(_ part: WhenPart) -> some View {
         VStack(spacing: DT.Space.s2) {
-            HStack(spacing: DT.Space.s2) {
-                timeTab("開始", EventText.time(draft.startMinutes), isOn: field == .start) { timeField = .start }
-                timeTab(
-                    draft.endsNextDay ? "結束（隔天）" : "結束",
-                    EventText.time(draft.endMinutes),
-                    isOn: field == .end
-                ) { timeField = .end }
+            switch part {
+            case .startDay:
+                monthGrid(isEnd: false)
+            case .endDay:
+                monthGrid(isEnd: true)
+            case .startTime:
+                wheels(.start)
+                durationRow
+            case .endTime:
+                wheels(.end)
+                durationRow
             }
-            wheels(field)
             HStack {
-                Text(field == .start
-                    ? "結束時間會跟著往後移"
-                    : "共 " + EventText.duration(draft.durationMinutes))
+                Text(pickerHint(part))
                     .dFont(DT.TypeScale.footnote)
                     .foregroundStyle(Theme.sub)
                 Spacer()
                 Button {
-                    timeField = nil
+                    picking = nil
                 } label: {
                     Text("完成")
                         .dFont(DT.TypeScale.callout)
@@ -583,60 +641,53 @@ struct NewEventScreen: View {
         }
     }
 
-    private func timeTab(_ label: String, _ value: String, isOn: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label)
-                    .dFont(DT.TypeScale.footnote)
-                    .foregroundStyle(isOn ? Theme.strong : Theme.sub)
-                Text(value)
-                    .dFont(DT.TypeScale.title3)
-                    .foregroundStyle(Theme.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            .padding(.horizontal, DT.Space.s3)
-            .frame(maxWidth: .infinity, minHeight: DT.Size.row, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: DT.Radius.md).fill(isOn ? Theme.soft : Color.clear))
-            .contentShape(Rectangle())
+    private func pickerHint(_ part: WhenPart) -> String {
+        switch part {
+        case .startDay: return "結束那一天會跟著移"
+        case .endDay: return "開始那一天之前的不能選"
+        case .startTime: return "結束時間會跟著往後移"
+        case .endTime:
+            return NewEventRules.hasValidTime(draft) ? "共 " + EventText.duration(draft.durationMinutes) : ""
         }
-        .buttonStyle(PressStyle())
-        .accessibilityLabel("\(label) \(value)")
-        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
-    /// 三個滾輪：上午下午、幾點、幾分。系統的時間滾輪不能設成 5 分鐘一格，所以自己排。
+    /// 直接點一種長度：結束改成開始之後那麼久
+    private var durationRow: some View {
+        HStack(spacing: DT.Space.s2) {
+            ForEach(NewEventRules.durationChoices, id: \.self) { minutes in
+                chip(EventText.duration(minutes), isOn: draft.durationMinutes == minutes) {
+                    draft = NewEventRules.settingDuration(minutes, in: draft)
+                }
+            }
+        }
+    }
+
+    /// 兩個滾輪：幾點（0 到 23）、幾分（0 到 59）。系統的時間滾輪會帶「上午、下午」這些字，所以自己排。
     private func wheels(_ field: TimeField) -> some View {
-        let minutes = field == .start ? draft.startMinutes : draft.endMinutes
-        let afternoon = Binding<Bool>(
-            get: { EventText.isAfternoon(minutes) },
-            set: { setClock(field, afternoon: $0, hour: EventText.hour12(minutes), minute: minutes % 60) }
-        )
+        let minutes = field == .start ? draft.startMinutes : NewEventRules.endClock(draft, calendar: calendar)
         let hour = Binding<Int>(
-            get: { EventText.hour12(minutes) },
-            set: { setClock(field, afternoon: EventText.isAfternoon(minutes), hour: $0, minute: minutes % 60) }
+            get: { minutes / 60 },
+            set: { setClock(field, hour: $0, minute: minutes % 60) }
         )
         let minute = Binding<Int>(
             get: { minutes % 60 },
-            set: { setClock(field, afternoon: EventText.isAfternoon(minutes), hour: EventText.hour12(minutes), minute: $0) }
+            set: { setClock(field, hour: minutes / 60, minute: $0) }
         )
         return HStack(spacing: 0) {
-            Picker("上午或下午", selection: afternoon) {
-                Text("上午").tag(false)
-                Text("下午").tag(true)
-            }
-            .frame(maxWidth: .infinity)
-            .clipped()
             Picker("幾點", selection: hour) {
-                ForEach(1...12, id: \.self) { value in
-                    Text("\(value)").tag(value)
+                ForEach(0..<24, id: \.self) { value in
+                    Text(verbatim: "\(value)").tag(value)
                 }
             }
             .frame(maxWidth: .infinity)
             .clipped()
+            Text(verbatim: ":")
+                .dFont(DT.TypeScale.title3)
+                .foregroundStyle(Theme.ink)
+                .accessibilityHidden(true)
             Picker("幾分", selection: minute) {
                 ForEach(minuteOptions(including: minutes % 60), id: \.self) { value in
-                    Text(value < 10 ? "0\(value)" : "\(value)").tag(value)
+                    Text(verbatim: value < 10 ? "0\(value)" : "\(value)").tag(value)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -644,9 +695,10 @@ struct NewEventScreen: View {
         }
         .pickerStyle(.wheel)
         .frame(height: wheelHeight)
+        .padding(.horizontal, DT.Space.s8)
     }
 
-    /// 滾輪上的分鐘：每 5 分鐘一格。現在的分鐘數不在格子上（別處帶進來的）就補進去，不然滾輪會沒有選到的那一列。
+    /// 滾輪上的分鐘，一格跳多少看 `NewEventRules.minuteStep`。現在的分鐘數不在格子上就補進去，不然滾輪會沒有選到的那一列。
     private func minuteOptions(including current: Int) -> [Int] {
         var options = Array(stride(from: 0, to: 60, by: NewEventRules.minuteStep))
         if !options.contains(current) {
@@ -656,65 +708,121 @@ struct NewEventScreen: View {
         return options
     }
 
-    private func setClock(_ field: TimeField, afternoon: Bool, hour: Int, minute: Int) {
-        let total = ((hour % 12) + (afternoon ? 12 : 0)) * 60 + minute
+    private func setClock(_ field: TimeField, hour: Int, minute: Int) {
+        let total = hour * 60 + minute
         switch field {
         case .start: draft = NewEventRules.settingStart(total, in: draft)
-        case .end: draft = NewEventRules.settingEnd(total, in: draft)
+        case .end: draft = NewEventRules.settingEndClock(total, in: draft, calendar: calendar)
         }
     }
 
-    // MARK: 月曆（選其他日期、多天點兩下）
+    // MARK: 月曆（選開始或結束的那一天）
 
     private enum CellRole { case plain, edge, between }
 
-    private func role(of day: Date, isRange: Bool) -> CellRole {
-        guard isRange else { return day == draft.day ? .edge : .plain }
-        guard let start = draft.rangeStart else { return .plain }
-        if day == start || day == draft.rangeEnd { return .edge }
-        if let end = draft.rangeEnd, day > start, day < end { return .between }
+    /// 開始、結束那兩天是實心，中間的是淡色
+    private func role(of day: Date) -> CellRole {
+        let start = NewEventRules.startDay(draft)
+        let end = NewEventRules.endDay(draft, calendar: calendar)
+        if day == start || day == end { return .edge }
+        if day > start, day < end { return .between }
         return .plain
     }
 
-    private func monthCard(isRange: Bool) -> some View {
+    private func monthGrid(isEnd: Bool) -> some View {
         let cells = NewEventRules.monthCells(month: shownMonth, calendar: calendar)
         let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
         return VStack(spacing: DT.Space.s2) {
-            HStack {
-                monthArrow("chevron.left", label: "上個月", months: -1)
-                Spacer()
-                Text(EventText.month(shownMonth, calendar: calendar))
-                    .dFont(DT.TypeScale.headline)
-                    .foregroundStyle(Theme.ink)
-                Spacer()
-                monthArrow("chevron.right", label: "下個月", months: 1)
-            }
             HStack(spacing: 0) {
-                ForEach(app.vm.weekdaySymbols, id: \.self) { symbol in
-                    Text(symbol)
-                        .dFont(DT.TypeScale.caption)
-                        .foregroundStyle(Theme.sub)
-                        .frame(maxWidth: .infinity)
+                Button {
+                    pickingYearMonth.toggle()
+                } label: {
+                    HStack(spacing: DT.Space.s1) {
+                        Text(EventText.month(shownMonth, calendar: calendar))
+                            .dFont(DT.TypeScale.headline)
+                        Image(systemName: pickingYearMonth ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .foregroundStyle(pickingYearMonth ? Theme.strong : Theme.ink)
+                    .frame(minHeight: DT.Size.touch)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(PressStyle())
+                .accessibilityLabel("選年份和月份，現在是\(EventText.month(shownMonth, calendar: calendar))")
+                .accessibilityAddTraits(pickingYearMonth ? .isSelected : [])
+                Spacer()
+                if !pickingYearMonth {
+                    monthArrow("chevron.left", label: "上個月", months: -1)
+                    monthArrow("chevron.right", label: "下個月", months: 1)
                 }
             }
-            .accessibilityHidden(true)
-            LazyVGrid(columns: columns, spacing: DT.Space.s1) {
-                ForEach(Array(cells.enumerated()), id: \.offset) { _, cell in
-                    if let cell {
-                        dayCell(cell, isRange: isRange)
-                    } else {
-                        Color.clear.frame(height: DT.Size.touch)
+            if pickingYearMonth {
+                yearMonthWheels
+            } else {
+                HStack(spacing: 0) {
+                    ForEach(app.vm.weekdaySymbols, id: \.self) { symbol in
+                        Text(symbol)
+                            .dFont(DT.TypeScale.caption)
+                            .foregroundStyle(Theme.sub)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .accessibilityHidden(true)
+                LazyVGrid(columns: columns, spacing: DT.Space.s1) {
+                    ForEach(Array(cells.enumerated()), id: \.offset) { _, cell in
+                        if let cell {
+                            dayCell(cell, isEnd: isEnd)
+                        } else {
+                            Color.clear.frame(height: DT.Size.touch)
+                        }
                     }
                 }
             }
-            if isRange {
-                Hairline()
-                rangeFooter
-            }
         }
-        .padding(DT.Space.s3)
-        .frame(maxWidth: .infinity)
-        .background(RoundedRectangle(cornerRadius: DT.Radius.lg).fill(Theme.card))
+        .padding(.horizontal, DT.Space.s1)
+    }
+
+    /// 年、月兩個滾輪：只是把月曆翻到那個月，選哪一天還是回月曆點。再點一次上面的年月就回到月曆。
+    private var yearMonthWheels: some View {
+        let parts = calendar.dateComponents([.year, .month], from: shownMonth)
+        let thisYear = calendar.component(.year, from: app.vm.today)
+        let shownYear = parts.year ?? thisYear
+        let shownMonthNumber = parts.month ?? 1
+        // 正在看的那一年不在範圍裡（編輯很久以前或很久以後的行程）就把範圍拉過去
+        let firstYear = min(thisYear - yearsBack, shownYear)
+        let lastYear = max(thisYear + yearsAhead, shownYear)
+        let year = Binding<Int>(
+            get: { shownYear },
+            set: { showMonth(year: $0, month: shownMonthNumber) }
+        )
+        let month = Binding<Int>(
+            get: { shownMonthNumber },
+            set: { showMonth(year: shownYear, month: $0) }
+        )
+        return HStack(spacing: 0) {
+            Picker("年份", selection: year) {
+                ForEach(firstYear...lastYear, id: \.self) { value in
+                    Text(verbatim: "\(value)年").tag(value)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .clipped()
+            Picker("月份", selection: month) {
+                ForEach(1...12, id: \.self) { value in
+                    Text(verbatim: "\(value)月").tag(value)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .clipped()
+        }
+        .pickerStyle(.wheel)
+        .frame(height: wheelHeight)
+    }
+
+    private func showMonth(year: Int, month: Int) {
+        if let next = calendar.date(from: DateComponents(year: year, month: month, day: 1)) {
+            shownMonth = next
+        }
     }
 
     private func monthArrow(_ systemName: String, label: String, months: Int) -> some View {
@@ -733,25 +841,25 @@ struct NewEventScreen: View {
         .accessibilityLabel(label)
     }
 
-    private func dayCell(_ day: Date, isRange: Bool) -> some View {
-        let cellRole = role(of: day, isRange: isRange)
+    private func dayCell(_ day: Date, isEnd: Bool) -> some View {
+        let cellRole = role(of: day)
+        // 選結束那一天時，開始之前的不能點
+        let isOff = isEnd && day < NewEventRules.startDay(draft)
         let fill: Color
         switch cellRole {
         case .edge: fill = Theme.accent
         case .between: fill = Theme.soft
         case .plain: fill = Color.clear
         }
+        let textColor: Color = cellRole == .edge ? Theme.onAccent : (isOff ? Theme.tertiary : Theme.ink)
         return Button {
-            if isRange {
-                draft = NewEventRules.tappingRangeDay(day, in: draft, calendar: calendar)
-            } else {
-                draft.day = day
-                pickingOtherDay = false
-            }
+            draft = isEnd
+                ? NewEventRules.settingEndDay(day, in: draft, calendar: calendar)
+                : NewEventRules.settingStartDay(day, in: draft, calendar: calendar)
         } label: {
             Text("\(calendar.component(.day, from: day))")
                 .dFont(DT.TypeScale.callout)
-                .foregroundStyle(cellRole == .edge ? Theme.onAccent : Theme.ink)
+                .foregroundStyle(textColor)
                 .frame(maxWidth: .infinity, minHeight: DT.Size.touch)
                 .background(
                     RoundedRectangle(cornerRadius: cellRole == .edge ? DT.Radius.pill : 0).fill(fill)
@@ -759,37 +867,9 @@ struct NewEventScreen: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(PressStyle())
+        .disabled(isOff)
         .accessibilityLabel(EventText.day(day, calendar: calendar))
         .accessibilityAddTraits(cellRole == .plain ? [] : .isSelected)
-    }
-
-    private var rangeFooter: some View {
-        let count = NewEventRules.rangeDayCount(draft, calendar: calendar)
-        return HStack(spacing: DT.Space.s2) {
-            if let start = draft.rangeStart {
-                if let end = draft.rangeEnd {
-                    Text(EventText.day(start, calendar: calendar) + " → " + EventText.day(end, calendar: calendar))
-                        .dFont(DT.TypeScale.subheadline)
-                        .foregroundStyle(Theme.ink)
-                } else {
-                    Text(EventText.day(start, calendar: calendar) + "開始，再點結束的那一天")
-                        .dFont(DT.TypeScale.subheadline)
-                        .foregroundStyle(Theme.sub)
-                }
-            } else {
-                Text("點開始的那一天")
-                    .dFont(DT.TypeScale.subheadline)
-                    .foregroundStyle(Theme.sub)
-            }
-            Spacer(minLength: 0)
-            if count > 0 {
-                Text("\(count) 天")
-                    .dFont(DT.TypeScale.callout)
-                    .foregroundStyle(Theme.strong)
-            }
-        }
-        .padding(.horizontal, DT.Space.s1)
-        .frame(minHeight: DT.Size.buttonCompact)
     }
 
     // MARK: 行事曆
@@ -832,6 +912,7 @@ struct NewEventScreen: View {
         VStack(spacing: 0) {
             Button {
                 pickingCalendar.toggle()
+                if pickingCalendar { picking = nil }
             } label: {
                 HStack(spacing: DT.Space.s2) {
                     Text("行事曆")
@@ -866,7 +947,6 @@ struct NewEventScreen: View {
         }
         .padding(.horizontal, DT.Space.s4)
         .frame(maxWidth: .infinity)
-        .background(RoundedRectangle(cornerRadius: DT.Radius.lg).fill(Theme.card))
     }
 
     @ViewBuilder
@@ -928,19 +1008,19 @@ struct NewEventScreen: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    // MARK: 五顆選項
+    // MARK: 六顆選項的膠囊
 
-    /// 選項的樣子：虛線框是還沒設，實心是設了
-    private func optionLabel(_ title: String, systemImage: String, isSet: Bool) -> some View {
-        HStack(spacing: 2) {
+    /// 選項的樣子：虛線框寫「+ 什麼」是還沒設；設了變實心，有內容的直接寫內容（「30 分鐘前」「每週」）
+    private func optionLabel(_ title: String, systemImage: String, isSet: Bool, value: String? = nil) -> some View {
+        HStack(spacing: DT.Space.s1) {
             Image(systemName: systemImage).font(.system(size: 13, weight: .semibold))
-            Text(title)
-                .dFont(DT.TypeScale.footnote)
+            Text(value ?? (isSet ? title : "+ " + title))
+                .dFont(DT.TypeScale.subheadline)
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
         }
         .foregroundStyle(isSet ? Theme.strong : Theme.sub)
-        .frame(maxWidth: .infinity, minHeight: DT.Size.touch)
+        .padding(.horizontal, DT.Space.s3)
+        .frame(minHeight: DT.Size.touch)
         .background(Capsule().fill(isSet ? Theme.soft : Color.clear))
         .overlay(
             Capsule()
@@ -955,14 +1035,14 @@ struct NewEventScreen: View {
         let hasNotes = showNotes || !draft.notes.isEmpty
         let reminders = draft.kind == .timed ? EventReminder.timedCases : EventReminder.allDayCases
         return VStack(alignment: .leading, spacing: DT.Space.s3) {
-            HStack(spacing: DT.Space.s2) {
+            WrapRow(spacing: DT.Space.s2) {
                 Menu {
                     Button("不提醒") { draft.reminder = nil }
                     ForEach(reminders, id: \.self) { option in
                         Button(option.label) { draft.reminder = option }
                     }
                 } label: {
-                    optionLabel("提醒", systemImage: "bell", isSet: draft.reminder != nil)
+                    optionLabel("提醒", systemImage: "bell", isSet: draft.reminder != nil, value: draft.reminder?.label)
                 }
                 // 選單不指定樣式的話，系統會自己套一層灰底，把裡面的字擠成刪節號
                 .buttonStyle(.plain)
@@ -974,7 +1054,7 @@ struct NewEventScreen: View {
                         Button(option.label) { draft.repeats = option }
                     }
                 } label: {
-                    optionLabel("重複", systemImage: "repeat", isSet: draft.repeats != nil)
+                    optionLabel("重複", systemImage: "repeat", isSet: draft.repeats != nil, value: draft.repeats?.label)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("重複")
@@ -999,9 +1079,16 @@ struct NewEventScreen: View {
                 .buttonStyle(PressStyle())
                 .accessibilityLabel("存好之後分享給別人")
                 .accessibilityAddTraits(draft.wantsShare ? .isSelected : [])
+                Button {
+                    toggleCountdown()
+                } label: {
+                    optionLabel("倒數日", systemImage: "hourglass", isSet: isCountdown)
+                }
+                .buttonStyle(PressStyle())
+                .accessibilityLabel("加入倒數日")
+                .accessibilityAddTraits(isCountdown ? .isSelected : [])
             }
-            if draft.reminder != nil || draft.repeats != nil || hasLocation || hasNotes
-                || keptReminderNote != nil || keptRepeatNote != nil {
+            if hasLocation || hasNotes || keptReminderNote != nil || keptRepeatNote != nil {
                 optionDetails(hasLocation: hasLocation, hasNotes: hasNotes)
             }
         }
@@ -1012,20 +1099,23 @@ struct NewEventScreen: View {
         switch field {
         case .location:
             if showLocation, draft.location.isEmpty {
-                showLocation = false
+                withAnimation(.easeOut(duration: fieldAnimation)) { showLocation = false }
+                if focus == .location { focus = nil }
                 return
             }
-            showLocation = true
+            withAnimation(.easeOut(duration: fieldAnimation)) { showLocation = true }
         case .notes:
             if showNotes, draft.notes.isEmpty {
-                showNotes = false
+                withAnimation(.easeOut(duration: fieldAnimation)) { showNotes = false }
+                if focus == .notes { focus = nil }
                 return
             }
-            showNotes = true
+            withAnimation(.easeOut(duration: fieldAnimation)) { showNotes = true }
         case .title:
             break
         }
-        focus = field
+        // 同一刻就把游標放進去的話，那一格還不在畫面上，游標會放不進去或跳一下
+        DispatchQueue.main.async { focus = field }
     }
 
     /// 原本的提醒、重複規則表單上沒有對應的選項時，寫一行讓人知道它還在。在選單選了別的就會換掉。
@@ -1054,14 +1144,10 @@ struct NewEventScreen: View {
 
     private func optionDetails(hasLocation: Bool, hasNotes: Bool) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            if let reminder = draft.reminder {
-                detailRow("bell", reminder.summary)
-            } else if let keptReminderNote {
+            if let keptReminderNote {
                 detailRow("bell", keptReminderNote)
             }
-            if let repeats = draft.repeats {
-                detailRow("repeat", repeats.summary(from: draft.kind == .multiDay ? (draft.rangeStart ?? draft.day) : draft.day, calendar: calendar) + "重複")
-            } else if let keptRepeatNote {
+            if let keptRepeatNote {
                 detailRow("repeat", keptRepeatNote)
             }
             if hasLocation {
@@ -1077,6 +1163,7 @@ struct NewEventScreen: View {
                         .submitLabel(.done)
                 }
                 .frame(minHeight: DT.Size.touch)
+                .id(Field.location)
             }
             if hasNotes {
                 HStack(alignment: .top, spacing: DT.Space.s3) {
@@ -1097,6 +1184,7 @@ struct NewEventScreen: View {
                     }
                     .padding(.vertical, DT.Space.s3)
                 }
+                .id(Field.notes)
             }
         }
         .padding(.horizontal, DT.Space.s4)

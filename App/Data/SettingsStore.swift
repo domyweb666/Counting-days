@@ -11,25 +11,41 @@ final class SettingsStore {
     var errorMessage: String?
 
     @ObservationIgnored private let defaults: UserDefaults
+    /// 跟小工具共用的抽屜。蒜日子自己不從這裡讀，只多寫一份給小工具。
+    @ObservationIgnored private let shared: UserDefaults?
     private static let key = "settings.v1"
     private static let brokenKey = "settings.v1.broken"
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, shared: UserDefaults? = UserDefaults(suiteName: WidgetShared.appGroupID)) {
         self.defaults = defaults
+        self.shared = shared
         guard let data = defaults.data(forKey: Self.key) else {
             value = AppSettings()
+            mirror(nil)
             applyTheme()
             return
         }
         do {
             value = try JSONDecoder().decode(AppSettings.self, from: data)
+            mirror(data)
         } catch {
             // 讀不回來就用預設值，但把壞掉的那份留著，不直接蓋掉
             defaults.set(data, forKey: Self.brokenKey)
             value = AppSettings()
+            mirror(nil)
             errorMessage = "設定檔讀取失敗，已改用預設值：\(error.localizedDescription)"
         }
         applyTheme()
+    }
+
+    /// 把設定多寫一份給小工具。蒜日子這邊用的是預設值時（還沒存過、讀不回來），把那一份清掉，
+    /// 小工具讀不到就跟著用預設值，兩邊才一致。
+    private func mirror(_ data: Data?) {
+        if let data {
+            shared?.set(data, forKey: WidgetShared.settingsKey)
+        } else {
+            shared?.removeObject(forKey: WidgetShared.settingsKey)
+        }
     }
 
     /// 把設定裡選的主題套到畫面上。`value` 每次被換掉之後都要呼叫。
@@ -137,7 +153,9 @@ final class SettingsStore {
         value = next
         applyTheme()
         do {
-            defaults.set(try JSONEncoder().encode(next), forKey: Self.key)
+            let data = try JSONEncoder().encode(next)
+            defaults.set(data, forKey: Self.key)
+            mirror(data)
         } catch {
             errorMessage = "設定儲存失敗：\(error.localizedDescription)"
         }

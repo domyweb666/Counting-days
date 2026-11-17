@@ -405,3 +405,53 @@ struct FlexRow: Layout {
         }
     }
 }
+
+/// 一顆接一顆往右排，排不下就換到下一列。新增行程下面那些「+ 什麼」的膠囊用。
+struct WrapRow: Layout {
+    var spacing: CGFloat = DT.Space.s2
+
+    private struct Arrangement {
+        var origins: [CGPoint] = []
+        var width: CGFloat = 0
+        var height: CGFloat = 0
+    }
+
+    private func arrange(width: CGFloat, subviews: Subviews) -> Arrangement {
+        var result = Arrangement()
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > width {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            result.origins.append(CGPoint(x: x, y: y))
+            result.width = max(result.width, x + size.width)
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+        result.height = y + rowHeight
+        return result
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let limit = proposal.width ?? .infinity
+        let result = arrange(width: limit, subviews: subviews)
+        return CGSize(width: limit.isFinite ? limit : result.width, height: result.height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = arrange(width: bounds.width, subviews: subviews)
+        for (index, subview) in subviews.enumerated() {
+            let origin = result.origins[index]
+            subview.place(
+                at: CGPoint(x: bounds.minX + origin.x, y: bounds.minY + origin.y),
+                anchor: .topLeading,
+                proposal: .unspecified
+            )
+        }
+    }
+}

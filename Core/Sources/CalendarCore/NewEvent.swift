@@ -112,7 +112,7 @@ public struct NewEventDraft: Equatable, Sendable {
     public var day: Date
     /// 開始時間：從午夜算起的分鐘數，0 到 1439
     public var startMinutes: Int
-    /// 長度（分鐘），1 到 1440
+    /// 長度（分鐘）。跨好幾天的有時間行程會超過 1440；表單上把結束調到開始之前時是負的，那時候不能存。
     public var durationMinutes: Int
     /// 多天行程的起訖日（各自那天的午夜）。還沒點是 nil。
     public var rangeStart: Date?
@@ -191,8 +191,8 @@ public enum NewEventRules {
     public static let defaultMorning = 9 * 60
     /// 「哪一天」那排直接點得到的天數：今天、明天、後天
     public static let quickDayCount = 3
-    /// 滾輪上分鐘一格跳多少
-    public static let minuteStep = 5
+    /// 滾輪上分鐘一格跳多少。一分鐘一格，0 到 59 都選得到。
+    public static let minuteStep = 1
 
     /// 打開時帶入的開始時間：今天是下一個整點（最晚 23:00），其他天是早上 9 點
     public static func defaultStartMinutes(day: Date, now: Date, calendar: Calendar) -> Int {
@@ -207,11 +207,10 @@ public enum NewEventRules {
     }
 
     /// 這一筆既有的行程能不能用蒜日子自己的畫面改。
-    /// 有時間、而且超過 24 小時的行程，表單的「開始、結束」表示不了，交給 iPhone 內建的畫面。
+    /// 表單的開始、結束各有日期與時間，跨好幾天的有時間行程也表示得了；只有結束比開始早的怪資料交給 iPhone 內建的畫面。
     public static func canEditHere(_ event: CalEvent) -> Bool {
         if event.isAllDay { return true }
-        let seconds = event.end.timeIntervalSince(event.start)
-        return seconds >= 0 && seconds <= TimeInterval(minutesPerDay * 60)
+        return event.end >= event.start
     }
 
     /// 把一筆既有的行程變成表單上的樣子。提醒、重複、備註、類別這裡不知道，由呼叫的人補。
@@ -229,7 +228,7 @@ public enum NewEventRules {
             draft.kind = .timed
             draft.startMinutes = (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
             let minutes = Int((event.end.timeIntervalSince(event.start) / 60).rounded())
-            draft.durationMinutes = min(max(minutes, 0), minutesPerDay)
+            draft.durationMinutes = max(minutes, 0)
             return draft
         }
         // 全天行程的結束，有的來源給最後一天的 23:59:59，有的給隔天的午夜。退一秒再取那天，兩種都落在最後一天。
@@ -366,6 +365,155 @@ public enum NewEventRules {
     }
 }
 
+// MARK: 開始、結束各有日期與時間
+//
+// 表單上是「開始：日期、時間」「結束：日期、時間」加一顆「整日」。存的還是上面那一份草稿：
+// 有時間的行程存開始那天、開始的鐘點、長度；整日的存一天，或起訖兩天。這裡負責兩邊互換。
+extension NewEventRules {
+    /// 調時間時下面那一排直接點得到的長度
+    public static let durationChoices = [30, 60, 120, 180]
+
+    public static func isAllDay(_ draft: NewEventDraft) -> Bool { draft.kind != .timed }
+
+    /// 開始那一天（那天的午夜）
+    public static func startDay(_ draft: NewEventDraft) -> Date {
+        draft.kind == .multiDay ? (draft.rangeStart ?? draft.day) : draft.day
+    }
+
+    /// 結束那一天（那天的午夜）
+    public static func endDay(_ draft: NewEventDraft, calendar: Calendar) -> Date {
+        switch draft.kind {
+        case .timed:
+            return calendar.startOfDay(for: timedEnd(draft, calendar: calendar) ?? draft.day)
+        case .allDay:
+            return draft.day
+        case .multiDay:
+            return draft.rangeEnd ?? draft.rangeStart ?? draft.day
+        }
+    }
+
+    /// 結束的鐘點：從午夜算起的分鐘數。整日的行程沒有鐘點，回傳 0。
+    public static func endClock(_ draft: NewEventDraft, calendar: Calendar) -> Int {
+        guard draft.kind == .timed, let end = timedEnd(draft, calendar: calendar) else { return 0 }
+        let parts = calendar.dateComponents([.hour, .minute], from: end)
+        return (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
+    }
+
+    /// 起訖有沒有顛倒。顛倒的時候畫面上把結束劃掉，不能存。
+    public static func hasValidTime(_ draft: NewEventDraft) -> Bool {
+        switch draft.kind {
+        case .timed:
+            return draft.durationMinutes >= 0
+        case .allDay:
+            return true
+        case .multiDay:
+            guard let start = draft.rangeStart else { return false }
+            return (draft.rangeEnd ?? start) >= start
+        }
+    }
+
+    /// 改開始的日期：長度不變，結束跟著移
+    public static func settingStartDay(_ day: Date, in draft: NewEventDraft, calendar: Calendar) -> NewEventDraft {
+        let picked = calendar.startOfDay(for: day)
+        guard draft.kind != .timed else {
+            var next = draft
+            next.day = picked
+            return next
+        }
+        let span = days(from: startDay(draft), to: endDay(draft, calendar: calendar), calendar: calendar)
+        let end = calendar.date(byAdding: .day, value: span, to: picked) ?? picked
+        return allDay(draft, from: picked, to: end)
+    }
+
+    /// 改結束的日期：開始不動。比開始那天早的不收。
+    public static func settingEndDay(_ day: Date, in draft: NewEventDraft, calendar: Calendar) -> NewEventDraft {
+        let picked = calendar.startOfDay(for: day)
+        let start = startDay(draft)
+        guard picked >= start else { return draft }
+        guard draft.kind == .timed else { return allDay(draft, from: start, to: picked) }
+        return settingEnd(day: picked, clock: endClock(draft, calendar: calendar), in: draft, calendar: calendar)
+    }
+
+    /// 改結束的鐘點：開始不動，日期不動。調到開始之前就是顛倒，由 `hasValidTime` 擋下來。
+    public static func settingEndClock(_ minutes: Int, in draft: NewEventDraft, calendar: Calendar) -> NewEventDraft {
+        guard draft.kind == .timed else { return draft }
+        return settingEnd(day: endDay(draft, calendar: calendar), clock: minutes, in: draft, calendar: calendar)
+    }
+
+    /// 直接點一種長度：結束改成開始之後那麼久
+    public static func settingDuration(_ minutes: Int, in draft: NewEventDraft) -> NewEventDraft {
+        guard draft.kind == .timed else { return draft }
+        var next = draft
+        next.durationMinutes = max(minutes, 0)
+        return next
+    }
+
+    /// 開或關「整日」。日期照舊；關掉時鐘點用回原本的。提醒不適用的話拿掉。
+    public static func settingAllDay(_ on: Bool, in draft: NewEventDraft, calendar: Calendar) -> NewEventDraft {
+        if on {
+            guard draft.kind == .timed else { return draft }
+            let end = max(endDay(draft, calendar: calendar), draft.day)
+            var next = allDay(draft, from: draft.day, to: end)
+            next.reminder = reminder(draft.reminder, fitting: next.kind)
+            return next
+        }
+        guard draft.kind != .timed else { return draft }
+        let start = startDay(draft)
+        let span = days(from: start, to: endDay(draft, calendar: calendar), calendar: calendar)
+        // 同一天之內的長度：原本存的還在就用它，不然用預設的一小時
+        let within = ((draft.durationMinutes % minutesPerDay) + minutesPerDay) % minutesPerDay
+        var next = draft
+        next.kind = .timed
+        next.day = start
+        next.rangeStart = nil
+        next.rangeEnd = nil
+        next.durationMinutes = span * minutesPerDay + (within == 0 ? defaultDuration : within)
+        next.reminder = reminder(draft.reminder, fitting: .timed)
+        return next
+    }
+
+    // MARK: 內部
+
+    private static func moment(_ day: Date, clock: Int, calendar: Calendar) -> Date? {
+        calendar.date(bySettingHour: clock / 60, minute: clock % 60, second: 0, of: calendar.startOfDay(for: day))
+    }
+
+    /// 有時間的行程結束的那一刻
+    private static func timedEnd(_ draft: NewEventDraft, calendar: Calendar) -> Date? {
+        moment(draft.day, clock: draft.startMinutes, calendar: calendar)?
+            .addingTimeInterval(TimeInterval(draft.durationMinutes * 60))
+    }
+
+    private static func settingEnd(day: Date, clock: Int, in draft: NewEventDraft, calendar: Calendar) -> NewEventDraft {
+        let safe = min(max(clock, 0), minutesPerDay - 1)
+        guard let from = moment(draft.day, clock: draft.startMinutes, calendar: calendar),
+              let to = moment(day, clock: safe, calendar: calendar) else { return draft }
+        var next = draft
+        next.durationMinutes = Int((to.timeIntervalSince(from) / 60).rounded())
+        return next
+    }
+
+    private static func days(from: Date, to: Date, calendar: Calendar) -> Int {
+        max(calendar.dateComponents([.day], from: from, to: to).day ?? 0, 0)
+    }
+
+    /// 整日的行程：起訖同一天就是單日，不同天就是多天
+    private static func allDay(_ draft: NewEventDraft, from start: Date, to end: Date) -> NewEventDraft {
+        var next = draft
+        next.day = start
+        if end > start {
+            next.kind = .multiDay
+            next.rangeStart = start
+            next.rangeEnd = end
+        } else {
+            next.kind = .allDay
+            next.rangeStart = nil
+            next.rangeEnd = nil
+        }
+        return next
+    }
+}
+
 /// 畫面上與分享出去的日期時間文字
 public enum EventText {
     static let weekdayNames = ["日", "一", "二", "三", "四", "五", "六"]
@@ -406,6 +554,14 @@ public enum EventText {
         return "\(hour12(minutes)):" + (minute < 10 ? "0\(minute)" : "\(minute)")
     }
 
+    /// 24 小時制的鐘點，沒有上午下午：「9:05」「17:00」
+    public static func clock24(_ minutes: Int) -> String {
+        let day = NewEventRules.minutesPerDay
+        let safe = ((minutes % day) + day) % day
+        let minute = safe % 60
+        return "\(safe / 60):" + (minute < 10 ? "0\(minute)" : "\(minute)")
+    }
+
     /// 「下午 4:00」
     public static func time(_ minutes: Int) -> String {
         (isAfternoon(minutes) ? "下午 " : "上午 ") + clock(minutes)
@@ -437,6 +593,12 @@ public enum EventText {
     public static func when(_ draft: NewEventDraft, calendar: Calendar) -> String {
         switch draft.kind {
         case .timed:
+            // 跨好幾天的有時間行程：兩頭都寫出日期與時間
+            if draft.durationMinutes >= NewEventRules.minutesPerDay {
+                let endDay = NewEventRules.endDay(draft, calendar: calendar)
+                return day(draft.day, calendar: calendar) + " " + time(draft.startMinutes) + " 到 "
+                    + day(endDay, calendar: calendar) + " " + time(NewEventRules.endClock(draft, calendar: calendar))
+            }
             return day(draft.day, calendar: calendar) + " "
                 + timeRange(startMinutes: draft.startMinutes, durationMinutes: draft.durationMinutes)
         case .allDay:

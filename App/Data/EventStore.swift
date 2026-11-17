@@ -100,7 +100,20 @@ final class EventStore {
     /// 找回 EventKit 的原始事件，交給系統的編輯畫面
     func ekEvent(for event: CalEvent) -> EKEvent? {
         if let hit = cache[event.id] { return hit }
-        return ek.event(withIdentifier: event.seriesID)
+        // 快取裡沒有（系統行事曆剛通知有變動、月曆還沒重新查完）：照月曆當初查到它的方法，用日期範圍再查一次。
+        // 只靠識別碼去找不夠：有些帳號的行程用識別碼找不回來，重複的行程找回來的也是第一次那一筆。
+        let day: TimeInterval = 24 * 60 * 60
+        let predicate = ek.predicateForEvents(
+            withStart: event.start.addingTimeInterval(-day),
+            end: max(event.end, event.start).addingTimeInterval(day),
+            calendars: nil
+        )
+        let same = ek.events(matching: predicate).filter { $0.eventIdentifier == event.seriesID }
+        let exact = same.first {
+            guard let start = $0.startDate else { return false }
+            return event.seriesID + "|" + String(start.timeIntervalSinceReferenceDate) == event.id
+        }
+        return exact ?? same.first ?? ek.event(withIdentifier: event.seriesID)
     }
 
     func title(forSeries id: String) -> String? {
@@ -112,7 +125,7 @@ final class EventStore {
 
     /// 建立一本新的行事曆，寫進 iPhone。成功回傳 nil，失敗回傳要給使用者看的原因。
     /// 蒜日子自己寫進系統行事曆的有四件事：這裡的建立行事曆，和下面的新增、修改、刪除行程。
-    /// 表單改不了的行程（唯讀的行事曆、超過 24 小時的有時間行程）照舊交給系統的編輯畫面。
+    /// 表單改不了的行程（唯讀的行事曆、結束比開始早的怪資料）照舊交給系統的編輯畫面。
     func createCalendar(title: String, color: CGColor) -> String? {
         let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard hasAccess else { return "蒜日子沒有行事曆權限，沒辦法建立。" }
@@ -186,7 +199,7 @@ final class EventStore {
         let keepsOtherRepeat: Bool
     }
 
-    /// 這一筆能用蒜日子自己的畫面改就回傳要帶入的東西；找不到、唯讀、或表單表示不了就回傳 nil，改開系統的編輯畫面。
+    /// 這一筆能用蒜日子自己的畫面改就回傳要帶入的東西；找不到、唯讀、或起訖顛倒就回傳 nil，改開系統的編輯畫面。
     func editSeed(for event: CalEvent, ownCategoryID: String?, calendar: Calendar) -> EditSeed? {
         guard hasAccess, NewEventRules.canEditHere(event), let found = ekEvent(for: event),
               let home = found.calendar, home.allowsContentModifications else { return nil }

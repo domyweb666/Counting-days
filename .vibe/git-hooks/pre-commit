@@ -44,6 +44,8 @@ added() {
 
 swift_app=':(glob)App/**/*.swift'
 swift_core=':(glob)Core/**/*.swift'
+# 小工具是另一支程式，規矩一樣
+swift_widget=':(glob)Widget/**/*.swift'
 
 # 1. Core 不准依賴 iPhone 的框架
 hits=$(added ':(glob)Core/Sources/**' \
@@ -54,7 +56,7 @@ if [ -n "$hits" ]; then
 fi
 
 # 2. 不准記錄輸出（安全標準第 1 組：行程內容不准寫進記錄）
-hits=$(added "$swift_app" "$swift_core" \
+hits=$(added "$swift_app" "$swift_core" "$swift_widget" \
     | grep -aE '(^|[^A-Za-z0-9_.])(print|debugPrint|dump|NSLog|os_log)\(|[^A-Za-z0-9_]Logger\(' || true)
 if [ -n "$hits" ]; then
     block "不准留記錄輸出（print、NSLog、Logger）" "$hits" \
@@ -83,7 +85,7 @@ if [ -n "$empties" ]; then
 fi
 
 # 4. 畫面檔不准寫色碼（顏色只從 Theme 拿）
-hits=$(added ':(glob)App/Views/**' ':(glob)App/CoachMarks/**' 'App/SuanRiZiApp.swift' \
+hits=$(added ':(glob)App/Views/**' ':(glob)App/CoachMarks/**' 'App/SuanRiZiApp.swift' ':(glob)Widget/**' \
     | grep -aE '0x[0-9A-Fa-f]{6}\b|"#[0-9A-Fa-f]{6}"|Color\((red|hue|white|\.sRGB|\.displayP3)' || true)
 if [ -n "$hits" ]; then
     block "畫面檔不准直接寫色碼" "$hits" \
@@ -109,7 +111,7 @@ if [ -n "$hits" ]; then
 fi
 
 # 7. 不准加 ATS 例外（安全標準第 3 組）
-hits=$(added 'project.yml' ':(glob)**/*.plist' ':(glob)App/**' \
+hits=$(added 'project.yml' ':(glob)**/*.plist' ':(glob)App/**' ':(glob)Widget/**' \
     | grep -aE 'NSAllowsArbitraryLoads|NSExceptionDomains' || true)
 if [ -n "$hits" ]; then
     block "不准加 ATS 例外（放行不加密的連線）" "$hits" \
@@ -117,7 +119,7 @@ if [ -n "$hits" ]; then
 fi
 
 # 8. 「買了沒」不准存檔（安全標準第 1、4 組）
-hits=$(added "$swift_app" "$swift_core" \
+hits=$(added "$swift_app" "$swift_core" "$swift_widget" \
     | grep -avE '^[^:]+:[[:space:]]*//' \
     | grep -aE 'UserDefaults|AppStorage|forKey:|FileManager|\.write\(to:|SecItem|Keychain' \
     | grep -aiE 'unlock|purchas|entitle|premium|ispro\b|fullversion' || true)

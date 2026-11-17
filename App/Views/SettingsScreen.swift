@@ -10,8 +10,7 @@ struct SettingsScreen: View {
     @State private var showCategories = false
     @State private var showThemes = false
     @State private var showModes = false
-    @State private var showAddCalendar = false
-    @State private var showCalendarOrder = false
+    @State private var showManageCalendars = false
     @State private var showTimeZones = false
     @State private var showFullVersion = false
     @State private var showFamily = false
@@ -289,41 +288,22 @@ struct SettingsScreen: View {
 
     // MARK: 行事曆
 
+    /// 行事曆的事（加入、移除、排順序、節日與預設類別、建立新的）都收在第二頁，這裡只留一列入口
     private var calendarSection: some View {
-        let shown = app.vm.shownCalendars
+        let count = app.vm.shownCalendars.count
         return SectionCard(
             title: "行事曆",
-            footer: "右邊是這本行事曆的預設類別，點了可以改、當成節日，或從蒜日子移除。行程自己選過類別的，照它自己的。這些都只改蒜日子的顯示方式，不會動到系統行事曆。"
+            footer: "加入、移除、排順序，或指定哪一本是節日、預設歸哪一類。這些都只改蒜日子的顯示方式，不會動到系統行事曆。"
         ) {
-            if shown.isEmpty {
-                SettingsRow(label: app.store.calendars.isEmpty ? "這支手機還沒有任何行事曆" : "還沒有加入任何行事曆") { EmptyView() }
-                Hairline()
-            }
-            ForEach(shown, id: \.calendarIdentifier) { cal in
-                CalendarRoleRow(settings: settings, calendar: cal)
-                Hairline()
-            }
             Button {
-                showAddCalendar = true
+                showManageCalendars = true
             } label: {
-                VeggieRow(icon: "plus.circle", title: "加入行事曆", accessory: .push)
+                VeggieRow(icon: "list.bullet", title: "管理行事曆", value: count == 0 ? "還沒加入" : "\(count) 本", accessory: .push)
             }
             .buttonStyle(PressStyle())
-            if shown.count > 1 {
-                Hairline()
-                Button {
-                    showCalendarOrder = true
-                } label: {
-                    VeggieRow(icon: "arrow.up.arrow.down", title: "行事曆顯示順序", accessory: .push)
-                }
-                .buttonStyle(PressStyle())
-            }
         }
-        .sheet(isPresented: $showCalendarOrder) {
-            CalendarOrderScreen()
-        }
-        .sheet(isPresented: $showAddCalendar) {
-            AddCalendarScreen()
+        .sheet(isPresented: $showManageCalendars) {
+            ManageCalendarsScreen()
         }
     }
 
@@ -919,9 +899,8 @@ struct SettingsRow<Trailing: View>: View {
     }
 }
 
-/// 設定裡一本行事曆的那一列：色點、名稱，右邊一顆膠囊寫它的預設類別，點了直接選。
-/// 選單最下面可以把這本從蒜日子移除（加得回來，所以不另外問）。
-struct CalendarRoleRow: View {
+/// 一本行事曆右邊的膠囊：寫它的預設類別，點了直接選；選「節日」就變成日期下的小字。
+struct CalendarRoleMenu: View {
     let settings: SettingsStore
     let calendar: EKCalendar
 
@@ -959,27 +938,20 @@ struct CalendarRoleRow: View {
 
     var body: some View {
         let s = settings.value
-        let id = calendar.calendarIdentifier
-        let text = Self.text(for: Self.tag(for: id, in: s), in: s)
-        SettingsRow(label: calendar.title, dotColor: Color(cgColor: calendar.cgColor)) {
-            Menu {
-                Picker(calendar.title, selection: role) {
-                    ForEach(s.categories) { cat in
-                        Text(cat.name).tag(cat.id)
-                    }
-                    Text("節日（日期下的小字）").tag(Self.holidayTag)
+        let text = Self.text(for: Self.tag(for: calendar.calendarIdentifier, in: s), in: s)
+        Menu {
+            Picker(calendar.title, selection: role) {
+                ForEach(s.categories) { cat in
+                    Text(cat.name).tag(cat.id)
                 }
-                Divider()
-                Button("從蒜日子移除", role: .destructive) {
-                    settings.update { $0.hiddenCalendarIDs.insert(id) }
-                }
-            } label: {
-                PickerCapsule(text: text)
+                Text("節日（日期下的小字）").tag(Self.holidayTag)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("\(calendar.title)：\(text)")
-            .accessibilityHint("改預設類別，或從蒜日子移除")
+        } label: {
+            PickerCapsule(text: text)
         }
+        // 放在清單的一列裡：只有膠囊本身點得到，不會整列都變成按鈕
+        .buttonStyle(.borderless)
+        .accessibilityLabel("\(calendar.title)的預設類別：\(text)")
     }
 }
 
@@ -1123,66 +1095,9 @@ struct TimeZoneSettingsScreen: View {
     }
 }
 
-/// 設定的第二頁：拖著排行事曆的順序。
-struct CalendarOrderScreen: View {
-    @Environment(AppModel.self) private var app
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: DT.Space.s4) {
-                HStack {
-                    Spacer()
-                    PillTextButton(title: "完成") { dismiss() }
-                }
-                Text("行事曆顯示順序")
-                    .dFont(DT.TypeScale.largeTitle)
-                    .foregroundStyle(Theme.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Text("按住右邊的三條線上下拖。開始時間一樣的行程，排前面的行事曆會顯示在上面。")
-                    .dFont(DT.TypeScale.subheadline)
-                    .foregroundStyle(Theme.sub)
-                if let message = app.settings.errorMessage {
-                    Text(message).dFont(DT.TypeScale.footnote).foregroundStyle(Theme.destructive)
-                }
-            }
-            .padding(.horizontal, DT.Size.screenMargin)
-            .padding(.top, DT.Space.s4)
-            .padding(.bottom, DT.Space.s2)
-            // 拖著排用 iPhone 內建的清單，一直開著編輯狀態，右邊才有可以拖的把手
-            List {
-                ForEach(app.vm.shownCalendars, id: \.calendarIdentifier) { cal in
-                    HStack(spacing: DT.Space.s3) {
-                        Circle()
-                            .fill(Color(cgColor: cal.cgColor))
-                            .frame(width: Theme.Grid.square, height: Theme.Grid.square)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(cal.title)
-                                .dFont(DT.TypeScale.body)
-                                .foregroundStyle(Theme.ink)
-                            if let account = cal.source?.title, !account.isEmpty {
-                                Text(account)
-                                    .dFont(DT.TypeScale.footnote)
-                                    .foregroundStyle(Theme.sub)
-                            }
-                        }
-                    }
-                    .listRowBackground(Theme.card)
-                }
-                .onMove { source, destination in
-                    app.vm.moveShownCalendar(from: source, to: destination)
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .environment(\.editMode, .constant(.active))
-        }
-        .background(Theme.bg.ignoresSafeArea())
-        .tint(Theme.accent)
-    }
-}
-
-/// 設定的第二頁：把移除的行事曆加回來，或建立一本新的。
-struct AddCalendarScreen: View {
+/// 設定的第二頁：行事曆的事都在這一頁。
+/// 已加入的可以拖著排順序、移除、指定節日或預設類別；下面把移除的加回來，或建立一本新的。
+struct ManageCalendarsScreen: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
 
@@ -1195,106 +1110,193 @@ struct AddCalendarScreen: View {
     private var settings: SettingsStore { app.settings }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: DT.Space.s6) {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: DT.Space.s4) {
                 HStack {
                     Spacer()
                     PillTextButton(title: "完成") { dismiss() }
                 }
-                Text("加入行事曆")
+                Text("管理行事曆")
                     .dFont(DT.TypeScale.largeTitle)
                     .foregroundStyle(Theme.ink)
                     .accessibilityAddTraits(.isHeader)
                 if let message = settings.errorMessage {
                     Text(message).dFont(DT.TypeScale.footnote).foregroundStyle(Theme.destructive)
                 }
-                removedSection
-                createSection
             }
             .padding(.horizontal, DT.Size.screenMargin)
             .padding(.top, DT.Space.s4)
-            .padding(.bottom, DT.Space.s8)
+            .padding(.bottom, DT.Space.s2)
+            // 拖著排用 iPhone 內建的清單，一直開著編輯狀態，右邊才有可以拖的把手
+            List {
+                shownSection
+                removedSection
+                createSection
+            }
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .environment(\.editMode, .constant(.active))
         }
         .background(Theme.bg.ignoresSafeArea())
         .tint(Theme.accent)
     }
 
-    private var createSection: some View {
-        let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return VStack(alignment: .leading, spacing: DT.Space.s3) {
-            SectionCard(
-                title: "建立新的行事曆",
-                footer: "會寫進 iPhone 的行事曆：有開 iCloud 行事曆就放在 iCloud，沒有就放在這支手機上。之後要刪掉它，得到 iPhone 的行事曆 app 刪。"
-            ) {
-                TextField("名稱", text: $newName)
+    private func sectionTitle(_ text: String) -> some View {
+        Text(text)
+            .dFont(DT.TypeScale.title3)
+            .foregroundStyle(Theme.ink)
+            .textCase(nil)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private func sectionFooter(_ text: String) -> some View {
+        Text(text)
+            .dFont(DT.TypeScale.footnote)
+            .foregroundStyle(Theme.sub)
+    }
+
+    /// 色點、名稱、底下一行帳號
+    private func nameBlock(_ cal: EKCalendar) -> some View {
+        HStack(spacing: DT.Space.s3) {
+            Circle()
+                .fill(Color(cgColor: cal.cgColor))
+                .frame(width: Theme.Grid.square, height: Theme.Grid.square)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(cal.title)
                     .dFont(DT.TypeScale.body)
                     .foregroundStyle(Theme.ink)
-                    .frame(minHeight: DT.Size.row)
-                    .submitLabel(.done)
-                Hairline()
-                SettingsRow(label: "顏色") {
-                    ColorPicker("顏色", selection: $newColor, supportsOpacity: false)
-                        .labelsHidden()
-                        .frame(minWidth: DT.Size.touch, minHeight: DT.Size.touch)
+                    .multilineTextAlignment(.leading)
+                if let account = cal.source?.title, !account.isEmpty {
+                    Text(account)
+                        .dFont(DT.TypeScale.footnote)
+                        .foregroundStyle(Theme.sub)
                 }
             }
-            if let createMessage {
-                Text(createMessage)
-                    .dFont(DT.TypeScale.footnote)
-                    .foregroundStyle(createFailed ? Theme.destructive : Theme.strong)
-                    .padding(.horizontal, DT.Space.s4)
-            }
-            WideButton(title: "建立", kind: .secondary) {
-                let problem = app.store.createCalendar(title: name, color: UIColor(newColor).cgColor)
-                createFailed = problem != nil
-                createMessage = problem ?? "已建立「\(name)」，回設定的清單就看得到。"
-                if problem == nil { newName = "" }
-            }
-            .disabled(name.isEmpty)
-            .opacity(name.isEmpty ? 0.5 : 1)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
+    // MARK: 已加入的：排順序、移除、節日與預設類別
+
+    private var shownSection: some View {
+        let shown = app.vm.shownCalendars
+        return Section {
+            if shown.isEmpty {
+                Text(app.store.calendars.isEmpty ? "這支手機還沒有任何行事曆" : "還沒有加入任何行事曆")
+                    .dFont(DT.TypeScale.body)
+                    .foregroundStyle(Theme.sub)
+                    .listRowBackground(Theme.card)
+            }
+            ForEach(shown, id: \.calendarIdentifier) { cal in
+                HStack(spacing: DT.Space.s2) {
+                    // 移除只是不在蒜日子顯示，下面那一區馬上加得回來，所以不另外問
+                    Button {
+                        settings.update { $0.hiddenCalendarIDs.insert(cal.calendarIdentifier) }
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .font(.system(size: 22, weight: .regular))
+                            .foregroundStyle(Theme.destructive)
+                            .frame(width: DT.Size.touch, height: DT.Size.touch)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("從蒜日子移除 \(cal.title)")
+                    nameBlock(cal)
+                    CalendarRoleMenu(settings: settings, calendar: cal)
+                }
+                .listRowBackground(Theme.card)
+            }
+            .onMove { source, destination in
+                app.vm.moveShownCalendar(from: source, to: destination)
+            }
+        } header: {
+            sectionTitle("已加入的")
+        } footer: {
+            sectionFooter("按住右邊的三條線上下拖可以排順序：開始時間一樣的行程，排前面的行事曆會顯示在上面。紅色減號是從蒜日子移除，系統行事曆裡還在，下面可以加回來。膠囊是這本行事曆的預設類別，選「節日」就變成日期下的小字；行程自己選過類別的，照它自己的。")
+        }
+    }
+
+    // MARK: 還沒加入的：加回來
+
     private var removedSection: some View {
         let removed = app.vm.removedCalendars
-        return SectionCard(
-            title: "手機上還沒加入的",
-            footer: "訂閱行事曆和節日行事曆要到 iPhone 的「行事曆」app 加。加好之後回到蒜日子，它會自動出現在設定的清單裡。"
-        ) {
+        return Section {
             if removed.isEmpty {
-                SettingsRow(label: "手機上的行事曆都已經加入了") { EmptyView() }
+                Text("手機上的行事曆都已經加入了")
+                    .dFont(DT.TypeScale.body)
+                    .foregroundStyle(Theme.sub)
+                    .listRowBackground(Theme.card)
             }
-            ForEach(Array(removed.enumerated()), id: \.element.calendarIdentifier) { index, cal in
-                if index > 0 { Hairline() }
+            ForEach(removed, id: \.calendarIdentifier) { cal in
                 Button {
                     settings.update { $0.hiddenCalendarIDs.remove(cal.calendarIdentifier) }
                 } label: {
                     HStack(spacing: DT.Space.s3) {
-                        Circle()
-                            .fill(Color(cgColor: cal.cgColor))
-                            .frame(width: Theme.Grid.square, height: Theme.Grid.square)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(cal.title)
-                                .dFont(DT.TypeScale.body)
-                                .foregroundStyle(Theme.ink)
-                                .multilineTextAlignment(.leading)
-                            if let account = cal.source?.title, !account.isEmpty {
-                                Text(account)
-                                    .dFont(DT.TypeScale.footnote)
-                                    .foregroundStyle(Theme.sub)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        nameBlock(cal)
                         Image(systemName: "plus.circle")
                             .font(.system(size: 20, weight: .regular))
                             .foregroundStyle(Theme.accent)
                     }
-                    .padding(.vertical, DT.Space.s2)
-                    .frame(minHeight: DT.Size.row)
+                    .frame(minHeight: DT.Size.touch)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(PressStyle())
+                .buttonStyle(.borderless)
                 .accessibilityLabel("加入 \(cal.title)")
+                .listRowBackground(Theme.card)
+            }
+        } header: {
+            sectionTitle("手機上還沒加入的")
+        } footer: {
+            sectionFooter("訂閱行事曆和節日行事曆要到 iPhone 的「行事曆」app 加。加好之後回到蒜日子，它會自動出現在上面。")
+        }
+    }
+
+    // MARK: 建立一本新的
+
+    private var createSection: some View {
+        let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return Section {
+            TextField("名稱", text: $newName)
+                .dFont(DT.TypeScale.body)
+                .foregroundStyle(Theme.ink)
+                .submitLabel(.done)
+                .listRowBackground(Theme.card)
+            HStack {
+                Text("顏色")
+                    .dFont(DT.TypeScale.body)
+                    .foregroundStyle(Theme.ink)
+                Spacer()
+                ColorPicker("顏色", selection: $newColor, supportsOpacity: false)
+                    .labelsHidden()
+                    .frame(minWidth: DT.Size.touch, minHeight: DT.Size.touch)
+            }
+            .listRowBackground(Theme.card)
+            Button {
+                let problem = app.store.createCalendar(title: name, color: UIColor(newColor).cgColor)
+                createFailed = problem != nil
+                createMessage = problem ?? "已建立「\(name)」，上面的清單就看得到。"
+                if problem == nil { newName = "" }
+            } label: {
+                Text("建立")
+                    .dFont(DT.TypeScale.headline)
+                    .foregroundStyle(Theme.strong)
+                    .frame(maxWidth: .infinity, minHeight: DT.Size.touch)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .disabled(name.isEmpty)
+            .opacity(name.isEmpty ? 0.5 : 1)
+            .listRowBackground(Theme.card)
+        } header: {
+            sectionTitle("建立新的行事曆")
+        } footer: {
+            VStack(alignment: .leading, spacing: DT.Space.s2) {
+                if let createMessage {
+                    Text(createMessage)
+                        .dFont(DT.TypeScale.footnote)
+                        .foregroundStyle(createFailed ? Theme.destructive : Theme.strong)
+                }
+                sectionFooter("會寫進 iPhone 的行事曆：有開 iCloud 行事曆就放在 iCloud，沒有就放在這支手機上。之後要刪掉它，得到 iPhone 的行事曆 app 刪。")
             }
         }
     }
