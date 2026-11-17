@@ -54,7 +54,7 @@ public struct EventCategory: Codable, Hashable, Identifiable, Sendable {
     public var name: String
     /// 例如 "#6F5F8F"
     public var colorHex: String
-    /// 挑主事件時優先（預設：工作、生活）。
+    /// 挑主事件時優先（預設：生活）。
     public var isPriority: Bool
 
     public init(id: String, name: String, colorHex: String, isPriority: Bool = false) {
@@ -134,7 +134,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public static let defaultThemeID = "sage"
 
     public static let defaultCategories: [EventCategory] = [
-        EventCategory(id: "work", name: "工作", colorHex: "#6F5F8F", isPriority: true),
+        EventCategory(id: "work", name: "工作", colorHex: "#6F5F8F"),
         EventCategory(id: "life", name: "生活", colorHex: "#4B6C8F", isPriority: true),
         EventCategory(id: "fun", name: "娛樂", colorHex: "#A65F45"),
         EventCategory(id: "rest", name: "休息", colorHex: "#7A6A3A")
