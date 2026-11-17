@@ -722,49 +722,45 @@ final class CalendarCoreTests: XCTestCase {
         XCTAssertEqual(EventText.shareText(trip, calendar: cal), "沖繩旅遊\n12月5日 週六 到 12月9日 週三（整日）")
     }
 
-    func testICSFileForTimedEvent() throws {
+    func testGoogleLinkForTimedEvent() throws {
         var d = draft(date(2026, 11, 17), start: 19 * 60 + 30)
-        d.title = "瑜珈課, 進階"
+        d.title = "瑜珈課 + 伸展"
         d.repeats = .biweekly
-        d.notes = "帶墊子\n帶水"
+        d.notes = "帶墊子"
+        d.location = "信義區"
         let time = try XCTUnwrap(NewEventRules.resolve(d, calendar: cal))
-        let ics = ICSFile.make(uid: "abc@suanrizi", draft: d, time: time, stamp: date(2026, 11, 16, 8), calendar: cal)
-        let lines = ics.components(separatedBy: "\r\n")
-        XCTAssertEqual(lines.first, "BEGIN:VCALENDAR")
-        XCTAssertTrue(ics.hasSuffix("END:VCALENDAR\r\n"))
+        let url = try XCTUnwrap(GoogleCalendarLink.make(draft: d, time: time, calendar: cal))
+        let parts = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false))
+        let query = Dictionary(uniqueKeysWithValues: (parts.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        XCTAssertEqual(parts.host, "calendar.google.com")
+        XCTAssertEqual(query["action"], "TEMPLATE")
         // 台北 19:30 是世界協調時間 11:30
-        XCTAssertTrue(lines.contains("DTSTART:20261117T113000Z"))
-        XCTAssertTrue(lines.contains("DTEND:20261117T123000Z"))
-        XCTAssertTrue(lines.contains("DTSTAMP:20261116T000000Z"))
-        XCTAssertTrue(lines.contains("SUMMARY:瑜珈課\\, 進階"))
-        XCTAssertTrue(lines.contains("RRULE:FREQ=WEEKLY;INTERVAL=2"))
-        XCTAssertTrue(lines.contains("DESCRIPTION:帶墊子\\n帶水"))
-        XCTAssertFalse(ics.contains("VALARM"))
+        XCTAssertEqual(query["dates"], "20261117T113000Z/20261117T123000Z")
+        XCTAssertEqual(query["text"], "瑜珈課 + 伸展")
+        XCTAssertEqual(query["location"], "信義區")
+        XCTAssertEqual(query["details"], "帶墊子")
+        XCTAssertEqual(query["recur"], "RRULE:FREQ=WEEKLY;INTERVAL=2")
+        // 加號要編碼，不然 Google 會讀成空白
+        XCTAssertTrue(url.absoluteString.contains("%2B"))
     }
 
-    func testICSFileForMultiDayEventEndsTheDayAfter() throws {
+    func testGoogleLinkForMultiDayEventEndsTheDayAfter() throws {
         var d = draft(date(2026, 11, 16))
         d.title = "沖繩旅遊"
         d.kind = .multiDay
         d.rangeStart = date(2026, 12, 5)
         d.rangeEnd = date(2026, 12, 9)
         let time = try XCTUnwrap(NewEventRules.resolve(d, calendar: cal))
-        let ics = ICSFile.make(uid: "u", draft: d, time: time, stamp: date(2026, 11, 16), calendar: cal)
-        XCTAssertTrue(ics.contains("DTSTART;VALUE=DATE:20261205\r\n"))
-        XCTAssertTrue(ics.contains("DTEND;VALUE=DATE:20261210\r\n"))
+        let url = try XCTUnwrap(GoogleCalendarLink.make(draft: d, time: time, calendar: cal))
+        XCTAssertTrue(url.absoluteString.contains("dates=20261205/20261210"))
+        XCTAssertFalse(url.absoluteString.contains("recur="))
     }
 
-    func testICSFoldsLongLinesWithoutSplittingCharacters() {
-        let long = "SUMMARY:" + String(repeating: "蒜", count: 60)
-        let folded = ICSFile.fold(long).components(separatedBy: "\r\n")
-        XCTAssertGreaterThan(folded.count, 1)
-        for (index, line) in folded.enumerated() {
-            XCTAssertLessThanOrEqual(line.utf8.count, 75)
-            if index > 0 { XCTAssertTrue(line.hasPrefix(" ")) }
-        }
-        XCTAssertEqual(folded.map { $0.hasPrefix(" ") ? String($0.dropFirst()) : $0 }.joined(), long)
-        XCTAssertEqual(ICSFile.fileName(title: " 開會/討論: A "), "開會_討論_ A.ics")
-        XCTAssertEqual(ICSFile.fileName(title: "  "), "行程.ics")
+    func testShareMessageEndsWithGoogleLink() {
+        var d = draft(date(2026, 11, 18), start: 12 * 60)
+        d.title = "上架行事曆app"
+        let text = ShareMessage.text(d, calendar: cal)
+        XCTAssertTrue(text.hasPrefix("上架行事曆app\n11月18日 週三 下午 12:00 – 1:00\n\n加到 Google 日曆：\nhttps://calendar.google.com/calendar/render?action=TEMPLATE"))
     }
 
     func testLastEventCalendarRoundTripsAndOldSettingsStillLoad() throws {

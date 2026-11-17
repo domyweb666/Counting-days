@@ -8,6 +8,8 @@ struct CalendarActions {
     var shortName: (CalEvent) -> Void
     /// 碰到要完整版才能用的東西，請畫面打開「完整版」頁
     var needFullVersion: (FullVersionReason) -> Void
+    /// 長按選單的「分享」：打開 iPhone 的分享面板，送出時間標題加 Google 日曆連結
+    var share: (CalEvent) -> Void = { _ in }
 }
 
 /// 日期數字：今天是產品色實心圓，被選的有產品色外框

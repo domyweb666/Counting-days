@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>清單樣式預覽</title>
+<style>
+  :root {
+    --bg: #F2F2F5; --card: #FFFFFF; --ink: #1C1C1E; --sub: #6B6B70; --sep: #E4E1DA;
+    --accent: #4E6B55; --cat: #6E5E8E; --on: #FFFFFF; --muted: #E9E7EE; --page: #DCDCE0;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); font-family: -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; color: var(--ink); }
+  .wrap { display: flex; gap: 32px; flex-wrap: wrap; justify-content: center; padding: 24px 16px; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .tag { font-size: 15px; font-weight: 700; }
+  .tag small { display: block; font-weight: 400; color: var(--sub); font-size: 13px; margin-top: 2px; text-align: center; }
+  .phone { width: 390px; max-width: 100%; background: var(--bg); border-radius: 36px; padding: 20px 20px 28px; box-shadow: 0 6px 24px rgba(0,0,0,.12); }
+  .done { display: flex; justify-content: flex-end; }
+  .done span { background: var(--card); border-radius: 999px; padding: 8px 18px; color: var(--accent); font-weight: 600; font-size: 17px; }
+  h1 { font-size: 34px; margin: 10px 0 16px; }
+  .cap { text-align: right; font-size: 12px; color: var(--sub); margin-top: 4px; }
+
+  /* 小月曆一列 */
+  .week { background: var(--card); border-radius: 20px; padding: 10px 6px; display: grid; grid-template-columns: repeat(7, 1fr); }
+  .cell { height: 36px; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 15px; position: relative; }
+  .cell .chip { position: absolute; inset: 0; margin: 0 auto; width: 36px; border-radius: 10px; background: var(--cat); }
+  .cell.band .chip { width: auto; border-radius: 0; }
+  .cell.band.first .chip { border-radius: 10px 0 0 10px; }
+  .cell.band.last .chip { border-radius: 0 10px 10px 0; }
+  .cell b { position: relative; color: var(--on); }
+  .cell.plain b { color: var(--ink); }
+  .cell.today::after { content: ""; position: absolute; width: 36px; height: 36px; border-radius: 50%; border: 2.5px solid var(--accent); left: 50%; transform: translateX(-50%); }
+
+  /* 接下來 */
+  .next { font-size: 17px; font-weight: 700; margin: 12px 4px 8px; }
+  .cards { display: flex; flex-direction: column; gap: 8px; }
+  .up { background: var(--card); border-radius: 20px; padding: 10px 14px; display: flex; align-items: center; gap: 12px; }
+  .blk { width: 48px; height: 48px; border-radius: 10px; background: var(--cat); color: var(--on); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; flex: none; }
+  .blk .big { font-size: 20px; font-weight: 700; }
+  .blk .big.md { font-size: 14px; }
+  .blk .small { font-size: 11px; }
+  .txt { flex: 1; min-width: 0; }
+  .txt .t { font-size: 16px; font-weight: 600; }
+  .txt .s { font-size: 13px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .away { font-size: 14px; color: var(--sub); flex: none; }
+  .fade { position: relative; }
+  .fade::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 36px; background: linear-gradient(transparent, var(--bg)); pointer-events: none; }
+  .compact .up { padding: 8px 12px; }
+  .compact .blk { width: 40px; height: 40px; }
+  .compact .blk .big { font-size: 17px; }
+
+  /* 選項 */
+  .opts { background: var(--card); border-radius: 20px; padding: 4px 16px; margin-top: 18px; }
+  .opt { padding: 12px 0; border-bottom: 1px solid var(--sep); display: flex; align-items: center; gap: 8px; }
+  .opt:last-child { border-bottom: 0; }
+  .opt div { flex: 1; }
+  .opt b { font-size: 18px; display: block; }
+  .opt span { font-size: 15px; color: var(--sub); }
+  .opt i { color: var(--accent); font-style: normal; font-size: 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- A -->
+  <div class="col">
+    <div class="tag">A：三張卡（推薦）<small>跟真的清單模式一樣大，一眼看出「下面是一串行程」</small></div>
+    <div class="phone">
+      <div class="done"><span>完成</span></div>
+      <h1>月曆樣式</h1>
+      <div class="week">
+        <div class="cell today"><span class="chip"></span><b>18</b></div>
+        <div class="cell plain"><b>19</b></div>
+        <div class="cell"><span class="chip"></span><b>20</b></div>
+        <div class="cell band first"><span class="chip"></span><b>21</b></div>
+        <div class="cell band"><span class="chip"></span><b>22</b></div>
+        <div class="cell band last"><span class="chip"></span><b>23</b></div>
+        <div class="cell"><span class="chip"></span><b>24</b></div>
+      </div>
+      <div class="next">接下來</div>
+      <div class="cards fade">
+        <div class="up"><div class="blk"><span class="big">18</span><span class="small">週三</span></div>
+          <div class="txt"><div class="t">錄影</div><div class="s">還有 回覆合作信</div></div><div class="away">今天</div></div>
+        <div class="up"><div class="blk"><span class="big">20</span><span class="small">週五</span></div>
+          <div class="txt"><div class="t">牙醫</div></div><div class="away">後天</div></div>
+        <div class="up"><div class="blk"><span class="big md">11/21</span><span class="small">到 11/23</span></div>
+          <div class="txt"><div class="t">台南行</div><div class="s">3 天</div></div><div class="away">3 天後</div></div>
+      </div>
+      <div class="cap">範例行程</div>
+      <div class="opts">
+        <div class="opt"><div><b>彈性週</b><span>每件事都寫出來，那一週跟著長高。</span></div></div>
+        <div class="opt"><div><b>清單</b><span>小月曆用顏色標出哪天有事，下面列出接下來的行程。</span></div><i>✓</i></div>
+        <div class="opt"><div><b>週條</b><span>沒事的日子縮窄，有事的撐開。</span></div></div>
+        <div class="opt"><div><b>主事件</b><span>每天只寫最重要的一件，其他用小色塊。</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- B -->
+  <div class="col">
+    <div class="tag">B：兩張小卡<small>預覽比較矮，下面的選項不用捲就看得到</small></div>
+    <div class="phone">
+      <div class="done"><span>完成</span></div>
+      <h1>月曆樣式</h1>
+      <div class="week">
+        <div class="cell today"><span class="chip"></span><b>18</b></div>
+        <div class="cell plain"><b>19</b></div>
+        <div class="cell"><span class="chip"></span><b>20</b></div>
+        <div class="cell band first"><span class="chip"></span><b>21</b></div>
+        <div class="cell band"><span class="chip"></span><b>22</b></div>
+        <div class="cell band last"><span class="chip"></span><b>23</b></div>
+        <div class="cell"><span class="chip"></span><b>24</b></div>
+      </div>
+      <div class="next">接下來</div>
+      <div class="cards compact fade">
+        <div class="up"><div class="blk"><span class="big">18</span><span class="small">週三</span></div>
+          <div class="txt"><div class="t">錄影</div><div class="s">還有 回覆合作信</div></div><div class="away">今天</div></div>
+        <div class="up"><div class="blk"><span class="big">20</span><span class="small">週五</span></div>
+          <div class="txt"><div class="t">牙醫</div></div><div class="away">後天</div></div>
+      </div>
+      <div class="cap">範例行程</div>
+      <div class="opts">
+        <div class="opt"><div><b>彈性週</b><span>每件事都寫出來，那一週跟著長高。</span></div></div>
+        <div class="opt"><div><b>清單</b><span>小月曆用顏色標出哪天有事，下面列出接下來的行程。</span></div><i>✓</i></div>
+        <div class="opt"><div><b>週條</b><span>沒事的日子縮窄，有事的撐開。</span></div></div>
+        <div class="opt"><div><b>主事件</b><span>每天只寫最重要的一件，其他用小色塊。</span></div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

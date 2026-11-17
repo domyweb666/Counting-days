@@ -751,15 +751,25 @@ struct DisplayModeSettingsScreen: View {
             case .strips:
                 StripWeek(vm: app.vm, week: week, actions: noActions)
             case .list:
-                // 清單樣式是小月曆加下面的行程卡，這裡只畫小月曆的一列
-                HStack(spacing: 0) {
-                    ForEach(Array(week.days.enumerated()), id: \.element.id) { col, day in
-                        MiniCell(vm: app.vm, week: week, col: col, day: day)
-                            .frame(maxWidth: .infinity)
+                // 清單樣式是小月曆加下面的行程卡：畫小月曆的一列，再接三張「接下來」
+                VStack(alignment: .leading, spacing: DT.Space.s2) {
+                    HStack(spacing: 0) {
+                        ForEach(Array(week.days.enumerated()), id: \.element.id) { col, day in
+                            MiniCell(vm: app.vm, week: week, col: col, day: day)
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .padding(.vertical, DT.Space.s3)
+                    .background(RoundedRectangle(cornerRadius: DT.Radius.xl).fill(Theme.card))
+                    Text("接下來")
+                        .dFont(DT.TypeScale.headline)
+                        .foregroundStyle(Theme.ink)
+                        .padding(.top, DT.Space.s1)
+                        .padding(.horizontal, DT.Space.s1)
+                    ForEach(app.vm.themePreviewUpcoming(in: week)) { card in
+                        UpcomingCardView(vm: app.vm, card: card)
                     }
                 }
-                .padding(.vertical, DT.Space.s3)
-                .background(RoundedRectangle(cornerRadius: DT.Radius.xl).fill(Theme.card))
             }
             Text("範例行程")
                 .dFont(DT.TypeScale.caption)
