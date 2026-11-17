@@ -1112,4 +1112,35 @@ final class CalendarCoreTests: XCTestCase {
         let empty = WidgetRules.today(events: [], now: date(2026, 11, 18, 0, 0), calendar: cal, settings: settings)
         XCTAssertEqual(empty, WidgetToday(rows: [], moreCount: 0))
     }
+
+    func testLoopWheelWrapsAroundBothEnds() {
+        // 小時：23 的下一列是 0，0 的上一列是 23
+        let at23 = LoopWheelRules.middleRow(index: 23, count: 24)
+        XCTAssertEqual(LoopWheelRules.index(ofRow: at23, count: 24), 23)
+        XCTAssertEqual(LoopWheelRules.index(ofRow: at23 + 1, count: 24), 0)
+        let at0 = LoopWheelRules.middleRow(index: 0, count: 24)
+        XCTAssertEqual(LoopWheelRules.index(ofRow: at0 - 1, count: 24), 23)
+        // 分鐘：59 的下一列是 0
+        let at59 = LoopWheelRules.middleRow(index: 59, count: 60)
+        XCTAssertEqual(LoopWheelRules.index(ofRow: at59 + 1, count: 60), 0)
+        // 打開時上下都還有很多列
+        XCTAssertGreaterThan(at0, 24 * 5)
+        XCTAssertLessThan(at23, LoopWheelRules.rowCount(24) - 24 * 5)
+    }
+
+    func testLoopWheelTurnsTheShortWayWhenValueChangesOutside() {
+        let at23 = LoopWheelRules.middleRow(index: 23, count: 24)
+        // 23 點變 0 點：往下一格，不是往回轉 23 格
+        XCTAssertEqual(LoopWheelRules.nearestRow(toIndex: 0, from: at23, count: 24), at23 + 1)
+        // 0 點變 22 點：往上兩格
+        let at0 = LoopWheelRules.middleRow(index: 0, count: 24)
+        XCTAssertEqual(LoopWheelRules.nearestRow(toIndex: 22, from: at0, count: 24), at0 - 2)
+        // 沒變就不動
+        XCTAssertEqual(LoopWheelRules.nearestRow(toIndex: 23, from: at23, count: 24), at23)
+        // 已經在長條最尾巴還要往下：回中間那一輪
+        let last = LoopWheelRules.rowCount(24) - 1
+        XCTAssertEqual(LoopWheelRules.nearestRow(toIndex: 0, from: last, count: 24), LoopWheelRules.middleRow(index: 0, count: 24))
+        // 最頭還要往上也一樣
+        XCTAssertEqual(LoopWheelRules.nearestRow(toIndex: 23, from: 0, count: 24), LoopWheelRules.middleRow(index: 23, count: 24))
+    }
 }

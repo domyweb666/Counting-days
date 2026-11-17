@@ -149,12 +149,7 @@ struct SettingsScreen: View {
                 }
             }
         )
-        return SectionCard(
-            title: "一般",
-            footer: usesDevice
-                ? "月曆跟著 iPhone 的時區。出國時想照家裡的時間看行程，可以關掉自己選。"
-                : "月曆照選的時區排日期和時間。新增、修改行程的畫面是 iPhone 內建的，上面的時間還是照手機的時區。"
-        ) {
+        return SectionCard(title: "一般") {
             Menu {
                 Picker(VeggieText.appearance, selection: $appearance) {
                     ForEach(Appearance.allCases) { option in
@@ -198,12 +193,7 @@ struct SettingsScreen: View {
         let city = WeatherCity.find(settings.value.weatherCityID)
         let weather = app.weather
         let today = app.forecast(for: app.vm.today)
-        return SectionCard(
-            title: "天氣",
-            footer: enabled && city == nil
-                ? "選一個縣市才會顯示天氣。"
-                : "打開後，蒜日子會連網向 Apple 天氣查你選的縣市未來十天的預報。只送縣市，不送行程。"
-        ) {
+        return SectionCard(title: "天氣") {
             SettingsRow(label: "顯示天氣", icon: "cloud.sun") {
                 Toggle("顯示天氣", isOn: settings.binding(\.weatherEnabled))
                     .labelsHidden()
@@ -291,10 +281,7 @@ struct SettingsScreen: View {
     /// 行事曆的事（加入、移除、排順序、節日與預設類別、建立新的）都收在第二頁，這裡只留一列入口
     private var calendarSection: some View {
         let count = app.vm.shownCalendars.count
-        return SectionCard(
-            title: "行事曆",
-            footer: "加入、移除、排順序，或指定哪一本是節日、預設歸哪一類。這些都只改蒜日子的顯示方式，不會動到系統行事曆。"
-        ) {
+        return SectionCard(title: "行事曆") {
             Button {
                 showManageCalendars = true
             } label: {
@@ -310,7 +297,7 @@ struct SettingsScreen: View {
     // MARK: 類別（收在第二頁）
 
     private var categoryLink: some View {
-        SectionCard(footer: "改類別的名稱、顏色，或指定哪一類優先當主事件。") {
+        SectionCard {
             Button {
                 showCategories = true
             } label: {
@@ -347,11 +334,10 @@ struct SettingsScreen: View {
         }
     }
 
-    private var countdownFooter: String {
-        let base = "在某一天的時間表裡長按行程，可以加入倒數日。"
-        // 退款之後超過上限的不刪，只是月曆上先不顯示
-        guard settings.visibleCountdowns.count < settings.value.countdowns.count else { return base }
-        return base + "免費版在月曆上只顯示最上面 \(FullVersionAccess.freeCountdownLimit) 個，其餘留在這裡，解鎖完整版後會回來。"
+    /// 平常不放說明。只有退款之後超過上限、月曆上少了幾個的時候，才講它們去哪了
+    private var countdownFooter: String? {
+        guard settings.visibleCountdowns.count < settings.value.countdowns.count else { return nil }
+        return "免費版在月曆上只顯示最上面 \(FullVersionAccess.freeCountdownLimit) 個，其餘留在這裡，解鎖完整版後會回來。"
     }
 
     // MARK: 購買
@@ -1149,12 +1135,6 @@ struct ManageCalendarsScreen: View {
             .accessibilityAddTraits(.isHeader)
     }
 
-    private func sectionFooter(_ text: String) -> some View {
-        Text(text)
-            .dFont(DT.TypeScale.footnote)
-            .foregroundStyle(Theme.sub)
-    }
-
     /// 色點、名稱、底下一行帳號
     private func nameBlock(_ cal: EKCalendar) -> some View {
         HStack(spacing: DT.Space.s3) {
@@ -1211,8 +1191,6 @@ struct ManageCalendarsScreen: View {
             }
         } header: {
             sectionTitle("已加入的")
-        } footer: {
-            sectionFooter("按住右邊的三條線上下拖可以排順序：開始時間一樣的行程，排前面的行事曆會顯示在上面。紅色減號是從蒜日子移除，系統行事曆裡還在，下面可以加回來。膠囊是這本行事曆的預設類別，選「節日」就變成日期下的小字；行程自己選過類別的，照它自己的。")
         }
     }
 
@@ -1246,8 +1224,6 @@ struct ManageCalendarsScreen: View {
             }
         } header: {
             sectionTitle("手機上還沒加入的")
-        } footer: {
-            sectionFooter("訂閱行事曆和節日行事曆要到 iPhone 的「行事曆」app 加。加好之後回到蒜日子，它會自動出現在上面。")
         }
     }
 
@@ -1290,13 +1266,11 @@ struct ManageCalendarsScreen: View {
         } header: {
             sectionTitle("建立新的行事曆")
         } footer: {
-            VStack(alignment: .leading, spacing: DT.Space.s2) {
-                if let createMessage {
-                    Text(createMessage)
-                        .dFont(DT.TypeScale.footnote)
-                        .foregroundStyle(createFailed ? Theme.destructive : Theme.strong)
-                }
-                sectionFooter("會寫進 iPhone 的行事曆：有開 iCloud 行事曆就放在 iCloud，沒有就放在這支手機上。之後要刪掉它，得到 iPhone 的行事曆 app 刪。")
+            // 只留建立之後的結果（成功或原因），沒有常駐的說明
+            if let createMessage {
+                Text(createMessage)
+                    .dFont(DT.TypeScale.footnote)
+                    .foregroundStyle(createFailed ? Theme.destructive : Theme.strong)
             }
         }
     }

@@ -741,3 +741,34 @@ public enum ICSFile {
         return four(c.year ?? 0) + two(c.month ?? 0) + two(c.day ?? 0)
     }
 }
+
+/// 循環滾輪：同一組數字重複很多輪排成一長條，打開時停在中間那一輪，所以 23 下面是 0、59 下面是 00，往上往下都滾得下去。
+public enum LoopWheelRules {
+    /// 重複幾輪。打開時在正中間，往上、往下各有一半可以滾
+    public static let laps = 20
+
+    public static func rowCount(_ count: Int) -> Int { count * laps }
+
+    /// 中間那一輪裡、第 `index` 個數字的那一列
+    public static func middleRow(index: Int, count: Int) -> Int {
+        (laps / 2) * count + index
+    }
+
+    /// 這一列上是第幾個數字
+    public static func index(ofRow row: Int, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        return ((row % count) + count) % count
+    }
+
+    /// 數字從外面被改掉時（例如點了「1 小時」），滾輪要轉到哪一列：離現在這一列最近的那個。
+    /// 快滾到長條的頭或尾了就回中間那一輪。
+    public static func nearestRow(toIndex target: Int, from row: Int, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        var delta = target - index(ofRow: row, count: count)
+        if delta > count / 2 { delta -= count }
+        if delta < -(count / 2) { delta += count }
+        let next = row + delta
+        guard next >= 0, next < rowCount(count) else { return middleRow(index: target, count: count) }
+        return next
+    }
+}

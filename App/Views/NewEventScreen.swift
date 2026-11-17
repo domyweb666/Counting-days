@@ -40,7 +40,6 @@ struct NewEventScreen: View {
     /// 重複的行程：存檔前問只改這一次還是連之後的；刪除前問要不要刪
     @State private var askSaveSpan = false
     @State private var askDelete = false
-    @State private var showSystemEditor = false
     /// 使用者在這一頁動過「倒數」那一顆之後想要的樣子；nil 是沒動過，照原本的
     @State private var wantsCountdown: Bool?
     @FocusState private var focus: Field?
@@ -344,7 +343,7 @@ struct NewEventScreen: View {
         saveEdit(editing, time: time, allFuture: allFuture)
     }
 
-    // MARK: 編輯時最下面：刪除、改開系統的畫面
+    // MARK: 編輯時最下面：刪除
 
     private func editFooter(_ event: EKEvent) -> some View {
         VStack(alignment: .leading, spacing: DT.Space.s2) {
@@ -371,27 +370,6 @@ struct NewEventScreen: View {
                     Button("刪除", role: .destructive) { delete(event, allFuture: false) }
                 }
                 Button("不刪", role: .cancel) {}
-            }
-            Button {
-                showSystemEditor = true
-            } label: {
-                Text("邀請對象、網址這些欄位，改用 iPhone 內建的畫面編輯")
-                    .dFont(DT.TypeScale.footnote)
-                    .foregroundStyle(Theme.sub)
-                    .underline()
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, minHeight: DT.Size.touch, alignment: .leading)
-                    .padding(.horizontal, DT.Space.s1)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(PressStyle())
-            .sheet(isPresented: $showSystemEditor) {
-                // 內建畫面存完，這張表單上的內容就是舊的了，所以一起關掉
-                EventEditor(store: app.store, event: event, defaultDay: draft.day, calendar: calendar) {
-                    showSystemEditor = false
-                    close()
-                }
-                .ignoresSafeArea()
             }
         }
         .padding(.top, DT.Space.s2)
@@ -663,6 +641,7 @@ struct NewEventScreen: View {
     }
 
     /// 兩個滾輪：幾點（0 到 23）、幾分（0 到 59）。系統的時間滾輪會帶「上午、下午」這些字，所以自己排。
+    /// 兩個都是循環的：23 下面是 0，59 下面是 00。
     private func wheels(_ field: TimeField) -> some View {
         let minutes = field == .start ? draft.startMinutes : NewEventRules.endClock(draft, calendar: calendar)
         let hour = Binding<Int>(
@@ -674,21 +653,15 @@ struct NewEventScreen: View {
             set: { setClock(field, hour: minutes / 60, minute: $0) }
         )
         return HStack(spacing: 0) {
-            Picker("幾點", selection: hour) {
-                ForEach(0..<24, id: \.self) { value in
-                    Text(verbatim: "\(value)").tag(value)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .clipped()
+            LoopWheel(label: "幾點", values: Array(0..<24), selection: hour) { "\($0)" }
+                .frame(maxWidth: .infinity)
+                .clipped()
             Text(verbatim: ":")
                 .dFont(DT.TypeScale.title3)
                 .foregroundStyle(Theme.ink)
                 .accessibilityHidden(true)
-            Picker("幾分", selection: minute) {
-                ForEach(minuteOptions(including: minutes % 60), id: \.self) { value in
-                    Text(verbatim: value < 10 ? "0\(value)" : "\(value)").tag(value)
-                }
+            LoopWheel(label: "幾分", values: minuteOptions(including: minutes % 60), selection: minute) {
+                $0 < 10 ? "0\($0)" : "\($0)"
             }
             .frame(maxWidth: .infinity)
             .clipped()
@@ -1368,6 +1341,58 @@ struct NewEventSavedView: View {
         }
         message = nil
         sharing = SharePayload(text: shareText, file: file)
+    }
+}
+
+/// 循環的滾輪：同一組數字重複很多輪，打開時停在中間那一輪，所以滾過最後一個會接回第一個。
+/// 哪一列對到哪個數字、數字從外面被改掉時要轉去哪一列，都在 `LoopWheelRules`。
+private struct LoopWheel: View {
+    let label: String
+    let values: [Int]
+    @Binding var selection: Int
+    let text: (Int) -> String
+
+    /// 滾輪現在停在長條上的第幾列
+    @State private var row: Int
+
+    init(label: String, values: [Int], selection: Binding<Int>, text: @escaping (Int) -> String) {
+        self.label = label
+        self.values = values
+        _selection = selection
+        self.text = text
+        let index = values.firstIndex(of: selection.wrappedValue) ?? 0
+        _row = State(initialValue: LoopWheelRules.middleRow(index: index, count: values.count))
+    }
+
+    var body: some View {
+        let count = values.count
+        let rowBinding = Binding<Int>(
+            get: { row },
+            set: { next in
+                row = next
+                selection = values[LoopWheelRules.index(ofRow: next, count: count)]
+            }
+        )
+        return Picker(label, selection: rowBinding) {
+            ForEach(0..<LoopWheelRules.rowCount(count), id: \.self) { item in
+                Text(verbatim: text(values[LoopWheelRules.index(ofRow: item, count: count)])).tag(item)
+            }
+        }
+        // 數字從外面被改掉（點了「1 小時」、開始時間推著結束走）：轉到最近的那一列
+        .onChange(of: selection) { _, value in
+            follow(value)
+        }
+        // 格子的數量變了，原本的列數對不上，回中間重排
+        .onChange(of: count) { _, _ in
+            let index = values.firstIndex(of: selection) ?? 0
+            row = LoopWheelRules.middleRow(index: index, count: values.count)
+        }
+    }
+
+    private func follow(_ value: Int) {
+        guard let index = values.firstIndex(of: value) else { return }
+        let next = LoopWheelRules.nearestRow(toIndex: index, from: row, count: values.count)
+        if next != row { row = next }
     }
 }
 
