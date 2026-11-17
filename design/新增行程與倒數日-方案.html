@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>新增行程與倒數日 方案</title>
+<style>
+  :root {
+    --bg: #F3F3F5; --card: #FFFFFF; --ink: #1C1C1E; --sub: #6A6A70; --ter: #B4B4BA;
+    --sep: #E5E1D8; --accent: #4F6B57; --strong: #3F5746; --soft: #E3ECE5;
+    --blue: #4A6A8F; --page: #D9D9DE; --kb: #CDD0D6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px 64px; background: var(--page); color: var(--ink);
+    font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  }
+  main { max-width: 1240px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 36px 0 6px; }
+  h1:first-child { margin-top: 0; }
+  .lead { font-size: 15px; line-height: 1.7; color: #3a3a3e; max-width: 860px; margin: 0 0 18px; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+  figure { margin: 0; width: 340px; max-width: 100%; }
+  figcaption { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .desc { font-size: 13.5px; line-height: 1.6; color: #44444a; margin: 0 0 10px; min-height: 66px; }
+  .rec { display: inline-block; background: var(--accent); color: #fff; font-size: 12px; padding: 2px 8px; border-radius: 999px; margin-left: 6px; vertical-align: 2px; }
+  .phone {
+    position: relative; width: 100%; height: 640px; background: var(--bg); border-radius: 32px; overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0,0,0,.18);
+  }
+  .scr { height: 100%; overflow-y: auto; padding: 14px 16px 24px; }
+  .bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .bar b { font-size: 16px; }
+  .bar .cancel { color: var(--sub); font-size: 16px; }
+  .ok { width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; }
+  .title { background: var(--card); border-radius: 14px; padding: 16px; font-size: 21px; color: var(--ter); margin-bottom: 12px; }
+  .title.filled { color: var(--ink); font-weight: 600; }
+  .lab { font-size: 12.5px; color: var(--sub); margin: 10px 4px 6px; }
+  .seg { display: flex; gap: 6px; }
+  .seg span { flex: 1; text-align: center; background: var(--card); border-radius: 999px; padding: 9px 0; font-size: 14px; font-weight: 600; white-space: nowrap; }
+  .seg .on { background: var(--accent); color: #fff; }
+  .card { background: var(--card); border-radius: 14px; padding: 10px 14px; margin-top: 10px; }
+  .time { display: flex; justify-content: space-between; align-items: center; }
+  .time small { display: block; color: var(--sub); font-size: 12px; }
+  .time b { font-size: 19px; }
+  .time em { font-style: normal; color: var(--sub); font-size: 14px; }
+  .line { display: flex; justify-content: space-between; align-items: center; min-height: 34px; font-size: 15px; }
+  .line span:first-child { color: var(--sub); }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; background: var(--blue); }
+  .cats { display: flex; gap: 6px; overflow: hidden; }
+  .cats span { background: var(--card); border-radius: 999px; padding: 9px 12px; font-size: 14px; white-space: nowrap; }
+  .cats .on { background: var(--soft); color: var(--strong); outline: 1.5px solid var(--accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .chips.tight { flex-wrap: nowrap; gap: 4px; }
+  .chip { border: 1px dashed var(--ter); color: var(--sub); border-radius: 999px; padding: 8px 12px; font-size: 14px; white-space: nowrap; }
+  .chips.tight .chip { flex: 1; padding: 8px 0; text-align: center; font-size: 11.5px; }
+  .chip.set { border: 1px solid transparent; background: var(--soft); color: var(--strong); font-weight: 600; }
+  .chip.val { border: 1px solid transparent; background: var(--card); color: var(--ink); }
+  .chip.open { outline: 2px solid var(--accent); }
+  .field { display: flex; gap: 10px; align-items: center; font-size: 16px; min-height: 40px; }
+  .field i { font-style: normal; color: var(--strong); width: 20px; text-align: center; }
+  .field + .field { border-top: 1px solid var(--sep); }
+  .ph { color: var(--ter); }
+  .caret { display: inline-block; width: 2px; height: 20px; background: var(--accent); vertical-align: -4px; }
+  .kb { position: absolute; left: 0; right: 0; bottom: 0; height: 250px; background: var(--kb); display: grid; place-items: center; color: #777; font-size: 14px; }
+  .hidden-note { position: absolute; left: 12px; right: 12px; bottom: 258px; background: #2b2b2e; color: #fff; font-size: 12.5px; padding: 6px 10px; border-radius: 8px; text-align: center; }
+
+  /* 倒數日 */
+  .cal-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .round { width: 40px; height: 40px; border-radius: 50%; background: var(--card); display: grid; place-items: center; color: var(--accent); font-weight: 700; flex: none; position: relative; }
+  .cal-head .m { font-size: 28px; font-weight: 800; }
+  .cal-head .y { color: var(--sub); font-size: 15px; flex: 1; }
+  .today { background: var(--card); color: var(--strong); font-weight: 700; padding: 9px 16px; border-radius: 999px; }
+  .badge { position: absolute; top: -4px; right: -6px; background: var(--accent); color: #fff; font-size: 11px; min-width: 18px; height: 18px; border-radius: 9px; display: grid; place-items: center; padding: 0 4px; }
+  .strip { display: flex; gap: 8px; margin-bottom: 10px; }
+  .strip.scroll { overflow-x: auto; scrollbar-width: none; margin-right: -16px; padding-right: 16px; }
+  .strip.wrapit { flex-wrap: wrap; }
+  .cd { background: var(--card); border-radius: 999px; padding: 9px 14px; font-size: 15px; white-space: nowrap; flex: none; cursor: default; }
+  .cd b { color: var(--strong); margin-left: 4px; }
+  .cd.more { background: var(--soft); color: var(--strong); font-weight: 700; cursor: pointer; }
+  .week { background: var(--card); border-radius: 16px; padding: 10px 8px; margin-bottom: 8px; display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; row-gap: 6px; }
+  .week div { font-weight: 700; font-size: 16px; }
+  .week small { display: block; font-weight: 400; font-size: 10px; color: var(--sub); }
+  .week .ev { grid-column: span 2; background: var(--blue); color: #fff; border-radius: 8px; font-size: 13px; padding: 5px 0; margin: 0 3px; }
+  .dow { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; color: var(--sub); font-size: 13px; margin-bottom: 6px; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; top: 150px; background: var(--bg); border-radius: 24px 24px 0 0; box-shadow: 0 -6px 24px rgba(0,0,0,.2); padding: 14px 16px; overflow-y: auto; display: none; }
+  .sheet.show { display: block; }
+  .sheet h3 { margin: 0 0 10px; font-size: 20px; display: flex; justify-content: space-between; align-items: center; }
+  .sheet h3 span { font-size: 14px; color: var(--strong); background: var(--card); padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+  .li { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 16px; }
+  .li + .li { border-top: 1px solid var(--sep); }
+  .li span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .li b { color: var(--strong); white-space: nowrap; }
+  .li small { color: var(--sub); white-space: nowrap; }
+  .tap { font-size: 12px; color: #6a6a70; margin-top: 6px; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>一、新增行程：只留每次都會填的</h1>
+<p class="lead">參考檔的做法：標題、日期、時間一直在；其餘每一樣是一顆「+ 什麼」的膠囊，點了才在下面長出那一格，填好之後膠囊變成實心、直接寫出填了什麼。下面中間、右邊兩張是照這個做法套到蒜日子的樣子。行事曆和類別每次都有預設值，所以也收成膠囊，膠囊上直接寫現在的值。</p>
+<div class="wrap">
+  <figure>
+    <figcaption>現在</figcaption>
+    <p class="desc">九塊東西一次攤開。鍵盤一升起來，類別以下都被蓋住，選項那一列要自己往上捲才看得到。</p>
+    <div class="phone"><div class="scr">
+      <div class="bar"><span class="cancel">取消</span><b>新增行程</b><span class="ok">✓</span></div>
+      <div class="title">要做什麼？</div>
+      <div class="lab">哪一天</div>
+      <div class="seg"><span class="on">今天</span><span>明天</span><span>後天</span><span>其他</span></div>
+      <div class="lab">多久</div>
+      <div class="seg"><span>30 分</span><span class="on">1 小時</span><span>2 小時</span><span>整日</span><span>多天</span></div>
+      <div class="card time"><div><small>11月17日 週二</small><b>下午 5:00 – 6:00</b></div><em>改時間</em></div>
+      <div class="card line"><span>行事曆</span><span><i class="dot"></i>charlie81…mail.com ⌄</span></div>
+      <div class="lab">類別</div>
+      <div class="cats"><span>工作</span><span class="on">行程</span><span>看診</span><span>娛樂</span></div>
+      <div class="chips tight"><span class="chip">提醒</span><span class="chip">重複</span><span class="chip">地點</span><span class="chip">備註</span><span class="chip">分享</span></div>
+    </div>
+    <div class="hidden-note">鍵盤以下這一段看不到</div>
+    <div class="kb">鍵盤</div></div>
+  </figure>
+
+  <figure>
+    <figcaption>建議：剛打開 <span class="rec">推薦</span></figcaption>
+    <p class="desc">只有標題、哪一天、多久、時間。下面兩列膠囊：有預設值的寫出現在的值，沒填的寫「+ 什麼」。鍵盤開著也全部看得到。</p>
+    <div class="phone"><div class="scr">
+      <div class="bar"><span class="cancel">取消</span><b>新增行程</b><span class="ok">✓</span></div>
+      <div class="title">要做什麼？<span class="caret"></span></div>
+      <div class="seg"><span class="on">今天</span><span>明天</span><span>後天</span><span>其他</span></div>
+      <div class="seg" style="margin-top:8px"><span>30 分</span><span class="on">1 小時</span><span>2 小時</span><span>整日</span><span>多天</span></div>
+      <div class="card time"><div><small>11月17日 週二</small><b>下午 5:00 – 6:00</b></div><em>改時間</em></div>
+      <div class="chips">
+        <span class="chip val"><i class="dot"></i>charlie81…</span>
+        <span class="chip val"><i class="dot"></i>行程</span>
+        <span class="chip">+ 提醒</span><span class="chip">+ 重複</span><span class="chip">+ 地點</span>
+        <span class="chip">+ 備註</span><span class="chip">+ 倒數日</span><span class="chip">+ 分享</span>
+      </div>
+    </div>
+    <div class="kb">鍵盤</div></div>
+  </figure>
+
+  <figure>
+    <figcaption>建議：點了幾顆之後</figcaption>
+    <p class="desc">設好的變實心、寫出內容（「30 分鐘前」「每週」）。點「+ 地點」在膠囊下面長出那一格，游標直接進去，畫面自動捲到看得到。</p>
+    <div class="phone"><div class="scr">
+      <div class="bar"><span class="cancel">取消</span><b>新增行程</b><span class="ok">✓</span></div>
+      <div class="title filled">牙齒回診</div>
+      <div class="seg"><span>今天</span><span>明天</span><span>後天</span><span class="on">11/26</span></div>
+      <div class="seg" style="margin-top:8px"><span>30 分</span><span class="on">1 小時</span><span>2 小時</span><span>整日</span><span>多天</span></div>
+      <div class="card time"><div><small>11月26日 週四</small><b>下午 5:00 – 6:00</b></div><em>改時間</em></div>
+      <div class="chips">
+        <span class="chip val"><i class="dot"></i>charlie81…</span>
+        <span class="chip val"><i class="dot" style="background:#B5503B"></i>看診</span>
+        <span class="chip set">30 分鐘前</span><span class="chip set">每週</span><span class="chip set open">地點</span>
+        <span class="chip">+ 備註</span><span class="chip set">倒數日</span><span class="chip">+ 分享</span>
+      </div>
+      <div class="card">
+        <div class="field"><i>⌖</i><span class="ph"><span class="caret"></span> 地點</span></div>
+      </div>
+    </div>
+    <div class="kb">鍵盤</div></div>
+  </figure>
+</div>
+
+<h1>二、倒數日有 10 個的時候</h1>
+<p class="lead">現在是一列橫著排、可以往右滑，沒有上限也沒有提示，第三個以後要滑才看得到。下面四種做法用同一組 10 個倒數日畫，都照「剩幾天」由近到遠排。B、C、D 可以點點看。</p>
+<div class="wrap" id="cd"></div>
+
+</main>
+<script>
+(function () {
+  var items = [
+    ['牙齒', 9], ['填寫韓國入境申請', 13], ['去韓國', 14], ['報稅截止', 20], ['媽媽生日', 27],
+    ['課程開賣', 33], ['跨年', 44], ['護照到期', 61], ['結婚紀念日', 88], ['演唱會', 120]
+  ];
+  function chip(it) { return '<span class="cd"><i class="dot"></i>' + it[0] + '<b>還有 ' + it[1] + ' 天</b></span>'; }
+  function head(extra) {
+    return '<div class="cal-head"><span class="round">≡</span><span class="m">11月</span><span class="y">2026</span>' + (extra || '') + '<span class="today">今天</span></div>';
+  }
+  var weeks = '<div class="dow"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>' +
+    '<div class="week"><div>15<small>初七</small></div><div>16<small>初八</small></div><div>17<small>初九</small></div><div>18<small>初十</small></div><div>19<small>十一</small></div><div>20<small>十二</small></div><div>21<small>十三</small></div><span></span><span></span><span class="ev">打籃球</span></div>' +
+    '<div class="week"><div>22<small>小雪</small></div><div>23<small>十五</small></div><div>24<small>十六</small></div><div>25<small>十七</small></div><div>26<small>十八</small></div><div>27<small>十九</small></div><div>28<small>二十</small></div><span></span><span></span><span></span><span></span><span class="ev" style="grid-column:span 1">牙齒</span></div>' +
+    '<div class="week"><div>29<small>廿一</small></div><div>30<small>廿二</small></div><div>12/1<small>廿三</small></div><div>2<small>廿四</small></div><div>3<small>廿五</small></div><div>4<small>廿六</small></div><div>5<small>廿七</small></div><span></span><span></span><span class="ev" style="grid-column:span 5">去韓國</span></div>';
+  var list = items.map(function (it) {
+    return '<div class="li"><i class="dot"></i><span>' + it[0] + '</span><b>還有 ' + it[1] + ' 天</b></div>';
+  }).join('');
+  function sheet(id) {
+    return '<div class="sheet" id="' + id + '"><h3>倒數日 <span data-close="' + id + '">完成</span></h3><div class="card">' + list + '</div></div>';
+  }
+  var figs = [
+    { t: 'A　現在的樣子（橫著滑）', d: '全部排成一列，往右滑。畫面最省，但看不出後面還有幾個，第 10 個要滑很久。',
+      b: head() + '<div class="strip scroll">' + items.map(chip).join('') + '</div>' + weeks, tap: '可以左右滑那一列' },
+    { t: 'B　放得下的放，最後一顆「還有 N 個」', rec: true, d: '一列固定，由近到遠放得下幾個放幾個，最後一顆寫還有幾個，點了打開完整清單。月曆的位置不會被擠掉。',
+      b: head() + '<div class="strip">' + chip(items[0]) + '<span class="cd more" data-open="sB">還有 9 個 ›</span></div>' + weeks + sheet('sB'), tap: '點「還有 9 個」' },
+    { t: 'C　原地展開', d: '平常跟 B 一樣一列；點「還有 N 個」就在原地往下攤開成好幾列，再點收起來。不用開另一頁，但攤開時月曆被往下推五列。',
+      b: head() + '<div class="strip wrapit" id="sC">' + chip(items[0]) + '<span class="cd more" data-expand="sC">還有 9 個 ⌄</span></div>' + weeks, tap: '點「還有 9 個」' },
+    { t: 'D　收進上面一顆按鈕', d: '月曆上面不放倒數日，標題列多一顆沙漏、角上寫幾個，點了打開清單。月曆多一列的高度，但平常一眼看不到「牙齒還有 9 天」。',
+      b: head('<span class="round" data-open="sD" style="cursor:pointer">⏳<span class="badge">10</span></span>') + weeks + sheet('sD'), tap: '點沙漏' }
+  ];
+  var host = document.getElementById('cd');
+  host.innerHTML = figs.map(function (f) {
+    return '<figure><figcaption>' + f.t + (f.rec ? ' <span class="rec">推薦</span>' : '') + '</figcaption><p class="desc">' + f.d +
+      '</p><div class="phone"><div class="scr">' + f.b + '</div></div><div class="tap">' + f.tap + '</div></figure>';
+  }).join('');
+  host.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-open],[data-close],[data-expand]');
+    if (!t) return;
+    if (t.dataset.open) document.getElementById(t.dataset.open).classList.add('show');
+    if (t.dataset.close) document.getElementById(t.dataset.close).classList.remove('show');
+    if (t.dataset.expand) {
+      var box = document.getElementById(t.dataset.expand);
+      var open = box.dataset.open === '1';
+      box.dataset.open = open ? '' : '1';
+      box.innerHTML = open
+        ? chip(items[0]) + '<span class="cd more" data-expand="sC">還有 9 個 ⌄</span>'
+        : items.map(chip).join('') + '<span class="cd more" data-expand="sC">收起來 ⌃</span>';
+    }
+  });
+})();
+</script>
+</body>
+</html>

@@ -38,6 +38,8 @@ struct NewEventScreen: View {
     @State private var askSaveSpan = false
     @State private var askDelete = false
     @State private var showSystemEditor = false
+    /// 使用者在這一頁動過「倒數」那一顆之後想要的樣子；nil 是沒動過，照原本的
+    @State private var wantsCountdown: Bool?
     @FocusState private var focus: Field?
 
     enum TimeField { case start, end }
@@ -46,6 +48,9 @@ struct NewEventScreen: View {
     /// 標題那一格的高度、滾輪的高度
     private let titleHeight: CGFloat = 64
     private let wheelHeight: CGFloat = 150
+    /// 地點、備註那一格長出來花多久；長出來之後等多久再捲過去
+    private let fieldAnimation: Double = 0.2
+    private let fieldSettleDelay: Double = 0.3
 
     init(day: Date, calendar: Calendar, close: @escaping () -> Void) {
         let first = NewEventRules.initialDraft(day: day, now: Date(), calendar: calendar)
@@ -88,7 +93,35 @@ struct NewEventScreen: View {
 
     // MARK: 狀態
 
-    private var isDirty: Bool { draft != pristine }
+    private var isDirty: Bool { draft != pristine || wantsCountdown != nil }
+
+    /// 這一筆原本是不是倒數日（新增的一定不是）
+    private var savedCountdown: Bool {
+        guard let id = editing?.eventIdentifier else { return false }
+        return app.settings.value.countdowns.contains(id)
+    }
+
+    /// 「倒數」那一顆現在亮不亮
+    private var isCountdown: Bool { wantsCountdown ?? savedCountdown }
+
+    /// 點「倒數」。沒買的人放滿之後加不進去，直接說原因，不要等存檔才發現。
+    private func toggleCountdown() {
+        let next = !isCountdown
+        if next, !savedCountdown, !app.settings.canAddCountdown {
+            problem = "免費版最多放 \(FullVersionAccess.freeCountdownLimit) 個倒數日，解鎖完整版就不限數量。"
+            return
+        }
+        problem = nil
+        wantsCountdown = next == savedCountdown ? nil : next
+    }
+
+    /// 存好之後把「倒數」那一顆寫進設定。新增的行程要存好才有識別碼，所以放在存檔之後。
+    private func applyCountdown(to event: EKEvent) {
+        guard let want = wantsCountdown, let id = event.eventIdentifier else { return }
+        if app.settings.value.countdowns.contains(id) != want {
+            _ = app.settings.toggleCountdown(id)
+        }
+    }
 
     private var canSave: Bool {
         !draft.cleanTitle.isEmpty
@@ -144,6 +177,12 @@ struct NewEventScreen: View {
                 close()
                 return
             }
+            // 只動了「倒數」：行程本身不用重存，也就不用問重複的範圍
+            if draft == pristine {
+                applyCountdown(to: editing)
+                close()
+                return
+            }
             // 重複的行程先問範圍。動了重複規則的話只能連之後的一起改，就不問了。
             if editing.hasRecurrenceRules, draft.repeats == pristine.repeats {
                 askSaveSpan = true
@@ -175,6 +214,7 @@ struct NewEventScreen: View {
         if let chosen = draft.categoryID, chosen != pristine.categoryID, let id = event.eventIdentifier {
             app.settings.update { $0.eventCategory[id] = chosen }
         }
+        applyCountdown(to: event)
         guard draft.wantsShare else {
             close()
             return
@@ -201,6 +241,22 @@ struct NewEventScreen: View {
     // MARK: 表單
 
     private var form: some View {
+        ScrollViewReader { proxy in
+            formScroll
+                .onChange(of: focus) { _, field in
+                    guard let field, field != .title else { return }
+                    // 那一格剛長出來、鍵盤也還在升。等排好再捲，不然它會停在鍵盤後面看不到。
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(fieldSettleDelay))
+                        withAnimation(.easeOut(duration: fieldAnimation)) {
+                            proxy.scrollTo(field, anchor: .bottom)
+                        }
+                    }
+                }
+        }
+    }
+
+    private var formScroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: DT.Space.s4) {
                 titleField
@@ -928,7 +984,7 @@ struct NewEventScreen: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    // MARK: 五顆選項
+    // MARK: 六顆選項
 
     /// 選項的樣子：虛線框是還沒設，實心是設了
     private func optionLabel(_ title: String, systemImage: String, isSet: Bool) -> some View {
@@ -999,9 +1055,17 @@ struct NewEventScreen: View {
                 .buttonStyle(PressStyle())
                 .accessibilityLabel("存好之後分享給別人")
                 .accessibilityAddTraits(draft.wantsShare ? .isSelected : [])
+                Button {
+                    toggleCountdown()
+                } label: {
+                    optionLabel("倒數", systemImage: "hourglass", isSet: isCountdown)
+                }
+                .buttonStyle(PressStyle())
+                .accessibilityLabel("加入倒數日")
+                .accessibilityAddTraits(isCountdown ? .isSelected : [])
             }
             if draft.reminder != nil || draft.repeats != nil || hasLocation || hasNotes
-                || keptReminderNote != nil || keptRepeatNote != nil {
+                || keptReminderNote != nil || keptRepeatNote != nil || isCountdown {
                 optionDetails(hasLocation: hasLocation, hasNotes: hasNotes)
             }
         }
@@ -1012,20 +1076,23 @@ struct NewEventScreen: View {
         switch field {
         case .location:
             if showLocation, draft.location.isEmpty {
-                showLocation = false
+                withAnimation(.easeOut(duration: fieldAnimation)) { showLocation = false }
+                if focus == .location { focus = nil }
                 return
             }
-            showLocation = true
+            withAnimation(.easeOut(duration: fieldAnimation)) { showLocation = true }
         case .notes:
             if showNotes, draft.notes.isEmpty {
-                showNotes = false
+                withAnimation(.easeOut(duration: fieldAnimation)) { showNotes = false }
+                if focus == .notes { focus = nil }
                 return
             }
-            showNotes = true
+            withAnimation(.easeOut(duration: fieldAnimation)) { showNotes = true }
         case .title:
             break
         }
-        focus = field
+        // 同一刻就把游標放進去的話，那一格還不在畫面上，游標會放不進去或跳一下
+        DispatchQueue.main.async { focus = field }
     }
 
     /// 原本的提醒、重複規則表單上沒有對應的選項時，寫一行讓人知道它還在。在選單選了別的就會換掉。
@@ -1064,6 +1131,9 @@ struct NewEventScreen: View {
             } else if let keptRepeatNote {
                 detailRow("repeat", keptRepeatNote)
             }
+            if isCountdown {
+                detailRow("hourglass", "月曆上面會倒數到這一天")
+            }
             if hasLocation {
                 HStack(spacing: DT.Space.s3) {
                     Image(systemName: "mappin.and.ellipse")
@@ -1077,6 +1147,7 @@ struct NewEventScreen: View {
                         .submitLabel(.done)
                 }
                 .frame(minHeight: DT.Size.touch)
+                .id(Field.location)
             }
             if hasNotes {
                 HStack(alignment: .top, spacing: DT.Space.s3) {
@@ -1097,6 +1168,7 @@ struct NewEventScreen: View {
                     }
                     .padding(.vertical, DT.Space.s3)
                 }
+                .id(Field.notes)
             }
         }
         .padding(.horizontal, DT.Space.s4)
