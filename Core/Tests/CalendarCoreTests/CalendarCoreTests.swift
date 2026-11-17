@@ -191,6 +191,17 @@ final class CalendarCoreTests: XCTestCase {
         XCTAssertEqual(lanes["d"], 1)
     }
 
+    func testHeadModeWritesOnlyFirstBand() {
+        // 彈性週：前兩條寫字，第三條起細線
+        XCTAssertFalse(BandStyle.isThin(lane: 0, mode: .flex))
+        XCTAssertFalse(BandStyle.isThin(lane: 1, mode: .flex))
+        XCTAssertTrue(BandStyle.isThin(lane: 2, mode: .flex))
+        // 主事件：只有第一條寫字
+        XCTAssertFalse(BandStyle.isThin(lane: 0, mode: .head))
+        XCTAssertTrue(BandStyle.isThin(lane: 1, mode: .head))
+        XCTAssertTrue(BandStyle.isThin(lane: 2, mode: .head))
+    }
+
     func testHolidayRoutineAndHiddenCalendars() {
         settings.hiddenCalendarIDs = ["X"]
         let events = [allDay("h", "行憲紀念日", date(2026, 12, 25), days: 1, cal: "H"),

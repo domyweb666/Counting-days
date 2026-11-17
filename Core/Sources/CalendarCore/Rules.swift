@@ -80,6 +80,14 @@ public enum CellText {
     }
 }
 
+/// 重疊的跨日事件，哪幾條寫字、哪幾條縮成細線。
+/// 彈性週前兩條寫字；主事件樣式只有第一條寫字，不然同一天還是會寫出好幾件。
+public enum BandStyle {
+    public static func isThin(lane: Int, mode: DisplayMode) -> Bool {
+        lane >= (mode == .head ? 1 : 2)
+    }
+}
+
 /// 每天只有一件主事件。依序比較，分出高下就停：
 /// 1. 使用者置頂的
 /// 2. 有地點、有受邀者，或屬於優先類別（看診、行程）的

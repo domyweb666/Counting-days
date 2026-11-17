@@ -245,7 +245,7 @@ public struct Band: Identifiable, Hashable, Sendable {
     public var firstDay: Date
     public var lastDay: Date
     public var totalDays: Int
-    /// 重疊時排在第幾條（0、1 是完整色帶，2 以後是細線）
+    /// 重疊時排在第幾條。前面幾條是寫字的完整色帶，後面縮成細線，界線看 `BandStyle`
     public var lane: Int
 
     public var id: String { event.id }

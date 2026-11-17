@@ -132,7 +132,7 @@ struct ExpandedWeek: View {
                 }
             }
             ForEach(lanes, id: \.self) { lane in
-                BandLaneRow(vm: vm, week: week, segments: week.segments.filter { $0.band.lane == lane }, thin: lane >= 2)
+                BandLaneRow(vm: vm, week: week, segments: week.segments.filter { $0.band.lane == lane }, thin: BandStyle.isThin(lane: lane, mode: showAll ? .flex : .head))
             }
             HStack(alignment: .top, spacing: Theme.Grid.gap) {
                 ForEach(week.days) { day in
