@@ -662,7 +662,7 @@ struct NewEventScreen: View {
         }
     }
 
-    /// 兩個滾輪：幾點（0 到 23）、幾分。系統的時間滾輪不能設成 5 分鐘一格，還會帶「上午、下午」這些字，所以自己排。
+    /// 兩個滾輪：幾點（0 到 23）、幾分（0 到 59）。系統的時間滾輪會帶「上午、下午」這些字，所以自己排。
     private func wheels(_ field: TimeField) -> some View {
         let minutes = field == .start ? draft.startMinutes : NewEventRules.endClock(draft, calendar: calendar)
         let hour = Binding<Int>(
@@ -698,7 +698,7 @@ struct NewEventScreen: View {
         .padding(.horizontal, DT.Space.s8)
     }
 
-    /// 滾輪上的分鐘：每 5 分鐘一格。現在的分鐘數不在格子上（別處帶進來的）就補進去，不然滾輪會沒有選到的那一列。
+    /// 滾輪上的分鐘，一格跳多少看 `NewEventRules.minuteStep`。現在的分鐘數不在格子上就補進去，不然滾輪會沒有選到的那一列。
     private func minuteOptions(including current: Int) -> [Int] {
         var options = Array(stride(from: 0, to: 60, by: NewEventRules.minuteStep))
         if !options.contains(current) {

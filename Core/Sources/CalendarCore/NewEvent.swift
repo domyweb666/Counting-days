@@ -191,8 +191,8 @@ public enum NewEventRules {
     public static let defaultMorning = 9 * 60
     /// 「哪一天」那排直接點得到的天數：今天、明天、後天
     public static let quickDayCount = 3
-    /// 滾輪上分鐘一格跳多少
-    public static let minuteStep = 5
+    /// 滾輪上分鐘一格跳多少。一分鐘一格，0 到 59 都選得到。
+    public static let minuteStep = 1
 
     /// 打開時帶入的開始時間：今天是下一個整點（最晚 23:00），其他天是早上 9 點
     public static func defaultStartMinutes(day: Date, now: Date, calendar: Calendar) -> Int {
