@@ -5,10 +5,10 @@
 iOS 原生 app（SwiftUI），只支援 iPhone，介面是繁體中文。
 
 <p>
-  <img src="design/上架截圖/成品/01.png" width="190" alt="彈性週月曆">
-  <img src="design/上架截圖/成品/03.png" width="190" alt="清單模式">
-  <img src="design/上架截圖/成品/04.png" width="190" alt="農曆、節氣、台灣假日">
-  <img src="design/上架截圖/成品/05.png" width="190" alt="新增行程，地點附地圖">
+  <img src="design/上架截圖/6.9/01-hero.jpg" width="190" alt="彈性週月曆">
+  <img src="design/上架截圖/6.9/03-list.jpg" width="190" alt="清單模式">
+  <img src="design/上架截圖/6.9/04-lunar.jpg" width="190" alt="農曆、節氣、台灣假日">
+  <img src="design/上架截圖/6.9/05-new.jpg" width="190" alt="新增行程，地點附地圖">
 </p>
 
 ## 為什麼做這個
@@ -29,11 +29,30 @@ iPhone 內建行事曆和 Google 日曆的月檢視，在手機上一格只有 5
 月曆之外，側邊選單還有時間表、天、3 天、週四種檢視，看那天下午有沒有空、兩件事有沒有撞。
 
 <p>
-  <img src="design/上架截圖/成品/07.png" width="190" alt="時間表">
-  <img src="design/上架截圖/成品/06.png" width="190" alt="長按行程的選單">
-  <img src="design/上架截圖/成品/02.png" width="190" alt="管理行事曆">
-  <img src="design/上架截圖/成品/09.png" width="190" alt="主題">
+  <img src="design/上架截圖/6.9/07-agenda.jpg" width="190" alt="時間表">
+  <img src="design/上架截圖/6.9/06-menu.jpg" width="190" alt="長按行程的選單">
+  <img src="design/上架截圖/6.9/02-calendars.jpg" width="190" alt="管理行事曆">
+  <img src="design/上架截圖/6.9/09-themes.jpg" width="190" alt="主題">
 </p>
+
+## 怎麼用
+
+1. 第一次打開，先看一頁說明，按「繼續」，允許讀取行事曆。iPhone「設定」裡加過的 iCloud、Google 帳號，行程會一起出現。
+2. 月曆打開就停在今天這一週，上下滑看前後幾週。最上面一排是倒數日。
+3. 點任何一天，那天的事攤開在月曆中間，有時間、地點，開了天氣的話還有天氣。
+4. 長按一筆行程，可以置頂成當天主事件、取短名（格子太窄時顯示短名）、加入倒數日、分享、編輯。
+5. 右下角的＋新增行程。地點點進去搜 Apple 地圖，選好之後表單上會附一張小地圖。存進哪一本行事曆，那個帳號就看得到。
+6. 左上角的選單切換時間表、天、3 天、週、月，也從這裡進設定。
+7. 設定裡可以換月曆樣式、主題，管理要看哪幾本行事曆、每本對到哪個類別。
+
+<p>
+  <img src="design/上架截圖/原圖/08-權限說明.png" width="190" alt="第一次打開的權限說明">
+  <img src="design/上架截圖/原圖/06a-點一天展開.png" width="190" alt="點一天展開">
+  <img src="design/上架截圖/原圖/05-新增行程地點.png" width="190" alt="新增行程">
+  <img src="design/上架截圖/原圖/03b-樣式頁週條.png" width="190" alt="月曆樣式">
+</p>
+
+整段操作錄成了一支 4 分鐘的影片：[design/上架截圖/審核操作影片.mp4](design/上架截圖/審核操作影片.mp4)（送 App Store 審核用的那一支）。
 
 ## 功能
 
