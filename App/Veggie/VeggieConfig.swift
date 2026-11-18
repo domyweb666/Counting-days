@@ -44,8 +44,8 @@ extension VeggieConfig {
         appStoreID: nil,
         // 2026-11-18 使用者決定用這個信箱（隱私權政策頁也公開同一個）
         supportEmail: "charlie@domyweb.org",
-        // 還沒有這一頁。上線後填網址，那一列才會出現
-        privacyURL: nil,
+        // 2026-11-18 上線。App Store Connect 的隱私權政策網址填同一頁
+        privacyURL: URL(string: "https://domyweb.org/tools/suanrizi/privacy/"),
         links: [
             VeggieLink(kind: .website, address: "https://domyweb.org/"),
             VeggieLink(kind: .facebook, address: "https://www.facebook.com/profile.php?id=61556891560581"),
