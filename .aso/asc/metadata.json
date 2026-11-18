@@ -2,7 +2,7 @@
   "bundleId": "com.domyweb.countingdays",
   "version": "1.0.0",
   "locale": "zh-Hant",
-  "copyright": "2026 DOMYWEB",
+  "copyright": "2026 多米(domyweb)",
   "releaseType": "AFTER_APPROVAL",
   "primaryCategory": "PRODUCTIVITY",
   "secondaryCategory": "UTILITIES",
@@ -30,7 +30,6 @@
     "folder": "design/上架截圖/6.9"
   },
   "review": {
-    "contactEmail": "charlie@domyweb.org",
     "demoAccountRequired": false,
     "attachment": "design/上架截圖/審核操作影片.mp4",
     "notes": "SuanRiZi is a month calendar that reads the events already in the iPhone Calendar (iCloud, Google or any account added in iOS Settings) and shows them in a layout that is easier to read on a phone. There is no account and no server. The app UI is Traditional Chinese.\n\nHow to test\n1. On first launch, an explanation screen tells why calendar access is needed. Tap the green button (繼續) and allow full access. The app needs full access because it shows existing events and writes new events back to the system calendar.\n2. If the test device has no events, add a few in the built-in Calendar app, or create one in SuanRiZi with the + button at the bottom right.\n3. Tap a day to expand it. Long-press an event for pin / short name / countdown / share / edit.\n4. The menu button (top left) switches between agenda, day, 3-day, week and month views, and opens Settings.\n\nIn-app purchase\n- One non-consumable product, com.domyweb.countingdays.full (蒜日子完整版). No subscription.\n- It unlocks 6 color themes, 2 extra calendar styles (週條, 主事件), unlimited countdowns and custom category colors.\n- Where to find it: Settings (設定) > 主題 (Theme), or Settings > 月曆樣式 (Calendar style). Locked items can be previewed by tapping them; the purchase button (解鎖完整版) and Restore Purchases (恢復購買) are at the bottom of both pages. Settings also has a 購買 section.\n\nNetwork use\n- Weather is off by default. When turned on, the app sends only the fixed coordinates of the county the user picks to WeatherKit.\n- The place search on the new event screen uses MapKit.\n- Nothing else leaves the device unless the user taps Share.\n\nThe attached video walks through the permission prompt, the main calendar, adding an event with a location, the other views, and where the in-app purchase is."
