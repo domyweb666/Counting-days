@@ -42,8 +42,8 @@ extension VeggieConfig {
         tagline: "手機上看得清楚的月曆",
         // 還沒上架。上架後填 Apple ID，評分、分享兩列才會出現
         appStoreID: nil,
-        // 還沒填：這個專案在 GitHub 上是公開的，信箱要不要寫在這裡等使用者決定。填了意見回饋才會出現
-        supportEmail: nil,
+        // 2026-11-18 使用者決定用這個信箱（隱私權政策頁也公開同一個）
+        supportEmail: "charlie@domyweb.org",
         // 還沒有這一頁。上線後填網址，那一列才會出現
         privacyURL: nil,
         links: [
