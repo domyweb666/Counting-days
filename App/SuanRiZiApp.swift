@@ -86,6 +86,9 @@ struct PermissionIntroView: View {
                 asking = true
                 Task {
                     await app.store.requestAccess()
+                    #if DEBUG
+                    DemoSeeder.runIfAsked(store: app.store, settings: app.settings)
+                    #endif
                     asking = false
                 }
             }

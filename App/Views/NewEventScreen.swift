@@ -1277,7 +1277,7 @@ struct PlacePickerSheet: View {
                     .focused($focused)
                     .submitLabel(.done)
                     .onSubmit { dismiss() }
-                    .accessibilityLabel("地點")
+                    .accessibilityLabel("搜尋地點")
                 if !text.isEmpty {
                     Button {
                         text = ""

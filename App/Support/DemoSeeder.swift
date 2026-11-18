@@ -17,7 +17,10 @@ enum DemoSeeder {
         guard let source = ek.sources.first(where: { $0.sourceType == .local })
                 ?? ek.defaultCalendarForNewEvents?.source else { return }
         let existing = ek.calendars(for: .event)
-        if existing.contains(where: { $0.title == "工作" && $0.source == source }) { return }
+        if existing.contains(where: { $0.title == "工作" && $0.source == source }) {
+            applySettings(ek: ek, settings: settings)
+            return
+        }
 
         func makeCalendar(_ title: String, _ hex: String) -> EKCalendar? {
             let cal = EKCalendar(for: .event, eventStore: ek)
@@ -72,8 +75,8 @@ enum DemoSeeder {
         timed("聚餐", fun, 5, 18.5, 21, location: "永康街")
         timed("直播", work, 7, 20, 21.5)
         timed("按摩", life, 8, 15, 16)
-        let trip = allDay("台南行", fun, from: day(10), days: 3)
-        let birthday = allDay("媽媽生日", life, from: day(15))
+        allDay("台南行", fun, from: day(10), days: 3)
+        allDay("媽媽生日", life, from: day(15))
         timed("開會", work, 16, 10, 11)
         timed("看展", fun, 18, 14, 16, location: "北美館")
         timed("繳房租", life, 20, 9, 9.5)
@@ -87,13 +90,29 @@ enum DemoSeeder {
             }
         }
         try? ek.commit()
+        applySettings(ek: ek, settings: settings)
+    }
 
-        let countdownIDs = [trip.eventIdentifier, birthday.eventIdentifier].compactMap { $0 }
+    /// 四本示範行事曆對到類別、節日；台南行、媽媽生日放進倒數日；示範以外的行事曆從蒜日子移除（手機上還在）
+    private static func applySettings(ek: EKEventStore, settings: SettingsStore) {
+        let calendars = ek.calendars(for: .event)
+        func id(_ title: String) -> String? {
+            calendars.first { $0.title == title && $0.source.sourceType == .local }?.calendarIdentifier
+        }
+        guard let work = id("工作"), let life = id("生活"), let fun = id("娛樂"), let holiday = id("台灣節日") else { return }
+        let demo: Set<String> = [work, life, fun, holiday]
+        let today = Calendar.current.startOfDay(for: Date())
+        let end = Calendar.current.date(byAdding: .day, value: 60, to: today) ?? today
+        let found = ek.events(matching: ek.predicateForEvents(withStart: today, end: end, calendars: nil))
+        let countdownIDs = ["台南行", "媽媽生日"].compactMap { title in
+            found.first { $0.title == title }?.eventIdentifier
+        }
         settings.update { s in
-            s.calendarCategory[work.calendarIdentifier] = "work"
-            s.calendarCategory[life.calendarIdentifier] = "life"
-            s.calendarCategory[fun.calendarIdentifier] = "fun"
-            s.holidayCalendarIDs.insert(holiday.calendarIdentifier)
+            s.calendarCategory[work] = "work"
+            s.calendarCategory[life] = "life"
+            s.calendarCategory[fun] = "fun"
+            s.holidayCalendarIDs.insert(holiday)
+            s.hiddenCalendarIDs = Set(calendars.map(\.calendarIdentifier)).subtracting(demo)
             for id in countdownIDs where !s.countdowns.contains(id) {
                 s.countdowns.append(id)
             }
