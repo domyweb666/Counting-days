@@ -195,7 +195,8 @@ final class CalendarCoreTests: XCTestCase {
         // 彈性週：前兩條寫字，第三條起細線
         XCTAssertFalse(BandStyle.isThin(lane: 0, mode: .flex))
         XCTAssertFalse(BandStyle.isThin(lane: 1, mode: .flex))
-        XCTAssertTrue(BandStyle.isThin(lane: 2, mode: .flex))
+        XCTAssertFalse(BandStyle.isThin(lane: 2, mode: .flex))
+        XCTAssertFalse(BandStyle.isThin(lane: 5, mode: .flex))
         // 主事件：只有第一條寫字
         XCTAssertFalse(BandStyle.isThin(lane: 0, mode: .head))
         XCTAssertTrue(BandStyle.isThin(lane: 1, mode: .head))

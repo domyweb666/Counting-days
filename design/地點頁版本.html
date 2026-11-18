@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>地點頁版本</title>
+<style>
+  :root { --bg:#F2F2F5; --card:#FFFFFF; --ink:#1C1C1E; --sub:#6B6B70; --ter:#B8B8BD; --sep:#E7E4DC; --accent:#4E6B55; --soft:#E3EBE4; --page:#DCDCE0; --field:#F2F2F5; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--page); font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif; color:var(--ink); }
+  header { max-width:1100px; margin:0 auto; padding:24px 16px 0; }
+  header h1 { font-size:22px; margin:0 0 6px; }
+  header p { margin:0; color:var(--sub); font-size:14px; line-height:1.6; }
+  .wrap { display:flex; gap:28px; flex-wrap:wrap; justify-content:center; padding:20px 16px 40px; }
+  .ver { display:flex; flex-direction:column; gap:12px; width:330px; max-width:100%; }
+  .tag { font-size:16px; font-weight:700; }
+  .tag small { display:block; font-weight:400; color:var(--sub); font-size:13px; margin-top:4px; line-height:1.5; }
+  .step { font-size:12px; color:var(--sub); margin:2px 4px -6px; }
+  .phone { background:var(--bg); border-radius:30px; overflow:hidden; box-shadow:0 6px 24px rgba(0,0,0,.12); position:relative; }
+  .pad { padding:16px; }
+  .bar { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 8px; font-size:16px; }
+  .bar b { font-size:17px; }
+  .bar .ok { color:var(--accent); font-weight:600; }
+  .bar .x { color:var(--sub); }
+  .card { background:var(--card); border-radius:18px; padding:0 14px; }
+  .row { display:flex; align-items:center; gap:12px; padding:13px 0; border-bottom:1px solid var(--sep); font-size:17px; }
+  .row:last-child { border-bottom:0; }
+  .row .ic { width:20px; text-align:center; color:var(--accent); }
+  .row .lab { flex:none; }
+  .row .val { margin-left:auto; color:var(--sub); text-align:right; min-width:0; }
+  .row .val .n { color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:170px; display:block; }
+  .row .val .a { font-size:12px; }
+  .chev { color:var(--sub); }
+  .search { display:flex; align-items:center; gap:8px; background:var(--field); border-radius:12px; padding:10px 12px; font-size:16px; }
+  .search .cur { width:2px; height:20px; background:var(--accent); animation:blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity:0; } }
+  .search .t { color:var(--ink); }
+  .search .ph { color:var(--ter); }
+  .sug { background:var(--card); border-radius:18px; padding:0 14px; margin-top:12px; }
+  .sug .it { display:flex; gap:10px; padding:11px 0; border-bottom:1px solid var(--sep); }
+  .sug .it:last-child { border-bottom:0; }
+  .pin { width:28px; height:28px; border-radius:50%; background:var(--soft); color:var(--accent); display:flex; align-items:center; justify-content:center; font-size:13px; flex:none; }
+  .sug .n { font-size:16px; }
+  .sug .a { font-size:13px; color:var(--sub); }
+  .sug .it.hit { background:linear-gradient(90deg,transparent,rgba(78,107,85,.08),transparent); }
+  .free { font-size:13px; color:var(--sub); margin:10px 4px 0; line-height:1.5; }
+  .free b { color:var(--accent); font-weight:600; }
+  .map { height:150px; background:
+      linear-gradient(90deg, transparent 47%, #fff 47%, #fff 53%, transparent 53%),
+      linear-gradient(0deg, transparent 40%, #fff 40%, #fff 46%, transparent 46%),
+      linear-gradient(30deg, transparent 60%, #f6efd9 60%, #f6efd9 66%, transparent 66%),
+      #E6EBE4; position:relative; }
+  .map.tall { height:250px; }
+  .map .dot { position:absolute; left:50%; top:50%; width:22px; height:22px; margin:-22px 0 0 -11px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); background:#D9534F; box-shadow:0 2px 4px rgba(0,0,0,.2); }
+  .chosen { background:var(--card); border-radius:18px; overflow:hidden; margin-top:12px; }
+  .chosen .info { padding:12px 14px; }
+  .chosen .n { font-size:17px; font-weight:600; }
+  .chosen .a { font-size:13px; color:var(--sub); margin-top:2px; }
+  .chosen .acts { display:flex; gap:16px; padding:0 14px 12px; font-size:14px; color:var(--accent); }
+  .dim { position:absolute; inset:0; background:rgba(0,0,0,.25); }
+  .sheet { position:absolute; left:0; right:0; bottom:0; background:var(--bg); border-radius:22px 22px 0 0; padding:8px 16px 18px; }
+  .grab { width:36px; height:5px; border-radius:3px; background:#C7C7CC; margin:0 auto 8px; }
+  .fake-form { padding:16px; opacity:.9; }
+  .pros { font-size:13px; line-height:1.6; color:var(--ink); background:#fff; border-radius:14px; padding:10px 12px; }
+  .pros div::before { content:"＋ "; color:var(--accent); font-weight:700; }
+  .pros div.con::before { content:"－ "; color:#B5543F; }
+</style>
+</head>
+<body>
+<header>
+  <h1>地點：點了開新頁面，三個版本</h1>
+  <p>三版共用同一個表單列：沒填時寫「未填 ›」，跟備註一樣。填好後顯示地名，下面一行小字是地址。差別在點下去開出來的那一頁。</p>
+</header>
+<div class="wrap">
+
+  <!-- A -->
+  <div class="ver">
+    <div class="tag">A：整頁，跟備註一樣（推薦）<small>點了從右邊推進一整頁，打開游標就在搜尋欄，Apple 地圖的建議列在下面。選一個就自動回表單，不用再按完成。</small></div>
+    <div class="step">① 表單上那一列</div>
+    <div class="phone"><div class="pad"><div class="card">
+      <div class="row"><span class="ic">⌁</span><span class="lab">提醒</span><span class="val">不提醒 ⌃</span></div>
+      <div class="row"><span class="ic">⚲</span><span class="lab">地點</span><span class="val">未填 <span class="chev">›</span></span></div>
+      <div class="row"><span class="ic">≡</span><span class="lab">備註</span><span class="val">未填 <span class="chev">›</span></span></div>
+    </div></div></div>
+    <div class="step">② 點了之後</div>
+    <div class="phone">
+      <div class="bar"><span class="x">‹ 新增行程</span><b>地點</b><span class="ok">完成</span></div>
+      <div class="pad" style="padding-top:4px">
+        <div class="search"><span class="t">安和</span><span class="cur"></span></div>
+        <div class="sug">
+          <div class="it hit"><span class="pin">⚲</span><div><div class="n">安和牙醫診所</div><div class="a">台北市大安區安和路一段 102 號</div></div></div>
+          <div class="it"><span class="pin">⚲</span><div><div class="n">安和路一段</div><div class="a">台北市大安區</div></div></div>
+          <div class="it"><span class="pin">⚲</span><div><div class="n">安和國小</div><div class="a">台北市大安區安和路一段 75 號</div></div></div>
+        </div>
+        <div class="free">找不到就照打的字存：按右上角<b>完成</b>，存成「安和」。</div>
+      </div>
+    </div>
+    <div class="step">③ 選好回到表單</div>
+    <div class="phone"><div class="pad"><div class="card">
+      <div class="row"><span class="ic">⚲</span><span class="lab">地點</span><span class="val"><span class="n">安和牙醫診所</span><span class="a">安和路一段 102 號</span></span> <span class="chev">›</span></div>
+    </div></div></div>
+    <div class="pros"><div>跟備註同一套手勢，學一次就會</div><div>一整頁的高度，建議能列很多個</div><div class="con">看不到地圖，選錯了要回來再點開才知道</div></div>
+  </div>
+
+  <!-- B -->
+  <div class="ver">
+    <div class="tag">B：半頁，從下面升上來<small>表單還看得到一半，像在原地填。選了一個就收起來。想看更多建議可以把半頁往上拉成整頁。</small></div>
+    <div class="step">② 點了之後</div>
+    <div class="phone" style="height:470px">
+      <div class="fake-form"><div class="card">
+        <div class="row"><span class="ic">⌁</span><span class="lab">提醒</span><span class="val">不提醒 ⌃</span></div>
+        <div class="row"><span class="ic">⚲</span><span class="lab">地點</span><span class="val">未填 <span class="chev">›</span></span></div>
+        <div class="row"><span class="ic">≡</span><span class="lab">備註</span><span class="val">未填 <span class="chev">›</span></span></div>
+      </div></div>
+      <div class="dim"></div>
+      <div class="sheet">
+        <div class="grab"></div>
+        <div class="bar" style="padding:0 0 10px"><span class="x">取消</span><b>地點</b><span class="ok">完成</span></div>
+        <div class="search"><span class="t">安和</span><span class="cur"></span></div>
+        <div class="sug">
+          <div class="it hit"><span class="pin">⚲</span><div><div class="n">安和牙醫診所</div><div class="a">台北市大安區安和路一段 102 號</div></div></div>
+          <div class="it"><span class="pin">⚲</span><div><div class="n">安和路一段</div><div class="a">台北市大安區</div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="pros"><div>沒有離開表單的感覺，比較輕</div><div>標題、時間還看得到，不怕忘記在填哪一筆</div><div class="con">鍵盤升起來之後，建議只剩兩三個的空間</div></div>
+  </div>
+
+  <!-- C -->
+  <div class="ver">
+    <div class="tag">C：整頁，上面放地圖<small>像 Apple 地圖：上半是地圖，下面是搜尋和建議。選了一個，地圖跳到那裡插一根針，確認沒錯再按完成。</small></div>
+    <div class="step">② 打字時</div>
+    <div class="phone">
+      <div class="bar"><span class="x">‹ 新增行程</span><b>地點</b><span class="ok">完成</span></div>
+      <div class="pad" style="padding-top:4px">
+        <div class="search"><span class="t">安和</span><span class="cur"></span></div>
+        <div class="sug">
+          <div class="it hit"><span class="pin">⚲</span><div><div class="n">安和牙醫診所</div><div class="a">台北市大安區安和路一段 102 號</div></div></div>
+          <div class="it"><span class="pin">⚲</span><div><div class="n">安和路一段</div><div class="a">台北市大安區</div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="step">③ 選了一個之後</div>
+    <div class="phone">
+      <div class="bar"><span class="x">‹ 新增行程</span><b>地點</b><span class="ok">完成</span></div>
+      <div class="map tall"><span class="dot"></span></div>
+      <div class="pad" style="padding-top:0">
+        <div class="chosen"><div class="info"><div class="n">安和牙醫診所</div><div class="a">台北市大安區安和路一段 102 號</div></div>
+          <div class="acts"><span>換一個</span><span>只存文字</span></div></div>
+      </div>
+    </div>
+    <div class="pros"><div>選之前就看得到位置，不會選到同名的別家</div><div class="con">多一步：選完還要按完成</div><div class="con">畫面最重，做起來最久</div></div>
+  </div>
+
+</div>
+</body>
+</html>

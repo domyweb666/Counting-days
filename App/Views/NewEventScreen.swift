@@ -36,6 +36,8 @@ struct NewEventScreen: View {
     @State private var confirmDiscard = false
     /// 備註的記事本開著
     @State private var editingNotes = false
+    /// 找地點的那一頁開著
+    @State private var editingPlace = false
     /// 地點的地圖建議
     @State private var placeSearch = PlaceSearch()
     /// 存好、而且要分享時，換成「已加進行事曆」那一頁
@@ -1085,24 +1087,52 @@ struct NewEventScreen: View {
 
     // MARK: 地點
 
-    /// 地點：打字時下面列出地圖建議；選了一個就存座標，地址寫在名稱下面，再附一張小地圖。
+    /// 地點：跟備註一樣，點了開一整頁來找（`PlacePickerSheet`）。
+    /// 沒填寫「未填」；選了地圖上的地方，名稱下面寫地址，再附一張小地圖。
     @ViewBuilder
     private var locationRow: some View {
         HStack(spacing: DT.Space.s3) {
-            VeggieRowIcon(systemName: "mappin.and.ellipse")
-            VStack(alignment: .leading, spacing: 2) {
-                TextField("地點", text: locationText)
-                    .dFont(DT.TypeScale.body)
-                    .foregroundStyle(Theme.ink)
-                    .focused($focus, equals: .location)
-                    .submitLabel(.done)
-                if let place = draft.place, !place.address.isEmpty {
-                    Text(place.address)
-                        .dFont(DT.TypeScale.footnote)
-                        .foregroundStyle(Theme.sub)
-                        .lineLimit(2)
+            Button {
+                editingPlace = true
+            } label: {
+                HStack(spacing: DT.Space.s3) {
+                    VeggieRowIcon(systemName: "mappin.and.ellipse")
+                    if draft.location.isEmpty {
+                        Text("地點")
+                            .dFont(DT.TypeScale.body)
+                            .foregroundStyle(Theme.ink)
+                        Text("未填")
+                            .dFont(DT.TypeScale.body)
+                            .foregroundStyle(Theme.sub)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Theme.sub)
+                            .accessibilityHidden(true)
+                    } else {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(draft.location)
+                                .dFont(DT.TypeScale.body)
+                                .foregroundStyle(Theme.ink)
+                                .multilineTextAlignment(.leading)
+                            if let place = draft.place, !place.address.isEmpty {
+                                Text(place.address)
+                                    .dFont(DT.TypeScale.footnote)
+                                    .foregroundStyle(Theme.sub)
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
+                .padding(.vertical, draft.location.isEmpty ? 0 : DT.Space.s2)
+                .frame(minHeight: DT.Size.row)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(PressStyle())
+            .accessibilityLabel("地點")
+            .accessibilityValue(draft.location.isEmpty ? "未填" : draft.location)
             if !draft.location.isEmpty {
                 Button {
                     draft.location = ""
@@ -1119,32 +1149,10 @@ struct NewEventScreen: View {
                 .accessibilityLabel("清除地點")
             }
         }
-        .padding(.vertical, draft.place == nil ? 0 : DT.Space.s2)
-        .frame(minHeight: DT.Size.row)
-        if focus == .location, draft.place == nil, !placeSearch.results.isEmpty {
-            ForEach(Array(placeSearch.results.enumerated()), id: \.offset) { _, result in
-                Hairline()
-                Button {
-                    pick(result)
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(result.title)
-                            .dFont(DT.TypeScale.body)
-                            .foregroundStyle(Theme.ink)
-                        if !result.subtitle.isEmpty {
-                            Text(result.subtitle)
-                                .dFont(DT.TypeScale.footnote)
-                                .foregroundStyle(Theme.sub)
-                        }
-                    }
-                    .lineLimit(1)
-                    .padding(.leading, DT.Space.s6 + DT.Space.s3)
-                    .padding(.vertical, DT.Space.s2)
-                    .frame(maxWidth: .infinity, minHeight: DT.Size.touch, alignment: .leading)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(PressStyle())
-                .accessibilityLabel("\(result.title)，\(result.subtitle)")
+        .sheet(isPresented: $editingPlace) {
+            PlacePickerSheet(text: locationText, search: placeSearch) { result in
+                editingPlace = false
+                pick(result)
             }
         }
         if let place = draft.place {
@@ -1235,6 +1243,110 @@ struct PlaceMapPreview: View {
         }
         .buttonStyle(PressStyle())
         .accessibilityLabel("在地圖打開 \(place.name)")
+    }
+}
+
+/// 找地點的那一頁：打開游標就在搜尋欄，下面列 Apple 地圖的建議。選一個就回表單。
+/// 找不到的話照打的字存：按「完成」收起來，地點就是打的那幾個字。
+struct PlacePickerSheet: View {
+    @Binding var text: String
+    let search: PlaceSearch
+    let pick: (MKLocalSearchCompletion) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DT.Space.s3) {
+            ZStack {
+                Text("地點")
+                    .dFont(DT.TypeScale.headline)
+                    .foregroundStyle(Theme.ink)
+                    .accessibilityAddTraits(.isHeader)
+                HStack {
+                    Spacer()
+                    PillTextButton(title: "完成") { dismiss() }
+                }
+            }
+            HStack(spacing: DT.Space.s2) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(Theme.sub)
+                    .accessibilityHidden(true)
+                TextField("地名或地址", text: $text)
+                    .dFont(DT.TypeScale.body)
+                    .foregroundStyle(Theme.ink)
+                    .focused($focused)
+                    .submitLabel(.done)
+                    .onSubmit { dismiss() }
+                    .accessibilityLabel("地點")
+                if !text.isEmpty {
+                    Button {
+                        text = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(Theme.tertiary)
+                            .frame(width: DT.Size.touch, height: DT.Size.touch)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("清除")
+                }
+            }
+            .padding(.horizontal, DT.Space.s3)
+            .frame(minHeight: DT.Size.touch)
+            .background(RoundedRectangle(cornerRadius: DT.Radius.md).fill(Theme.card))
+            ScrollView {
+                if !search.results.isEmpty {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(search.results.enumerated()), id: \.offset) { index, result in
+                            if index > 0 { Hairline() }
+                            Button {
+                                pick(result)
+                            } label: {
+                                HStack(spacing: DT.Space.s3) {
+                                    VeggieRowIcon(systemName: "mappin.and.ellipse")
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(result.title)
+                                            .dFont(DT.TypeScale.body)
+                                            .foregroundStyle(Theme.ink)
+                                        if !result.subtitle.isEmpty {
+                                            Text(result.subtitle)
+                                                .dFont(DT.TypeScale.footnote)
+                                                .foregroundStyle(Theme.sub)
+                                        }
+                                    }
+                                    .multilineTextAlignment(.leading)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .padding(.vertical, DT.Space.s2)
+                                .frame(minHeight: DT.Size.row)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(PressStyle())
+                            .accessibilityLabel("\(result.title)，\(result.subtitle)")
+                        }
+                    }
+                    .padding(.horizontal, DT.Space.s4)
+                    .background(RoundedRectangle(cornerRadius: DT.Radius.lg).fill(Theme.card))
+                }
+                if !text.isEmpty {
+                    Text("找不到的話，按「完成」就照打的字存。")
+                        .dFont(DT.TypeScale.footnote)
+                        .foregroundStyle(Theme.sub)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, DT.Space.s1)
+                        .padding(.top, DT.Space.s3)
+                }
+            }
+        }
+        .padding(.horizontal, DT.Size.screenMargin)
+        .padding(.top, DT.Space.s4)
+        .background(Theme.bg.ignoresSafeArea())
+        .tint(Theme.accent)
+        .onAppear {
+            focused = true
+            // 打開時已經有字（之前照打的字存的），先列一次建議
+            if !text.isEmpty { search.update(text) }
+        }
     }
 }
 

@@ -103,16 +103,39 @@ struct StripWeek: View {
     }
 
     private func dateColor(_ day: DayModel) -> Color {
-        if day.isToday { return Theme.strong }
-        return day.isPast ? Theme.sub : Theme.ink
+        day.isPast ? Theme.sub : Theme.ink
+    }
+
+    /// 卡片左上角的日期。今天換成綠色膠囊，前面寫「今天」，跟其他樣式「今天是綠色實心」同一套
+    @ViewBuilder
+    private func dateTag(_ day: DayModel, short: Bool) -> some View {
+        if day.isToday {
+            Text("今天 " + dateLabel(day, short: short))
+                .dFont(DT.TypeScale.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(Theme.onAccent)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .padding(.horizontal, DT.Space.s2)
+                .padding(.vertical, 1)
+                .background(Capsule().fill(Theme.accent))
+        } else {
+            Text(dateLabel(day, short: short))
+                .dFont(DT.TypeScale.caption)
+                .foregroundStyle(dateColor(day))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+    }
+
+    /// 跨日色帶裡如果有今天，是第幾欄
+    private func todayColumn(in seg: BandSegment) -> Int? {
+        (seg.startCol...seg.endCol).first { week.days[$0].isToday }
     }
 
     private func card(_ day: DayModel) -> some View {
         VStack(alignment: .leading, spacing: DT.Space.s1) {
-            Text(dateLabel(day, short: false))
-                .dFont(DT.TypeScale.caption)
-                .foregroundStyle(dateColor(day))
-                .lineLimit(1)
+            dateTag(day, short: false)
             ForEach(day.events.prefix(6)) { e in
                 let isHead = e.id == day.head?.id
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -139,11 +162,7 @@ struct StripWeek: View {
 
     private func compact(_ day: DayModel) -> some View {
         VStack(spacing: DT.Space.s1) {
-            Text(dateLabel(day, short: true))
-                .dFont(DT.TypeScale.caption)
-                .foregroundStyle(dateColor(day))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+            dateTag(day, short: true)
             if let head = day.head {
                 EventChip(vm: vm, label: head.label, categoryID: head.categoryID, isPast: day.isPast)
             }
@@ -166,8 +185,23 @@ struct StripWeek: View {
         let range = seg.span == 1
             ? "\(vm.dayNumber(from)) 週\(vm.dow(from))"
             : "\(vm.cellLabel(from)) 週\(vm.dow(from)) → \(vm.dayNumber(to)) 週\(vm.dow(to))"
+        let todayCol = todayColumn(in: seg)
         return VStack(alignment: .leading, spacing: 2) {
-            Text(range).dFont(DT.TypeScale.caption).lineLimit(1).minimumScaleFactor(0.7)
+            HStack(spacing: DT.Space.s2) {
+                Text(range).dFont(DT.TypeScale.caption).lineLimit(1).minimumScaleFactor(0.7)
+                if let todayCol {
+                    // 色帶本身有顏色，膠囊用卡片底色配綠字才分得出來
+                    Text("今天 \(vm.dayNumber(week.days[todayCol].date))")
+                        .dFont(DT.TypeScale.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Theme.strong)
+                        .lineLimit(1)
+                        .fixedSize()
+                        .padding(.horizontal, DT.Space.s2)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(Theme.card))
+                }
+            }
             Text(seg.band.event.title)
                 .dFont(seg.span == 1 ? DT.TypeScale.subheadline : DT.TypeScale.title2)
                 .lineLimit(2)

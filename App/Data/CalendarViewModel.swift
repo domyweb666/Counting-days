@@ -229,14 +229,19 @@ final class CalendarViewModel {
         topWeekID = fresh.startOfWeek(today)
     }
 
+    /// 預覽用的設定：使用者自己的類別，範例行事曆照順序分到這些類別
+    private var previewSettings: AppSettings {
+        let categories = settings.value.categories
+        return AppSettings(categories: categories, calendarCategory: SampleEvents.calendarCategory(for: categories))
+    }
+
     /// 主題頁的預覽：今天起七天、套上範例行程的一週。
     /// 只算出一份拿去畫，不碰 `weeks`、`selected`，外面的月曆不受影響。
     func themePreviewWeek() -> WeekModel? {
         // 今天排在最左邊。照日曆的那一週排的話，週末打開時範例行程幾乎都落在下一週。
         var previewCalendar = calendar
         previewCalendar.firstWeekday = previewCalendar.component(.weekday, from: today)
-        let sampleSettings = AppSettings(calendarCategory: SampleEvents.calendarCategory)
-        let previewBuilder = LayoutBuilder(calendar: previewCalendar, today: today, settings: sampleSettings)
+        let previewBuilder = LayoutBuilder(calendar: previewCalendar, today: today, settings: previewSettings)
         let lastDay = previewBuilder.addDays(today, 6)
 
         // 範例裡的「台南行」排在 11 天後，進不了這七天；預覽另外放一段在第 4 到 6 天，才看得到跨日色帶
@@ -254,8 +259,7 @@ final class CalendarViewModel {
 
     /// 月曆樣式頁「清單」預覽下面那幾張「接下來」的卡，從預覽那一週算
     func themePreviewUpcoming(in week: WeekModel, count: Int = 3) -> [UpcomingCard] {
-        let sampleSettings = AppSettings(calendarCategory: SampleEvents.calendarCategory)
-        let previewBuilder = LayoutBuilder(calendar: calendar, today: today, settings: sampleSettings)
+        let previewBuilder = LayoutBuilder(calendar: calendar, today: today, settings: previewSettings)
         return Array(previewBuilder.upcoming(in: [week], limit: count).prefix(count))
     }
 

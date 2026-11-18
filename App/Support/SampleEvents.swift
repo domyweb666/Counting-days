@@ -3,13 +3,19 @@ import CalendarCore
 
 /// 主題頁、月曆樣式頁的預覽用的範例行程。只活在記憶體裡，不會寫進系統行事曆。
 enum SampleEvents {
-    /// 範例行程掛在這幾本假的行事曆上，各自對到一個預設類別
-    static let calendarCategory: [String: String] = [
-        "demo.work": "work",
-        "demo.life": "life",
-        "demo.fun": "fun",
-        "demo.rest": "rest"
-    ]
+    /// 範例行程掛在這四本假的行事曆上
+    static let calendarIDs = ["demo.work", "demo.life", "demo.fun", "demo.rest"]
+
+    /// 四本假行事曆照順序對到使用者的第 1 到第 4 個類別（不到四個就從頭輪）。
+    /// 照順序對，不照類別的識別碼對：使用者刪掉預設類別、自己新增的類別識別碼不一樣，照識別碼會全部找不到、通通變成第一個類別的顏色。
+    static func calendarCategory(for categories: [EventCategory]) -> [String: String] {
+        guard !categories.isEmpty else { return [:] }
+        var map: [String: String] = [:]
+        for (index, id) in calendarIDs.enumerated() {
+            map[id] = categories[index % categories.count].id
+        }
+        return map
+    }
 
     /// 從今天起三週內的範例行程
     static func events(today: Date, calendar: Calendar) -> [CalEvent] {

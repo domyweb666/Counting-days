@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>今天標示方案</title>
+<style>
+  :root { --bg:#F2F2F5; --card:#FFFFFF; --ink:#1C1C1E; --sub:#6B6B70; --ter:#B0B0B5; --accent:#4E6B55; --onacc:#fff; --cat:#6E5E8E; --cat2:#4D6A8C; --red:#C0392B; --page:#DCDCE0; --muted:#EEEAE3; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--page); font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif; color:var(--ink); }
+  section { max-width:1150px; margin:0 auto; padding:24px 16px 8px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .lead { color:var(--sub); font-size:14px; margin:0 0 16px; line-height:1.6; }
+  .grid { display:flex; gap:24px; flex-wrap:wrap; justify-content:center; }
+  .ver { width:340px; max-width:100%; display:flex; flex-direction:column; gap:10px; }
+  .tag { font-size:16px; font-weight:700; }
+  .tag small { display:block; font-weight:400; color:var(--sub); font-size:13px; margin-top:4px; line-height:1.5; }
+  .phone { background:var(--bg); border-radius:26px; padding:14px; box-shadow:0 6px 24px rgba(0,0,0,.12); }
+  .note { font-size:13px; line-height:1.6; background:#fff; border-radius:12px; padding:8px 12px; }
+
+  /* 清單模式小月曆 */
+  .mini { background:var(--card); border-radius:20px; padding:10px 8px 12px; }
+  .dows, .r { display:grid; grid-template-columns:repeat(7,1fr); }
+  .dows span { text-align:center; font-size:12px; color:var(--sub); padding-bottom:6px; }
+  .r { margin-top:4px; }
+  .c { height:42px; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; font-weight:600; font-size:15px; }
+  .c.past { color:var(--ter); }
+  .c .chip { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; color:#fff; }
+  .c .chip.p { background:var(--cat); } .c .chip.b { background:var(--cat2); } .c .chip.m { background:var(--muted); color:var(--sub); }
+  /* A1 外框留縫 */
+  .ring-gap .chip { box-shadow:0 0 0 2px var(--card), 0 0 0 4.5px var(--accent); }
+  /* A2 今天字樣 */
+  .c .tlabel { font-size:10px; color:var(--accent); font-weight:700; line-height:1; margin-top:2px; }
+  .c.withlabel { height:48px; }
+  .c.withlabel .chip { width:32px; height:30px; }
+  /* A3 綠底、事件色條 */
+  .c .chip.today { background:var(--accent); flex-direction:column; }
+  .c .chip.today i { display:block; width:18px; height:4px; border-radius:2px; background:#B9A8D9; margin-top:2px; }
+
+  /* 週條 */
+  .strip { display:flex; gap:4px; align-items:stretch; }
+  .col { width:30px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:13px; font-weight:600; }
+  .col small { font-size:10px; color:var(--sub); font-weight:500; }
+  .col.past { color:var(--ter); }
+  .scard { flex:1; background:var(--card); border-radius:16px; padding:8px 10px; min-width:0; }
+  .scard .d { font-size:12px; color:var(--sub); }
+  .scard .e { font-size:16px; font-weight:600; display:flex; gap:6px; align-items:baseline; }
+  .scard .e i { width:7px; height:7px; border-radius:2px; background:var(--cat); flex:none; transform:translateY(-2px); }
+  .gap { height:8px; }
+  .pill { display:inline-block; background:var(--accent); color:var(--onacc); border-radius:999px; padding:1px 8px; font-size:12px; font-weight:600; }
+  .scard.border { box-shadow:inset 0 0 0 2px var(--accent); }
+  .circ { display:inline-flex; width:22px; height:22px; border-radius:50%; background:var(--accent); color:#fff; align-items:center; justify-content:center; font-size:12px; font-weight:700; margin-right:4px; }
+  .rowline { position:relative; }
+  .rowline::before { content:""; position:absolute; left:-10px; top:6px; bottom:6px; width:4px; border-radius:2px; background:var(--accent); }
+</style>
+</head>
+<body>
+
+<section>
+  <h1>② 清單模式：今天看不清楚</h1>
+  <p class="lead">現在的問題：今天有行程時，綠色的今天圓圈畫在紫色色塊上，兩個深色疊在一起分不出來。三個改法：</p>
+  <div class="grid">
+
+    <div class="ver">
+      <div class="tag">A：色塊外面多一圈綠框，中間留白（推薦）<small>行程顏色照留，綠框往外推，跟色塊之間隔一條白縫。iPhone 選照片就是這種框。</small></div>
+      <div class="phone"><div class="mini">
+        <div class="dows"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+        <div class="r"><div class="c past">15</div><div class="c past">16</div><div class="c past">17</div><div class="c ring-gap"><span class="chip p">18</span></div><div class="c">19</div><div class="c">20</div><div class="c">21</div></div>
+        <div class="r"><div class="c" style="color:var(--red)">22</div><div class="c">23</div><div class="c">24</div><div class="c">25</div><div class="c"><span class="chip b">26</span></div><div class="c">27</div><div class="c">28</div></div>
+      </div></div>
+      <div class="note">今天沒行程時照舊：只有一圈綠框。</div>
+    </div>
+
+    <div class="ver">
+      <div class="tag">B：數字下面寫「今天」<small>最直白，不用猜。代價是那一列比別列高一點點。</small></div>
+      <div class="phone"><div class="mini">
+        <div class="dows"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+        <div class="r"><div class="c past withlabel">15</div><div class="c past withlabel">16</div><div class="c past withlabel">17</div><div class="c withlabel"><span class="chip p">18</span><span class="tlabel">今天</span></div><div class="c withlabel">19</div><div class="c withlabel">20</div><div class="c withlabel">21</div></div>
+        <div class="r"><div class="c" style="color:var(--red)">22</div><div class="c">23</div><div class="c">24</div><div class="c">25</div><div class="c"><span class="chip b">26</span></div><div class="c">27</div><div class="c">28</div></div>
+      </div></div>
+      <div class="note">可以跟 A 一起用：外框加字。</div>
+    </div>
+
+    <div class="ver">
+      <div class="tag">C：今天一律綠底，行程顏色縮成下面一條<small>跟其他模式的今天長得一樣（綠色實心）。缺點是今天那件事的類別顏色變小了。</small></div>
+      <div class="phone"><div class="mini">
+        <div class="dows"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+        <div class="r"><div class="c past">15</div><div class="c past">16</div><div class="c past">17</div><div class="c"><span class="chip today">18<i></i></span></div><div class="c">19</div><div class="c">20</div><div class="c">21</div></div>
+        <div class="r"><div class="c" style="color:var(--red)">22</div><div class="c">23</div><div class="c">24</div><div class="c">25</div><div class="c"><span class="chip b">26</span></div><div class="c">27</div><div class="c">28</div></div>
+      </div></div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h1>④ 週條模式：找不到今天</h1>
+  <p class="lead">現在的問題：今天有行程時，整天變成一張卡，只剩卡片左上角「18 週三」換成綠字，很難注意到。三個改法：</p>
+  <div class="grid">
+
+    <div class="ver">
+      <div class="tag">A：卡片上的日期換成綠色膠囊「今天 18 週三」（推薦）<small>跟其他模式「今天＝綠色實心」同一套，字也直接寫出來。</small></div>
+      <div class="phone">
+        <div class="strip"><div class="col past">15<small>日</small></div><div class="col past">16<small>一</small></div><div class="col past">17<small>二</small></div>
+          <div class="scard"><div class="d"><span class="pill">今天 18 週三</span></div><div class="e"><i></i>上架行事曆 app</div></div>
+          <div class="col">19<small>四</small></div><div class="col">20<small>五</small></div></div>
+        <div class="gap"></div>
+        <div class="strip"><div class="col" style="color:var(--red)">22<small>日</small></div><div class="col">23<small>一</small></div><div class="col">24<small>二</small></div><div class="col">25<small>三</small></div>
+          <div class="scard"><div class="d">26 週四</div><div class="e"><i style="background:var(--cat2)"></i>牙齒</div></div></div>
+      </div>
+    </div>
+
+    <div class="ver">
+      <div class="tag">B：今天那張卡加一圈綠框<small>整張卡框起來，遠遠就看得到。日期字照舊。</small></div>
+      <div class="phone">
+        <div class="strip"><div class="col past">15<small>日</small></div><div class="col past">16<small>一</small></div><div class="col past">17<small>二</small></div>
+          <div class="scard border"><div class="d" style="color:var(--accent);font-weight:600">18 週三</div><div class="e"><i></i>上架行事曆 app</div></div>
+          <div class="col">19<small>四</small></div><div class="col">20<small>五</small></div></div>
+        <div class="gap"></div>
+        <div class="strip"><div class="col" style="color:var(--red)">22<small>日</small></div><div class="col">23<small>一</small></div><div class="col">24<small>二</small></div><div class="col">25<small>三</small></div>
+          <div class="scard"><div class="d">26 週四</div><div class="e"><i style="background:var(--cat2)"></i>牙齒</div></div></div>
+      </div>
+    </div>
+
+    <div class="ver">
+      <div class="tag">C：日期數字放進綠色圓圈<small>跟沒行程時的今天（縮窄那一欄的綠圓）長一樣。字比較小，沒有 A 顯眼。</small></div>
+      <div class="phone">
+        <div class="strip"><div class="col past">15<small>日</small></div><div class="col past">16<small>一</small></div><div class="col past">17<small>二</small></div>
+          <div class="scard"><div class="d"><span class="circ">18</span>週三</div><div class="e"><i></i>上架行事曆 app</div></div>
+          <div class="col">19<small>四</small></div><div class="col">20<small>五</small></div></div>
+        <div class="gap"></div>
+        <div class="strip"><div class="col" style="color:var(--red)">22<small>日</small></div><div class="col">23<small>一</small></div><div class="col">24<small>二</small></div><div class="col">25<small>三</small></div>
+          <div class="scard"><div class="d">26 週四</div><div class="e"><i style="background:var(--cat2)"></i>牙齒</div></div></div>
+      </div>
+    </div>
+
+  </div>
+  <p class="lead" style="margin-top:16px">今天剛好落在跨日色帶裡（例如今天在「去韓國」中間）：A、C 都在那條色帶上方多標一個綠色「今天」小膠囊，B 沒辦法框，所以也是 A 比較好延伸。</p>
+</section>
+
+</body>
+</html>
