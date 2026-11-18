@@ -81,10 +81,10 @@ public enum CellText {
 }
 
 /// 重疊的跨日事件，哪幾條寫字、哪幾條縮成細線。
-/// 彈性週前兩條寫字；主事件樣式只有第一條寫字，不然同一天還是會寫出好幾件。
+/// 彈性週每條都寫字；主事件樣式只有第一條寫字，不然同一天還是會寫出好幾件。
 public enum BandStyle {
     public static func isThin(lane: Int, mode: DisplayMode) -> Bool {
-        lane >= (mode == .head ? 1 : 2)
+        mode == .head && lane >= 1
     }
 }
 
