@@ -110,7 +110,8 @@ struct StripWeek: View {
     @ViewBuilder
     private func dateTag(_ day: DayModel, short: Bool) -> some View {
         if day.isToday {
-            Text("今天 " + dateLabel(day, short: short))
+            // 窄卡放不下「今天 18 三」，短版只寫「今天 18」
+            Text(short ? "今天 \(vm.dayNumber(day.date))" : "今天 " + dateLabel(day, short: false))
                 .dFont(DT.TypeScale.caption)
                 .fontWeight(.semibold)
                 .foregroundStyle(Theme.onAccent)

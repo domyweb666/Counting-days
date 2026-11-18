@@ -40,6 +40,9 @@ final class AppModel {
         self.purchase = PurchaseStore(onChange: { settings.setUnlocked($0) })
         self.vm = CalendarViewModel(store: store, settings: settings)
         self.weather = WeatherStore()
+        #if DEBUG
+        DemoSeeder.runIfAsked(store: store, settings: settings)
+        #endif
     }
 
     /// 那一天要顯示的天氣。沒開天氣、沒選縣市、那天沒有預報（過去的日子、十天以後）都是 nil，畫面上就不顯示。
