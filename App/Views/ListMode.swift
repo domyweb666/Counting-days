@@ -97,6 +97,8 @@ struct MiniCell: View {
     let day: DayModel
 
     private let side: CGFloat = 36
+    /// 今天的綠框和色塊之間那條縫的寬度
+    private let todayGap: CGFloat = 2
 
     private var segment: BandSegment? {
         week.segments.first { $0.band.lane == 0 && col >= $0.startCol && col <= $0.endCol }
@@ -131,7 +133,18 @@ struct MiniCell: View {
                 )
             }
             if day.isToday {
-                Circle().strokeBorder(Theme.accent, lineWidth: Theme.Grid.ring).frame(width: side)
+                if seg != nil || day.head != nil {
+                    // 今天有色塊：綠框和色塊中間壓一條卡片底色的縫，兩個深色才不會黏在一起
+                    ZStack {
+                        RoundedRectangle(cornerRadius: DT.Radius.md)
+                            .strokeBorder(Theme.card, lineWidth: Theme.Grid.ring + todayGap)
+                        RoundedRectangle(cornerRadius: DT.Radius.md)
+                            .strokeBorder(Theme.accent, lineWidth: Theme.Grid.ring)
+                    }
+                    .frame(width: side)
+                } else {
+                    Circle().strokeBorder(Theme.accent, lineWidth: Theme.Grid.ring).frame(width: side)
+                }
             }
             if isSelected, !day.isToday {
                 RoundedRectangle(cornerRadius: DT.Radius.md)
