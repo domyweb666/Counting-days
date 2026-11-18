@@ -2,6 +2,7 @@ import SwiftUI
 import MapKit
 import UIKit
 import EventKit
+import StoreKit
 import CalendarCore
 
 /// 蒜日子自己的新增與編輯行程畫面（規格第 20 節）。
@@ -48,6 +49,7 @@ struct NewEventScreen: View {
     /// 使用者在這一頁動過「倒數」那一顆之後想要的樣子；nil 是沒動過，照原本的
     @State private var wantsCountdown: Bool?
     @FocusState private var focus: Field?
+    @Environment(\.requestReview) private var requestReview
 
     enum TimeField { case start, end }
     enum WhenPart { case startDay, startTime, endDay, endTime }
@@ -58,6 +60,8 @@ struct NewEventScreen: View {
     private let wheelHeight: CGFloat = 150
     /// 地點、備註那一格長出來花多久；長出來之後等多久再捲過去
     private let fieldAnimation: Double = 0.2
+    /// 存好之後等表單收下去、回到月曆，再請 iOS 跳評分視窗
+    private let reviewDelay: Double = 0.6
     private let fieldSettleDelay: Double = 0.3
     /// 年份滾輪從今年往前、往後各列幾年
     private let yearsBack = 10
@@ -227,8 +231,16 @@ struct NewEventScreen: View {
             app.settings.update { $0.eventCategory[id] = chosen }
         }
         applyCountdown(to: event)
+        app.settings.update { $0.savedEventCount += 1 }
+        // 要分享的人正忙著傳給別人，不在這時候問
         guard draft.wantsShare else {
+            let version = VeggieConfig.current.shortVersion
+            let asksReview = ReviewTiming.shouldAsk(app.settings.value, version: version, now: Date())
+            if asksReview {
+                app.settings.update { $0.reviewAskedVersion = version }
+            }
             close()
+            if asksReview { askReviewAfterClosing() }
             return
         }
         focus = nil
@@ -240,6 +252,16 @@ struct NewEventScreen: View {
             calendarLine: selectedCalendar.map(calendarLine) ?? "",
             dotColor: app.vm.color(NewEventRules.shownCategoryID(draft, settings: app.settings.value))
         )
+    }
+
+    /// 不等的話評分視窗會疊在正在收下去的表單上
+    private func askReviewAfterClosing() {
+        let ask = requestReview
+        let delay = reviewDelay
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(delay))
+            ask()
+        }
     }
 
     private func delete(_ event: EKEvent, allFuture: Bool) {

@@ -26,6 +26,11 @@ struct VeggieConfig {
         appStoreID.flatMap { URL(string: "https://apps.apple.com/app/id\($0)?action=write-review") }
     }
 
+    /// 「1.0.0」。讀不到是空字串
+    var shortVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+    }
+
     /// 「蒜日子 1.0.0 (34)」
     var versionLine: String {
         let info = Bundle.main.infoDictionary

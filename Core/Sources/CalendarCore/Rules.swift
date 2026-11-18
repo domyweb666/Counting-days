@@ -119,3 +119,19 @@ public enum HeadPicker {
         }
     }
 }
+
+/// 什麼時候請 iOS 跳評分視窗，照《蔬菜家族 App 共用基本元素規格》的預設：
+/// 裝滿 3 天、存好行程至少 5 次、這個版本還沒請過。「剛存好一筆行程」由呼叫的地方保證。
+/// iOS 一年最多讓同一個 app 跳三次，請了也可能不跳，所以同一版只請一次，不浪費額度。
+public enum ReviewTiming {
+    public static let minDays = 3
+    public static let minSaves = 5
+    private static let secondsPerDay: TimeInterval = 86_400
+
+    public static func shouldAsk(_ settings: AppSettings, version: String, now: Date) -> Bool {
+        guard !version.isEmpty, settings.reviewAskedVersion != version else { return false }
+        guard settings.savedEventCount >= minSaves else { return false }
+        guard let first = settings.firstOpenedAt else { return false }
+        return now.timeIntervalSince(first) >= Double(minDays) * secondsPerDay
+    }
+}

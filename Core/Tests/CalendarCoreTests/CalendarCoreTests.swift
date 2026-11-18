@@ -1177,4 +1177,37 @@ final class CalendarCoreTests: XCTestCase {
         // 最頭還要往上也一樣
         XCTAssertEqual(LoopWheelRules.nearestRow(toIndex: 23, from: 0, count: 24), LoopWheelRules.middleRow(index: 23, count: 24))
     }
+
+    func testReviewTimingNeedsThreeDaysFiveSavesAndNewVersion() {
+        let first = date(2026, 12, 1, 9)
+        var s = AppSettings(firstOpenedAt: first, savedEventCount: 5)
+        // 剛好滿 3 天、存了 5 次：可以請
+        XCTAssertTrue(ReviewTiming.shouldAsk(s, version: "1.0.1", now: date(2026, 12, 4, 9)))
+        // 差一分鐘才滿 3 天：不請
+        XCTAssertFalse(ReviewTiming.shouldAsk(s, version: "1.0.1", now: date(2026, 12, 4, 8, 59)))
+        // 只存了 4 次：不請
+        s.savedEventCount = 4
+        XCTAssertFalse(ReviewTiming.shouldAsk(s, version: "1.0.1", now: date(2026, 12, 10)))
+        s.savedEventCount = 9
+        // 這個版本請過了：不請；換新版本：可以再請
+        s.reviewAskedVersion = "1.0.1"
+        XCTAssertFalse(ReviewTiming.shouldAsk(s, version: "1.0.1", now: date(2026, 12, 10)))
+        XCTAssertTrue(ReviewTiming.shouldAsk(s, version: "1.1.0", now: date(2026, 12, 10)))
+        // 讀不到版本號、沒記到第一次打開的時間：一律不請
+        XCTAssertFalse(ReviewTiming.shouldAsk(s, version: "", now: date(2026, 12, 10)))
+        s.firstOpenedAt = nil
+        XCTAssertFalse(ReviewTiming.shouldAsk(s, version: "1.1.0", now: date(2026, 12, 10)))
+    }
+
+    func testOldSettingsWithoutReviewFieldsStillDecode() throws {
+        let old = try JSONEncoder().encode(AppSettings(showLunar: false))
+        var dict = try XCTUnwrap(JSONSerialization.jsonObject(with: old) as? [String: Any])
+        dict.removeValue(forKey: "savedEventCount")
+        let data = try JSONSerialization.data(withJSONObject: dict)
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: data)
+        XCTAssertEqual(decoded.savedEventCount, 0)
+        XCTAssertNil(decoded.firstOpenedAt)
+        XCTAssertNil(decoded.reviewAskedVersion)
+        XCTAssertFalse(decoded.showLunar)
+    }
 }

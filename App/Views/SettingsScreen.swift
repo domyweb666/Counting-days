@@ -402,7 +402,12 @@ struct SettingsScreen: View {
                     }
                     .buttonStyle(PressStyle())
                     Hairline()
-                    ShareLink(item: storeURL, message: Text("我在用\(config.name)：\(config.tagline)")) {
+                    // 指定面板頂端的圖和名字：不指定的話面板自己去抓 App Store 頁，抓不到只剩一串網址
+                    ShareLink(
+                        item: storeURL,
+                        message: Text("我在用\(config.name)：\(config.tagline)"),
+                        preview: SharePreview(config.name, image: Image("AppLogo"))
+                    ) {
                         VeggieRow(icon: "square.and.arrow.up", title: VeggieText.share, accessory: .external)
                     }
                     .buttonStyle(PressStyle())
