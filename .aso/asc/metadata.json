@@ -7,6 +7,12 @@
   "primaryCategory": "PRODUCTIVITY",
   "secondaryCategory": "UTILITIES",
   "contentRights": "DOES_NOT_USE_THIRD_PARTY_CONTENT",
+  "availability": {
+    "excludeTerritories": [
+      "CHN"
+    ],
+    "availableInNewTerritories": true
+  },
   "appInfo": {
     "name": "蒜日子：看得清楚的行事曆",
     "subtitle": "Google、iCloud行程直接變月曆",
