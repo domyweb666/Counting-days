@@ -450,7 +450,8 @@ def fill_screenshots(client, vloc_id, spec):
 
 
 def fill_review(client, version_id, spec):
-    attrs = {"contactEmail": spec["contactEmail"], "demoAccountRequired": spec["demoAccountRequired"], "notes": spec["notes"]}
+    # 聯絡人姓名、電話、信箱在網頁上填（公開 repo 不放個資），這裡不碰
+    attrs = {"demoAccountRequired": spec["demoAccountRequired"], "notes": spec["notes"]}
     existing = client.get(f"/v1/appStoreVersions/{version_id}/appStoreReviewDetail", allow_404=True)
     if existing is None or existing.get("data") is None:
         detail = client.post("/v1/appStoreReviewDetails", {"data": {
