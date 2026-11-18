@@ -1,0 +1,63 @@
+name: app-store-connect
+
+# 只能手動啟動。check 只讀；fill 填上架資料；submit 送審（不可逆）。
+# 填的內容在 .aso/asc/metadata.json，程式在 .aso/asc/asc.py。
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: check（只讀）／fill（填資料）／submit（送審）
+        required: true
+        default: check
+        type: choice
+        options: [check, fill, submit]
+      build:
+        description: 要上架的建置號
+        required: true
+        type: string
+
+concurrency:
+  group: app-store-connect
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: App Store Connect ${{ inputs.mode }}
+    runs-on: ubuntu-latest
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 檢查 Secrets
+        run: |
+          missing=0
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
+            if [ -z "${!name}" ]; then
+              echo "::error::缺少 Secret：$name（設定方法見 docs/TESTFLIGHT.md）"
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: 寫入 API 金鑰檔
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/key.p8"
+          chmod 600 "$RUNNER_TEMP/keys/key.p8"
+
+      - name: 安裝套件
+        run: pip install "pyjwt[crypto]==2.10.1" "requests==2.32.3"
+
+      - name: 執行
+        env:
+          ASC_KEY_PATH: ${{ runner.temp }}/keys/key.p8
+          MODE: ${{ inputs.mode }}
+          BUILD: ${{ inputs.build }}
+        run: python .aso/asc/asc.py "$MODE" --build "$BUILD"
+
+      - name: 刪除金鑰檔
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys"
