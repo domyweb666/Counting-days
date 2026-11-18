@@ -40,10 +40,10 @@ RATING_LEVEL_KEYS = {
 RATING_BOOL_KEYS = {
     "gambling", "unrestrictedWebAccess", "lootBox", "messagingAndChat",
     "parentalControls", "ageAssurance", "userGeneratedContent", "advertising",
-    "healthOrWellnessTopics",
+    "healthOrWellnessTopics", "socialMedia", "socialMediaAgeRestricted",
 }
 # 這些是「覆寫／兒童分類」，留空就是不用，不要動
-RATING_LEAVE_EMPTY = {"kidsAgeBand", "ageRatingOverride", "ageRatingOverrideV2", "koreaAgeRatingOverride", "seventeenPlus", "developerAgeRatingInfoUrl"}
+RATING_LEAVE_EMPTY = {"kidsAgeBand", "ageRatingOverride", "ageRatingOverrideV2", "koreaAgeRatingOverride", "seventeenPlus", "developerAgeRatingInfoUrl", "gracRatingClassificationNumber"}
 
 
 class AscError(Exception):
@@ -138,6 +138,10 @@ def find_version(client, app_id, version_string):
     versions = client.get(f"/v1/apps/{app_id}/appStoreVersions", {"filter[platform]": "IOS", "limit": 50})["data"]
     for v in versions:
         if v["attributes"]["versionString"] == version_string:
+            return v
+    # 建 app 時後台會自動開一版（通常叫 1.0），版號不同但就是要用的那一版，fill 時改成 metadata 的版號
+    for v in versions:
+        if v["attributes"].get("appStoreState") == "PREPARE_FOR_SUBMISSION":
             return v
     return None
 
@@ -347,6 +351,8 @@ def fill(client, meta, build_number):
     if unknown:
         raise AscError(f"年齡分級有不認得的新欄位，沒有亂填：{unknown}")
 
+    fill_availability(client, app_id, meta["availability"])
+
     version = find_version(client, app_id, meta["version"])
     version_attrs = {"copyright": meta["copyright"], "releaseType": meta["releaseType"]}
     if version is None:
@@ -357,6 +363,7 @@ def fill(client, meta, build_number):
         }})["data"]
         say(f"版本 {meta['version']}：新建")
     else:
+        version_attrs["versionString"] = meta["version"]
         client.patch(f"/v1/appStoreVersions/{version['id']}", {"data": {"type": "appStoreVersions", "id": version["id"], "attributes": version_attrs}})
         say(f"版本 {meta['version']}：著作權、審核過自動發布 已填")
 
@@ -383,6 +390,39 @@ def fill(client, meta, build_number):
 
     say("")
     say("API 能填的都填了。還要在網頁上做：App 隱私權（不收集資料）、審核聯絡人姓名電話（如果 check 說沒有）。")
+
+
+def fill_availability(client, app_id, spec):
+    existing = client.get(f"/v1/apps/{app_id}/appAvailabilityV2", allow_404=True)
+    if existing and existing.get("data"):
+        say("銷售地區：本來就設定過，不動")
+        return
+    territories = client.get("/v1/territories", {"limit": 200})["data"]
+    if len(territories) < 100:
+        raise AscError(f"地區清單只拿到 {len(territories)} 個，不像完整清單，停下來")
+    excluded = set(spec["excludeTerritories"])
+    refs, included = [], []
+    for territory in territories:
+        local_id = "${" + territory["id"] + "}"
+        refs.append({"type": "territoryAvailabilities", "id": local_id})
+        included.append({
+            "type": "territoryAvailabilities",
+            "id": local_id,
+            "attributes": {"available": territory["id"] not in excluded},
+            "relationships": {"territory": {"data": {"type": "territories", "id": territory["id"]}}},
+        })
+    client.call("POST", "/v2/appAvailabilities", body={
+        "data": {
+            "type": "appAvailabilities",
+            "attributes": {"availableInNewTerritories": spec["availableInNewTerritories"]},
+            "relationships": {
+                "app": {"data": {"type": "apps", "id": app_id}},
+                "territoryAvailabilities": {"data": refs},
+            },
+        },
+        "included": included,
+    })
+    say(f"銷售地區：{len(territories) - len(excluded)} 個，不含 {sorted(excluded)}")
 
 
 def fill_screenshots(client, vloc_id, spec):
