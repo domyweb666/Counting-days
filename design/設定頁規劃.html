@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>蒜日子設定頁規劃</title>
+<style>
+:root{
+  --bg:#f4f2ec; --card:#ffffff; --ink:#22261e; --sub:#6b6f63; --line:#e3e0d6;
+  --accent:#4f6b3a; --keep:#e7efe0; --keepInk:#3d5a2a;
+  --change:#fdf0d8; --changeInk:#8a5a00; --add:#e3ecf8; --addInk:#2a4f86;
+  --skip:#eeeeee; --skipInk:#777; --danger:#b3261e;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#16180f; --card:#22251b; --ink:#ecebe4; --sub:#a3a596; --line:#34372b;
+    --accent:#9cbf7e; --keep:#26331d; --keepInk:#b4d69a;
+    --change:#3a2f17; --changeInk:#f0c46e; --add:#1d2a3d; --addInk:#9fc0f0;
+    --skip:#2a2a2a; --skipInk:#999;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 -apple-system,"PingFang TC","Noto Sans TC",sans-serif}
+main{max-width:1040px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:28px;margin:0 0 6px}
+h2{font-size:20px;margin:40px 0 12px;padding-top:8px;border-top:1px solid var(--line)}
+p.lead{color:var(--sub);margin:0 0 8px}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:99px;font-weight:600;white-space:nowrap}
+.keep{background:var(--keep);color:var(--keepInk)}
+.change{background:var(--change);color:var(--changeInk)}
+.add{background:var(--add);color:var(--addInk)}
+.skip{background:var(--skip);color:var(--skipInk)}
+.phones{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;margin-top:16px}
+.phone{background:var(--bg);border:1px solid var(--line);border-radius:28px;padding:18px 14px}
+.phone h3{margin:0 0 12px;font-size:15px;color:var(--sub);text-align:center}
+.sec{font-size:13px;color:var(--sub);margin:14px 6px 4px}
+.card{background:var(--card);border-radius:12px;overflow:hidden}
+.row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid var(--line);font-size:15px}
+.row:first-child{border-top:0}
+.row .ic{width:20px;text-align:center;color:var(--accent)}
+.row .t{flex:1}
+.row .v{color:var(--sub);font-size:14px}
+.row.moved{outline:2px dashed var(--changeInk);outline-offset:-2px}
+.row.new{outline:2px dashed var(--addInk);outline-offset:-2px}
+.row.hidden{opacity:.45;text-decoration:line-through}
+.foot{text-align:center;color:var(--sub);font-size:13px;margin-top:16px}
+table{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden;font-size:14px}
+th,td{padding:9px 12px;border-top:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:var(--line);font-size:13px}
+.tablewrap{overflow-x:auto}
+.decision{background:var(--card);border-radius:12px;padding:16px 18px;margin:12px 0;border-left:4px solid var(--accent)}
+.decision h4{margin:0 0 6px;font-size:16px}
+.decision ol{margin:6px 0 0;padding-left:22px}
+.decision li{margin:4px 0}
+.rec{font-weight:700;color:var(--accent)}
+.note{color:var(--sub);font-size:14px}
+code{font-size:13px;background:var(--line);padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<main>
+<h1>蒜日子設定頁：對照蔬菜家族規格的規劃</h1>
+<p class="lead">結論：骨架已經照規格做了（<code>App/Veggie/</code> 從豆鍵搬來），不用重做。要動的只有三件：時區搬出「一般」、補 App Store ID 讓評分和分享出現、加系統評分彈窗。其他規格項目蒜日子用不到，照規格「用不到就整列隱藏」。</p>
+<p class="note">標示：<span class="tag keep">已有</span> <span class="tag change">要改</span> <span class="tag add">要加</span> <span class="tag skip">不做</span></p>
+
+<h2>1. 改之前、改之後</h2>
+<div class="phones">
+  <div class="phone">
+    <h3>現在</h3>
+    <div class="sec">顯示</div>
+    <div class="card">
+      <div class="row"><span class="ic">◐</span><span class="t">主題</span><span class="v">›</span></div>
+      <div class="row"><span class="ic">▦</span><span class="t">月曆樣式</span><span class="v">›</span></div>
+      <div class="row"><span class="ic">⇄</span><span class="t">一週從哪天開始</span><span class="v">週日</span></div>
+      <div class="row"><span class="ic">☾</span><span class="t">顯示農曆與節氣</span><span class="v">開</span></div>
+    </div>
+    <div class="sec">天氣</div>
+    <div class="card"><div class="row"><span class="ic">☀</span><span class="t">顯示天氣</span><span class="v">開</span></div></div>
+    <div class="sec">行事曆</div>
+    <div class="card">
+      <div class="row"><span class="ic">≡</span><span class="t">管理行事曆</span><span class="v">3 本 ›</span></div>
+      <div class="row"><span class="ic">◇</span><span class="t">類別與顏色</span><span class="v">›</span></div>
+    </div>
+    <div class="sec">倒數日（有才出現）</div>
+    <div class="sec">一般</div>
+    <div class="card">
+      <div class="row"><span class="ic">◑</span><span class="t">外觀</span><span class="v">跟隨系統 ›</span></div>
+      <div class="row moved"><span class="ic">◷</span><span class="t">使用裝置時區</span><span class="v">開</span></div>
+      <div class="row moved"><span class="ic">⊕</span><span class="t">時區</span><span class="v">台北 ›</span></div>
+    </div>
+    <div class="sec">購買</div>
+    <div class="card">
+      <div class="row"><span class="ic">✦</span><span class="t">蒜日子完整版</span><span class="v">›</span></div>
+      <div class="row"><span class="ic">↻</span><span class="t">恢復購買</span></div>
+    </div>
+    <div class="sec">支援</div>
+    <div class="card"><div class="row"><span class="ic">✉</span><span class="t">意見回饋</span><span class="v">›</span></div></div>
+    <div class="sec">關於</div>
+    <div class="card">
+      <div class="row"><span class="ic">❦</span><span class="t">蔬菜家族的其他 app</span><span class="v">›</span></div>
+      <div class="row"><span class="ic">✋</span><span class="t">隱私權政策</span><span class="v">↗</span></div>
+    </div>
+    <div class="foot">logo<br>蒜日子 1.0.0 (19)<br>Made by DOMYWEB<br>網站・FB・IG</div>
+  </div>
+
+  <div class="phone">
+    <h3>改之後</h3>
+    <div class="sec">顯示</div>
+    <div class="card">
+      <div class="row"><span class="ic">◐</span><span class="t">主題</span><span class="v">›</span></div>
+      <div class="row"><span class="ic">▦</span><span class="t">月曆樣式</span><span class="v">›</span></div>
+      <div class="row"><span class="ic">⇄</span><span class="t">一週從哪天開始</span><span class="v">週日</span></div>
+      <div class="row"><span class="ic">☾</span><span class="t">顯示農曆與節氣</span><span class="v">開</span></div>
+    </div>
+    <div class="sec">天氣</div>
+    <div class="card"><div class="row"><span class="ic">☀</span><span class="t">顯示天氣</span><span class="v">開</span></div></div>
+    <div class="sec">行事曆</div>
+    <div class="card">
+      <div class="row"><span class="ic">≡</span><span class="t">管理行事曆</span><span class="v">3 本 ›</span></div>
+      <div class="row"><span class="ic">◇</span><span class="t">類別與顏色</span><span class="v">›</span></div>
+      <div class="row moved"><span class="ic">◷</span><span class="t">使用裝置時區</span><span class="v">開</span></div>
+      <div class="row moved"><span class="ic">⊕</span><span class="t">時區</span><span class="v">台北 ›</span></div>
+    </div>
+    <div class="sec">倒數日（有才出現）</div>
+    <div class="sec">一般</div>
+    <div class="card"><div class="row"><span class="ic">◑</span><span class="t">外觀</span><span class="v">跟隨系統 ›</span></div></div>
+    <div class="sec">購買</div>
+    <div class="card">
+      <div class="row"><span class="ic">✦</span><span class="t">蒜日子完整版</span><span class="v">›</span></div>
+      <div class="row"><span class="ic">↻</span><span class="t">恢復購買</span></div>
+    </div>
+    <div class="sec">支援</div>
+    <div class="card">
+      <div class="row"><span class="ic">✉</span><span class="t">意見回饋</span><span class="v">›</span></div>
+      <div class="row new"><span class="ic">☆</span><span class="t">在 App Store 給我們評分</span><span class="v">↗</span></div>
+      <div class="row new"><span class="ic">⇪</span><span class="t">分享給朋友</span><span class="v">↗</span></div>
+    </div>
+    <div class="sec">關於</div>
+    <div class="card">
+      <div class="row"><span class="ic">❦</span><span class="t">蔬菜家族的其他 app</span><span class="v">›</span></div>
+      <div class="row"><span class="ic">✋</span><span class="t">隱私權政策</span><span class="v">↗</span></div>
+    </div>
+    <div class="foot">logo<br>蒜日子 1.0.1 (20)<br>Made by DOMYWEB<br>網站・FB・IG</div>
+  </div>
+</div>
+<p class="note">橘色虛線＝搬位置，藍色虛線＝新出現的列。規格說「一般」放全系列共用的東西，時區是蒜日子自己的設定，所以搬進「行事曆」，那區變 4 列，沒超過 5 列的上限。</p>
+
+<h2>2. 規格每一項對照</h2>
+<div class="tablewrap">
+<table>
+<tr><th>規格模組</th><th>狀態</th><th>說明</th></tr>
+<tr><td>設定頁順序（專屬 → 一般 → 資料 → 購買 → 支援 → 關於 → 頁尾）</td><td><span class="tag keep">已有</span></td><td>順序對。只差時區放錯區。</td></tr>
+<tr><td>外觀（跟隨系統／淺色／深色）</td><td><span class="tag keep">已有</span></td><td>選完立刻生效。</td></tr>
+<tr><td>時區</td><td><span class="tag change">要改</span></td><td>從「一般」搬到「行事曆」。</td></tr>
+<tr><td>語言</td><td><span class="tag skip">不做</span></td><td>只有繁體中文，規格說一種語言就整列隱藏。</td></tr>
+<tr><td>通知</td><td><span class="tag skip">不做</span></td><td>蒜日子不發通知，提醒由系統行事曆發。</td></tr>
+<tr><td>觸覺與音效</td><td><span class="tag skip">不做</span></td><td>程式裡沒有用到震動，沒東西可以關。</td></tr>
+<tr><td>資料區（iCloud 同步、匯出、匯入、清除）</td><td><span class="tag skip">不做</span></td><td>行程存在手機的系統行事曆，iCloud／Google 本來就在同步。蒜日子自己只存類別、倒數日、主題這些設定，匯出它們意義不大。整區隱藏。見決定 2。</td></tr>
+<tr><td>恢復購買</td><td><span class="tag keep">已有</span></td><td>設定頁一列、完整版頁一個連結，三種結果都有訊息。</td></tr>
+<tr><td>管理訂閱、使用條款</td><td><span class="tag skip">不做</span></td><td>完整版是一次買斷，不是訂閱，規格說有訂閱才必備。</td></tr>
+<tr><td>意見回饋</td><td><span class="tag keep">已有</span></td><td>系統寫信畫面，沒設郵件改 mailto，信尾帶版本、iOS、機型。</td></tr>
+<tr><td>評分（設定頁按鈕）</td><td><span class="tag add">要加</span></td><td>程式已寫好，只差 <code>VeggieConfig</code> 的 <code>appStoreID</code> 是空的。填了就出現。</td></tr>
+<tr><td>分享給朋友</td><td><span class="tag add">要加</span></td><td>同上，跟評分一起出現。</td></tr>
+<tr><td>系統評分彈窗（requestReview）</td><td><span class="tag add">要加</span></td><td>目前沒有。見決定 3。</td></tr>
+<tr><td>新功能卡</td><td><span class="tag skip">先不做</span></td><td>規格說第一次改版之後才需要。1.1 有像樣的新功能時再做。</td></tr>
+<tr><td>蔬菜家族的其他 app</td><td><span class="tag keep">已有</span></td><td>用內建清單（茄記、豆鍵），沒讀網路上的 <code>apps.json</code>。蒜日子上架後要回頭在茄記、豆鍵的清單補上蒜日子。</td></tr>
+<tr><td>隱私權政策</td><td><span class="tag keep">已有</span></td><td>連到 <code>domyweb.org/tools/suanrizi/privacy/</code>。</td></tr>
+<tr><td>開源授權</td><td><span class="tag skip">不做</span></td><td>沒有第三方套件（規矩檔也禁止加）。</td></tr>
+<tr><td>頁尾版本號、長按複製</td><td><span class="tag keep">已有</span></td><td>多了網站、FB、IG 三顆，規格沒寫但不衝突。</td></tr>
+<tr><td>開發者面板（連點版本號 7 下）</td><td><span class="tag skip">先不做</span></td><td>見決定 4。</td></tr>
+<tr><td>刪除帳號、檢舉封鎖</td><td><span class="tag skip">不做</span></td><td>沒有帳號、沒有互傳內容。</td></tr>
+</table>
+</div>
+
+<h2>3. 要你決定的四件事</h2>
+
+<div class="decision">
+  <h4>決定 1：時區搬家</h4>
+  <ol>
+    <li><span class="rec">搬到「行事曆」區（推薦）</span>：照規格，「一般」只放全系列共用的東西。使用者在茄記、豆鍵的「一般」都只看到外觀，換 app 找得到。</li>
+    <li>留在「一般」：不動程式，但跟其他蔬菜 app 不一樣。</li>
+  </ol>
+</div>
+
+<div class="decision">
+  <h4>決定 2：資料區要不要做</h4>
+  <ol>
+    <li><span class="rec">整區不做（推薦）</span>：行程本來就在系統行事曆，換手機登 iCloud／Google 就回來了。做匯出反而會讓人誤以為行程要靠蒜日子備份。</li>
+    <li>只加一列「重設蒜日子設定」（紅字、兩步確認）：清掉類別、倒數日、主題選擇，回到第一次打開的樣子，行程不動。用途是「設定弄亂了想重來」。</li>
+  </ol>
+</div>
+
+<div class="decision">
+  <h4>決定 3：系統評分彈窗的時機</h4>
+  <ol>
+    <li><span class="rec">照規格預設（推薦）</span>：安裝滿 3 天、新增或編輯行程存好至少 5 次，在「剛存好一筆行程、回到月曆」那一刻問。同一個版本只問一次。不在權限頁、付費頁、出錯後、剛打開 app 時問。</li>
+    <li>先不做：只留設定頁的評分按鈕，等有下載量再加。</li>
+  </ol>
+  <p class="note">需要你給：App Store Connect → 蒜日子 → App 資訊 → Apple ID（一串數字）。評分按鈕、分享、彈窗都靠它。1.0.0 已經送審，所以這些會在 1.0.1 才出現。</p>
+</div>
+
+<div class="decision">
+  <h4>決定 4：開發者面板</h4>
+  <ol>
+    <li><span class="rec">先不做（推薦）</span>：蒜日子沒有手感參數要調，假資料已經有 <code>SUANRIZI_DEMO=1</code>。做了還要確定正式版關得掉，審核才不會挑。</li>
+    <li>做：TestFlight 版連點版本號 7 下，放「重設首次體驗」「塞示範行程」「強制跳評分卡」三顆。</li>
+  </ol>
+</div>
+
+<h2>4. 照推薦走的話，要做的事</h2>
+<div class="tablewrap">
+<table>
+<tr><th>#</th><th>內容</th><th>改哪裡</th></tr>
+<tr><td>1</td><td>時區兩列搬到「行事曆」區</td><td><code>App/Views/SettingsScreen.swift</code> 的 <code>generalSection</code>、<code>calendarSection</code></td></tr>
+<tr><td>2</td><td>填 App Store ID，評分、分享出現</td><td><code>App/Veggie/VeggieConfig.swift</code> 一行；<code>VeggieApp.family</code> 蒜日子那筆也填</td></tr>
+<tr><td>3</td><td>系統評分彈窗：計次和判斷時機放 <code>Core/</code> 配單元測試，畫面只問「現在可以問嗎」</td><td>新規則檔放 <code>Core/</code>（開新檔前會再問你）、存行程完成的地方呼叫</td></tr>
+</table>
+</div>
+<p class="note">另外提醒（不在這次範圍）：規格寫的網址格式是 <code>domyweb.org/apps/{slug}/privacy</code>，蒜日子實際用 <code>/tools/suanrizi/privacy/</code>。已經填進 App Store Connect 就不用改，但之後的 app 要不要統一，你再決定。支援頁網址也還沒有。</p>
+</main>
+</body>
+</html>

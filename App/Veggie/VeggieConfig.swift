@@ -26,6 +26,11 @@ struct VeggieConfig {
         appStoreID.flatMap { URL(string: "https://apps.apple.com/app/id\($0)?action=write-review") }
     }
 
+    /// 「1.0.0」。讀不到是空字串
+    var shortVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+    }
+
     /// 「蒜日子 1.0.0 (34)」
     var versionLine: String {
         let info = Bundle.main.infoDictionary
@@ -40,8 +45,8 @@ extension VeggieConfig {
         name: "蒜日子",
         slug: "suanrizi",
         tagline: "手機上看得清楚的月曆",
-        // 還沒上架。上架後填 Apple ID，評分、分享兩列才會出現
-        appStoreID: nil,
+        // App Store Connect → App 資訊 → Apple ID（2026-11-19 使用者給的）
+        appStoreID: "6835095023",
         // 2026-11-18 使用者決定用這個信箱（隱私權政策頁也公開同一個）
         supportEmail: "charlie@domyweb.org",
         // 2026-11-18 上線。App Store Connect 的隱私權政策網址填同一頁
@@ -100,7 +105,7 @@ struct VeggieApp: Identifiable {
     static let family: [VeggieApp] = [
         VeggieApp(slug: "qieji", name: "茄記", tagline: "想到就記", appStoreID: "6829151838", webURL: nil),
         VeggieApp(slug: "doujian", name: "豆鍵", tagline: "字大鍵緊，少按錯的注音鍵盤", appStoreID: "6829152938", webURL: nil),
-        VeggieApp(slug: "suanrizi", name: "蒜日子", tagline: "手機上看得清楚的月曆", appStoreID: nil, webURL: nil)
+        VeggieApp(slug: "suanrizi", name: "蒜日子", tagline: "手機上看得清楚的月曆", appStoreID: "6835095023", webURL: nil)
     ]
 
     /// 設定頁要列出來的：有連結、而且不是自己

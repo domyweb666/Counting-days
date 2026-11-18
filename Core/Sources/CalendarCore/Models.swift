@@ -128,6 +128,12 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var lastEventCalendarID: String?
     /// 使用者替某一筆行程自己選的類別：事件系列識別碼 → 類別識別碼。沒選過的不在裡面，照行事曆的預設類別。
     public var eventCategory: [String: String]
+    /// 第一次打開蒜日子的時間，評分時機用。舊版升上來的，打開新版那天才記。
+    public var firstOpenedAt: Date?
+    /// 存好行程幾次，新增和編輯都算，評分時機用
+    public var savedEventCount: Int
+    /// 上次請 iOS 跳評分視窗時的版本（例："1.0.1"）。沒請過是 nil。
+    public var reviewAskedVersion: String?
 
     /// 新加入的行事曆、沒分到類別的行程都歸這一類，所以選最廣的「生活」
     public static let fallbackCategoryID = "life"
@@ -161,7 +167,10 @@ public struct AppSettings: Codable, Equatable, Sendable {
         usesDeviceTimeZone: Bool = true,
         timeZoneID: String? = nil,
         lastEventCalendarID: String? = nil,
-        eventCategory: [String: String] = [:]
+        eventCategory: [String: String] = [:],
+        firstOpenedAt: Date? = nil,
+        savedEventCount: Int = 0,
+        reviewAskedVersion: String? = nil
     ) {
         self.categories = categories
         self.calendarCategory = calendarCategory
@@ -184,6 +193,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.timeZoneID = timeZoneID
         self.lastEventCalendarID = lastEventCalendarID
         self.eventCategory = eventCategory
+        self.firstOpenedAt = firstOpenedAt
+        self.savedEventCount = savedEventCount
+        self.reviewAskedVersion = reviewAskedVersion
     }
 
     // 之後版本加欄位時，舊資料少了欄位也要讀得回來，所以每個欄位都給預設值。
@@ -211,6 +223,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
         timeZoneID = try c.decodeIfPresent(String.self, forKey: .timeZoneID)
         lastEventCalendarID = try c.decodeIfPresent(String.self, forKey: .lastEventCalendarID)
         eventCategory = try c.decodeIfPresent([String: String].self, forKey: .eventCategory) ?? d.eventCategory
+        firstOpenedAt = try c.decodeIfPresent(Date.self, forKey: .firstOpenedAt)
+        savedEventCount = try c.decodeIfPresent(Int.self, forKey: .savedEventCount) ?? d.savedEventCount
+        reviewAskedVersion = try c.decodeIfPresent(String.self, forKey: .reviewAskedVersion)
         if categories.isEmpty { categories = d.categories }
     }
 

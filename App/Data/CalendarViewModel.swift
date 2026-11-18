@@ -40,6 +40,10 @@ final class AppModel {
         self.purchase = PurchaseStore(onChange: { settings.setUnlocked($0) })
         self.vm = CalendarViewModel(store: store, settings: settings)
         self.weather = WeatherStore()
+        // 評分時機要知道裝了幾天。舊版升上來的沒有這筆，從打開新版這天開始算
+        if settings.value.firstOpenedAt == nil {
+            settings.update { $0.firstOpenedAt = Date() }
+        }
         #if DEBUG
         DemoSeeder.runIfAsked(store: store, settings: settings)
         #endif
