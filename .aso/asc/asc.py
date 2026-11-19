@@ -107,6 +107,8 @@ def load_meta():
         raise AscError("關鍵字超過 100 字")
     if len(meta["versionLocalization"]["promotionalText"]) > 170:
         raise AscError("宣傳文字超過 170 字")
+    if len(meta["versionLocalization"].get("whatsNew", "")) > 4000:
+        raise AscError("新功能說明超過 4000 字")
     if len(meta["versionLocalization"]["description"]) > 4000:
         raise AscError("描述超過 4000 字")
     return meta
@@ -128,9 +130,12 @@ def find_app(client, bundle_id):
 def editable_app_info(client, app_id):
     infos = client.get(f"/v1/apps/{app_id}/appInfos")["data"]
     # 還沒上架過只會有一份；上架後會多一份「已發布」的，那份不能改
+    # 已經上架、還沒建新版本時只有「已發布」那份，回 nil，名稱、副標、類別、年齡分級沿用上架版
     editable = [i for i in infos if i["attributes"].get("state") != "READY_FOR_DISTRIBUTION"]
     if not editable:
-        raise AscError("找不到可以編輯的 App 資訊（appInfo）。狀態：" + ", ".join(str(i["attributes"]) for i in infos))
+        if not infos:
+            raise AscError("這個 app 一份 App 資訊（appInfo）都沒有，到網頁確認")
+        return None
     return editable[0]
 
 
@@ -226,6 +231,15 @@ def check(client, meta, build_number):
         problems.append("內容版權聲明還沒填")
 
     info = editable_app_info(client, app_id)
+    if info is None:
+        say("App 資訊：沿用已上架的（名稱、副標、類別、年齡分級）")
+    else:
+        check_app_info(client, meta, info, problems)
+
+    check_version(client, meta, app_id, build_number, problems)
+
+
+def check_app_info(client, meta, info, problems):
     loc = find_localization(client, f"/v1/appInfos/{info['id']}/appInfoLocalizations", meta["locale"])
     if loc is None:
         problems.append(f"App 資訊沒有 {meta['locale']} 語言")
@@ -249,6 +263,8 @@ def check(client, meta, build_number):
     if empty:
         problems.append("年齡分級")
 
+
+def check_version(client, meta, app_id, build_number, problems):
     version = find_version(client, app_id, meta["version"])
     if version is None:
         problems.append(f"還沒有 {meta['version']} 這一版")
@@ -322,34 +338,10 @@ def fill(client, meta, build_number):
         say("內容版權聲明：已填")
 
     info = editable_app_info(client, app_id)
-    loc = find_localization(client, f"/v1/appInfos/{info['id']}/appInfoLocalizations", meta["locale"])
-    if loc is None:
-        raise AscError(f"App 資訊沒有 {meta['locale']} 語言。主要語言要在建立 app 時選，請到網頁確認")
-    client.patch(f"/v1/appInfoLocalizations/{loc['id']}", {"data": {"type": "appInfoLocalizations", "id": loc["id"], "attributes": meta["appInfo"]}})
-    say("名稱、副標、隱私權政策網址：已填")
-
-    client.patch(f"/v1/appInfos/{info['id']}", {"data": {"type": "appInfos", "id": info["id"], "relationships": {
-        "primaryCategory": {"data": {"type": "appCategories", "id": meta["primaryCategory"]}},
-        "secondaryCategory": {"data": {"type": "appCategories", "id": meta["secondaryCategory"]}},
-    }}})
-    say("類別：已填")
-
-    rating = client.get(f"/v1/appInfos/{info['id']}/ageRatingDeclaration")["data"]
-    updates, unknown = {}, []
-    for key, value in rating["attributes"].items():
-        if value is not None or key in RATING_LEAVE_EMPTY:
-            continue
-        if key in RATING_LEVEL_KEYS:
-            updates[key] = "NONE"
-        elif key in RATING_BOOL_KEYS:
-            updates[key] = False
-        else:
-            unknown.append(key)
-    if updates:
-        client.patch(f"/v1/ageRatingDeclarations/{rating['id']}", {"data": {"type": "ageRatingDeclarations", "id": rating["id"], "attributes": updates}})
-    say(f"年齡分級：補了 {len(updates)} 欄")
-    if unknown:
-        raise AscError(f"年齡分級有不認得的新欄位，沒有亂填：{unknown}")
+    if info is None:
+        say("App 資訊：沿用已上架的（名稱、副標、類別、年齡分級）")
+    else:
+        fill_app_info(client, meta, info)
 
     fill_availability(client, app_id, meta["availability"])
 
@@ -390,6 +382,38 @@ def fill(client, meta, build_number):
 
     say("")
     say("API 能填的都填了。還要在網頁上做：App 隱私權（不收集資料）、審核聯絡人姓名電話（如果 check 說沒有）。")
+
+
+
+def fill_app_info(client, meta, info):
+    loc = find_localization(client, f"/v1/appInfos/{info['id']}/appInfoLocalizations", meta["locale"])
+    if loc is None:
+        raise AscError(f"App 資訊沒有 {meta['locale']} 語言。主要語言要在建立 app 時選，請到網頁確認")
+    client.patch(f"/v1/appInfoLocalizations/{loc['id']}", {"data": {"type": "appInfoLocalizations", "id": loc["id"], "attributes": meta["appInfo"]}})
+    say("名稱、副標、隱私權政策網址：已填")
+
+    client.patch(f"/v1/appInfos/{info['id']}", {"data": {"type": "appInfos", "id": info["id"], "relationships": {
+        "primaryCategory": {"data": {"type": "appCategories", "id": meta["primaryCategory"]}},
+        "secondaryCategory": {"data": {"type": "appCategories", "id": meta["secondaryCategory"]}},
+    }}})
+    say("類別：已填")
+
+    rating = client.get(f"/v1/appInfos/{info['id']}/ageRatingDeclaration")["data"]
+    updates, unknown = {}, []
+    for key, value in rating["attributes"].items():
+        if value is not None or key in RATING_LEAVE_EMPTY:
+            continue
+        if key in RATING_LEVEL_KEYS:
+            updates[key] = "NONE"
+        elif key in RATING_BOOL_KEYS:
+            updates[key] = False
+        else:
+            unknown.append(key)
+    if updates:
+        client.patch(f"/v1/ageRatingDeclarations/{rating['id']}", {"data": {"type": "ageRatingDeclarations", "id": rating["id"], "attributes": updates}})
+    say(f"年齡分級：補了 {len(updates)} 欄")
+    if unknown:
+        raise AscError(f"年齡分級有不認得的新欄位，沒有亂填：{unknown}")
 
 
 def fill_availability(client, app_id, spec):
