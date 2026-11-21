@@ -75,6 +75,12 @@ struct FullVersionOffer: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, DT.Space.s4)
             }
+            if purchase.isBusy {
+                // 按了購買或恢復之後在等 App Store 回來
+                ProgressView()
+                    .frame(maxWidth: .infinity, minHeight: DT.Size.touch)
+                    .accessibilityLabel("處理中")
+            }
             WideButton(title: purchase.priceText.map { "解鎖完整版　\($0)" } ?? "暫時無法購買", action: buy)
                 .disabled(purchase.priceText == nil || purchase.isBusy)
                 .opacity(purchase.priceText == nil || purchase.isBusy ? 0.5 : 1)

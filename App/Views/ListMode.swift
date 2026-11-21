@@ -83,6 +83,8 @@ struct ListModeView: View {
                     }
                 }
             }
+            // 換月時格子淡入淡出，不直接換掉
+            .animation(Theme.Motion.change, value: vm.listMonth)
         }
         .padding(.top, DT.Space.s1)
         .padding(.horizontal, DT.Space.s3)

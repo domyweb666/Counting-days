@@ -281,6 +281,15 @@ enum Theme {
         return (Color(uiColor: UIColor(domyHex: value)), .white)
     }
 
+    // MARK: 動畫（按壓的數字在 DT.Motion；其他畫面的動畫都從這裡拿，不各自寫秒數）
+
+    enum Motion {
+        /// 小變化：展開收合、一列出現或消失、換月
+        static let change = Animation.snappy
+        /// 整塊換掉、滑進滑出：側邊欄、切換檢視、月曆捲到另一天、時間軸換頁
+        static let transition = Animation.smooth
+    }
+
     // MARK: 月曆格子專用的尺寸（例外：設計系統的階梯放不進 7 欄格子）
 
     enum Grid {

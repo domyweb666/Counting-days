@@ -335,7 +335,7 @@ final class CalendarViewModel {
     }
 
     func toggle(_ date: Date) {
-        withAnimation(.snappy(duration: 0.2)) {
+        withAnimation(Theme.Motion.change) {
             selected = selected == date ? nil : date
         }
     }
@@ -354,8 +354,19 @@ final class CalendarViewModel {
         if select { selected = day }
         listMonth = Self.monthStart(day, calendar)
         timelineAnchor = day
-        topWeekID = builder.startOfWeek(day)
+        let target = builder.startOfWeek(day)
+        // 近的用捲的，看得出是往上還是往下。遠的直接跳：捲過一大段還沒排好高度的週，會停歪。
+        if let from = topWeekID,
+           let days = calendar.dateComponents([.day], from: from, to: target).day,
+           abs(days) <= Self.animatedJumpDays {
+            withAnimation(Theme.Motion.transition) { topWeekID = target }
+        } else {
+            topWeekID = target
+        }
     }
+
+    /// 離現在畫面最上面那一週幾天以內，跳過去時用捲的
+    private static let animatedJumpDays = 56
 
     /// 時間軸往前、往後翻一段（一段就是目前排的天數）
     func shiftTimeline(_ pages: Int) {
