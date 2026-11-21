@@ -19,17 +19,21 @@ struct FullVersionOffer: View {
     private var purchase: PurchaseStore { app.purchase }
 
     var body: some View {
-        if purchase.isUnlocked {
-            Text("已解鎖完整版：" + Self.features.joined(separator: "、") + "，都可以用。")
-                .dFont(DT.TypeScale.footnote)
-                .foregroundStyle(Theme.sub)
-                .padding(.horizontal, DT.Space.s4)
-        } else {
-            VStack(alignment: .leading, spacing: DT.Space.s4) {
-                promise
-                actions
+        Group {
+            if purchase.isUnlocked {
+                Text("已解鎖完整版：" + Self.features.joined(separator: "、") + "，都可以用。")
+                    .dFont(DT.TypeScale.footnote)
+                    .foregroundStyle(Theme.sub)
+                    .padding(.horizontal, DT.Space.s4)
+            } else {
+                VStack(alignment: .leading, spacing: DT.Space.s4) {
+                    promise
+                    actions
+                }
             }
         }
+        // 買成功、恢復成功時震一下。只掛在這一塊：掛在月曆上的話，買過的人每次開 app 驗到購買都會震。
+        .sensoryFeedback(.success, trigger: purchase.isUnlocked) { _, now in now }
     }
 
     /// 買之前要看得到的承諾：有什麼、付一次、之後新增的也算
@@ -70,6 +74,12 @@ struct FullVersionOffer: View {
                     .foregroundStyle(purchase.messageIsProblem ? Theme.destructive : Theme.sub)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, DT.Space.s4)
+            }
+            if purchase.isBusy {
+                // 按了購買或恢復之後在等 App Store 回來
+                ProgressView()
+                    .frame(maxWidth: .infinity, minHeight: DT.Size.touch)
+                    .accessibilityLabel("處理中")
             }
             WideButton(title: purchase.priceText.map { "解鎖完整版　\($0)" } ?? "暫時無法購買", action: buy)
                 .disabled(purchase.priceText == nil || purchase.isBusy)

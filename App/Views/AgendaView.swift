@@ -88,6 +88,9 @@ struct AgendaDayRow: View {
                     }
                     Button { actions.open(row.event) } label: { rowView(row) }
                         .buttonStyle(PressStyle())
+                        .contextMenu {
+                            EventMenu(vm: vm, event: row.event, canPin: row.canPin, actions: actions)
+                        }
                 }
             }
             .padding(.horizontal, DT.Space.s4)

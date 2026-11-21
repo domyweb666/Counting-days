@@ -38,6 +38,8 @@ struct ListModeView: View {
             }
             .padding(.bottom, DT.Space.s8)
         }
+        // 小月曆換月時輕輕點一下
+        .sensoryFeedback(.selection, trigger: vm.listMonth)
     }
 
     private var miniCalendar: some View {
@@ -81,6 +83,8 @@ struct ListModeView: View {
                     }
                 }
             }
+            // 換月時格子淡入淡出，不直接換掉
+            .animation(Theme.Motion.change, value: vm.listMonth)
         }
         .padding(.top, DT.Space.s1)
         .padding(.horizontal, DT.Space.s3)

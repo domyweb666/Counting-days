@@ -74,7 +74,7 @@ struct SettingsScreen: View {
 
     /// 上方跳一下提示，過一會兒自己收起來
     private func show(_ text: String) {
-        withAnimation { toast = text }
+        withAnimation(Theme.Motion.change) { toast = text }
         Task {
             do {
                 try await Task.sleep(for: .seconds(toastSeconds))
@@ -82,7 +82,7 @@ struct SettingsScreen: View {
                 // 只有畫面離開、工作被取消才會到這裡，提示跟著畫面一起消失
                 return
             }
-            withAnimation {
+            withAnimation(Theme.Motion.change) {
                 if toast == text { toast = nil }
             }
         }
@@ -311,7 +311,7 @@ struct SettingsScreen: View {
                     if index > 0 { Hairline() }
                     SettingsRow(label: app.store.title(forSeries: id) ?? "（找不到這個行程）") {
                         Button {
-                            settings.toggleCountdown(id)
+                            withAnimation(Theme.Motion.change) { _ = settings.toggleCountdown(id) }
                         } label: {
                             Image(systemName: "xmark")
                                 .font(.system(size: 13, weight: .bold))
@@ -497,10 +497,12 @@ struct CategorySettingsScreen: View {
             }
             Hairline()
             Button {
-                settings.update {
-                    // 新類別先用第一個預設色，會跟著主題換
-                    let hex = FullVersionAccess.presetCategoryHexes.first ?? AppSettings.defaultCategories[0].colorHex
-                    $0.categories.append(EventCategory(id: UUID().uuidString, name: "新類別", colorHex: hex))
+                withAnimation(Theme.Motion.change) {
+                    settings.update {
+                        // 新類別先用第一個預設色，會跟著主題換
+                        let hex = FullVersionAccess.presetCategoryHexes.first ?? AppSettings.defaultCategories[0].colorHex
+                        $0.categories.append(EventCategory(id: UUID().uuidString, name: "新類別", colorHex: hex))
+                    }
                 }
             } label: {
                 Text("新增類別")
@@ -1170,7 +1172,9 @@ struct ManageCalendarsScreen: View {
                 HStack(spacing: DT.Space.s2) {
                     // 移除只是不在蒜日子顯示，下面那一區馬上加得回來，所以不另外問
                     Button {
-                        settings.update { $0.hiddenCalendarIDs.insert(cal.calendarIdentifier) }
+                        withAnimation(Theme.Motion.change) {
+                            settings.update { $0.hiddenCalendarIDs.insert(cal.calendarIdentifier) }
+                        }
                     } label: {
                         Image(systemName: "minus.circle.fill")
                             .font(.system(size: 22, weight: .regular))
@@ -1203,7 +1207,9 @@ struct ManageCalendarsScreen: View {
             }
             ForEach(removed, id: \.calendarIdentifier) { cal in
                 Button {
-                    settings.update { $0.hiddenCalendarIDs.remove(cal.calendarIdentifier) }
+                    withAnimation(Theme.Motion.change) {
+                        settings.update { $0.hiddenCalendarIDs.remove(cal.calendarIdentifier) }
+                    }
                 } label: {
                     HStack(spacing: DT.Space.s3) {
                         nameBlock(cal)
@@ -1377,7 +1383,7 @@ struct CategoryRow: View {
     private var mainRow: some View {
         HStack(spacing: DT.Space.s3) {
             Button {
-                showColors.toggle()
+                withAnimation(Theme.Motion.change) { showColors.toggle() }
             } label: {
                 Circle()
                     .fill(Theme.category(hex: colorHex).fill)
@@ -1397,7 +1403,7 @@ struct CategoryRow: View {
             if canDelete {
                 Menu {
                     Button("刪除這個類別", systemImage: "trash", role: .destructive) {
-                        settings.removeCategory(categoryID)
+                        withAnimation(Theme.Motion.change) { settings.removeCategory(categoryID) }
                     }
                 } label: {
                     Image(systemName: "ellipsis")

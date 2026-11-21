@@ -58,10 +58,9 @@ struct NewEventScreen: View {
     /// 標題那一格的高度、滾輪的高度
     private let titleHeight: CGFloat = 64
     private let wheelHeight: CGFloat = 150
-    /// 地點、備註那一格長出來花多久；長出來之後等多久再捲過去
-    private let fieldAnimation: Double = 0.2
     /// 存好之後等表單收下去、回到月曆，再請 iOS 跳評分視窗
     private let reviewDelay: Double = 0.6
+    /// 地點、備註那一格長出來之後等多久再捲過去
     private let fieldSettleDelay: Double = 0.3
     /// 年份滾輪從今年往前、往後各列幾年
     private let yearsBack = 10
@@ -104,6 +103,8 @@ struct NewEventScreen: View {
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         // 動過之後不能直接往下滑掉，要按「取消」確認，免得打到一半不見
         .interactiveDismissDisabled(isDirty && saved == nil)
+        // 上面跳出紅字（存不了、刪不掉、倒數日放滿）時震一下
+        .sensoryFeedback(.error, trigger: problem) { _, now in now != nil }
     }
 
     // MARK: 狀態
@@ -282,7 +283,7 @@ struct NewEventScreen: View {
                     // 那一格剛長出來、鍵盤也還在升。等排好再捲，不然它會停在鍵盤後面看不到。
                     Task { @MainActor in
                         try? await Task.sleep(for: .seconds(fieldSettleDelay))
-                        withAnimation(.easeOut(duration: fieldAnimation)) {
+                        withAnimation(Theme.Motion.change) {
                             proxy.scrollTo(field, anchor: .bottom)
                         }
                     }
@@ -343,6 +344,8 @@ struct NewEventScreen: View {
         .padding(.top, DT.Space.s3)
         .padding(.bottom, DT.Space.s1)
         .background(Theme.bg)
+        // 紅字出現、消失時，下面的表單用滑的讓位，不要跳一下
+        .animation(Theme.Motion.change, value: problem)
     }
 
     private var saveButton: some View {

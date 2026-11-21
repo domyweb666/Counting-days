@@ -117,43 +117,65 @@ struct DayPanel: View {
         return parts.joined(separator: " · ")
     }
 
-    @ViewBuilder
     private func menu(for row: DetailRow) -> some View {
-        let id = row.event.seriesID
+        EventMenu(vm: vm, event: row.event, canPin: row.canPin, actions: actions) {
+            longPressHintDone = true
+        }
+    }
+}
+
+/// 行程的長按選單。當天面板、時間表、時間軸共用，字只寫在這裡。
+struct EventMenu: View {
+    let vm: CalendarViewModel
+    let event: CalEvent
+    /// 要不要列「置頂」「設定短名」
+    let canPin: Bool
+    let actions: CalendarActions
+    /// 選了任何一項之後多做的事（當天面板用它收掉長按提示）
+    var used: () -> Void = {}
+
+    var body: some View {
+        let id = event.seriesID
         let s = vm.settings.value
-        if case .band = row.kind {
-            EmptyView()
-        } else if row.kind != .routine {
+        if canPin {
             Button(s.pinned.contains(id) ? "取消置頂" : "置頂為當天主事件", systemImage: "pin") {
-                longPressHintDone = true
+                used()
                 vm.settings.togglePin(id)
             }
             Button("設定短名", systemImage: "textformat.size.smaller") {
-                longPressHintDone = true
-                actions.shortName(row.event)
+                used()
+                actions.shortName(event)
             }
         }
         let isCountdown = s.countdowns.contains(id)
         // 沒買的人放滿三個之後，這一項換成鎖頭，點了去「完整版」頁
         let isLocked = !isCountdown && !vm.settings.canAddCountdown
         Button(isCountdown ? "移出倒數日" : "加入倒數日", systemImage: isLocked ? "lock.fill" : "hourglass") {
-            longPressHintDone = true
+            used()
             if !vm.settings.toggleCountdown(id) {
                 actions.needFullVersion(.countdown)
             }
         }
         Button("分享", systemImage: "square.and.arrow.up") {
-            longPressHintDone = true
-            actions.share(row.event)
+            used()
+            actions.share(event)
         }
         Button("編輯", systemImage: "pencil") {
-            longPressHintDone = true
-            actions.open(row.event)
+            used()
+            actions.open(event)
         }
     }
 }
 
 extension DetailRow {
+    /// 能不能置頂、取短名：跨日的那一條和每日例行的不行
+    var canPin: Bool {
+        switch kind {
+        case .band, .routine: return false
+        case .head, .normal: return true
+        }
+    }
+
     /// 跨日事件與主事件畫成整條實色
     var isSolid: Bool {
         switch kind {

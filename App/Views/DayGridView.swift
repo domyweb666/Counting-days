@@ -14,13 +14,38 @@ struct DayGridView: View {
     private let allDayChip: CGFloat = 24
     private let maxAllDayRows = 2
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// 手指橫向拖了多遠，畫面跟著移。放手或手勢被取消就自己回到 0。
+    @GestureState(resetTransaction: Transaction(animation: Theme.Motion.transition)) private var dragX: CGFloat = 0
+    /// 這次往哪邊翻：1 下一段、-1 上一段、0 不是用滑的（按「今天」、點日期）
+    @State private var pageDirection = 0
+    /// 手指橫向動多遠開始跟著移、滑多遠算要翻頁
+    private let swipeStart: CGFloat = 10
+    private let swipeCommit: CGFloat = 40
+
     private var compact: Bool { vm.viewKind == .week }
+
+    /// 橫的比直的多一倍以上才算左右滑，上下捲不算
+    private func isSideways(_ move: CGSize) -> Bool {
+        abs(move.width) > abs(move.height) * 2
+    }
+
+    /// 用滑的翻頁：舊的往手指的方向滑出去，新的從另一邊進來。其他情況（或開了「減少動態效果」）只淡入淡出。
+    private var pageTransition: AnyTransition {
+        guard !reduceMotion, pageDirection != 0 else { return .opacity }
+        return .asymmetric(
+            insertion: .move(edge: pageDirection > 0 ? .trailing : .leading),
+            removal: .move(edge: pageDirection > 0 ? .leading : .trailing)
+        )
+    }
 
     var body: some View {
         let dates = vm.timelineDays
         let days = dates.map { vm.day(for: $0) }
         VStack(spacing: DT.Space.s2) {
             header(dates, days)
+                .id(dates.first)
+                .transition(pageTransition)
             // 天與 3 天檢視的日期下面有天氣時，放一次來源標示。週檢視一欄太窄，不放天氣。
             if !compact, let credit = app.weatherCredit(for: dates) {
                 WeatherCreditLink(credit: credit)
@@ -32,20 +57,44 @@ struct DayGridView: View {
             }
             ScrollViewReader { proxy in
                 ScrollView {
+                    // 換頁時只換裡面的格子，外面的捲動位置留著
                     grid(dates, days)
+                        .id(dates.first)
+                        .transition(pageTransition)
                 }
                 .background(Theme.card)
                 .clipShape(UnevenRoundedRectangle(topLeadingRadius: DT.Radius.xl, topTrailingRadius: DT.Radius.xl))
                 .onAppear { proxy.scrollTo(startHour(dates), anchor: .top) }
             }
         }
+        .offset(x: dragX)
         .simultaneousGesture(
-            DragGesture(minimumDistance: 40).onEnded { value in
-                let dx = value.translation.width, dy = value.translation.height
-                guard abs(dx) > abs(dy) * 2 else { return }
-                vm.shiftTimeline(dx < 0 ? 1 : -1)
-            }
+            DragGesture(minimumDistance: swipeStart)
+                .updating($dragX) { value, offset, _ in
+                    guard !reduceMotion, isSideways(value.translation) else { return }
+                    offset = value.translation.width
+                }
+                // 先記好方向，放手那一刻舊的那一頁才知道要往哪邊出去
+                .onChanged { value in
+                    guard isSideways(value.translation) else { return }
+                    let direction = value.translation.width < 0 ? 1 : -1
+                    if pageDirection != direction { pageDirection = direction }
+                }
+                .onEnded { value in
+                    let across = value.translation.width
+                    guard isSideways(value.translation), abs(across) >= swipeCommit else {
+                        pageDirection = 0
+                        return
+                    }
+                    withAnimation(Theme.Motion.transition) {
+                        vm.shiftTimeline(across < 0 ? 1 : -1)
+                    } completion: {
+                        pageDirection = 0
+                    }
+                }
         )
+        // 換到另一段日期時輕輕點一下
+        .sensoryFeedback(.selection, trigger: vm.timelineAnchor)
         .accessibilityAction(named: "上一段") { vm.shiftTimeline(-1) }
         .accessibilityAction(named: "下一段") { vm.shiftTimeline(1) }
     }
@@ -101,6 +150,11 @@ struct DayGridView: View {
         return base + "，天氣：" + WeatherRules.line(forecast)
     }
 
+    /// 時間軸上的長按選單。置頂和短名只影響月曆格子，這裡看不出效果，所以不列。
+    private func timelineMenu(_ event: CalEvent) -> some View {
+        EventMenu(vm: vm, event: event, canPin: false, actions: actions)
+    }
+
     // MARK: 全天
 
     private struct AllDayItem: Identifiable {
@@ -143,6 +197,7 @@ struct DayGridView: View {
                                 .background(RoundedRectangle(cornerRadius: DT.Radius.sm).fill(isPast ? Theme.muted : vm.color(item.categoryID)))
                         }
                         .buttonStyle(PressStyle())
+                        .contextMenu { timelineMenu(item.event) }
                     }
                     if items.count > maxAllDayRows {
                         Text("+\(items.count - maxAllDayRows)")
@@ -208,6 +263,7 @@ struct DayGridView: View {
                         blockView(block, height: height, isPast: isPast)
                     }
                     .buttonStyle(PressStyle())
+                    .contextMenu { timelineMenu(block.event.event) }
                     .frame(width: max(width - 1, 0), height: max(height - 1, 0))
                     .offset(x: CGFloat(block.column) * width + 1, y: CGFloat(block.startMinute) / 60 * hourHeight)
                     .accessibilityLabel("\(block.event.event.title)，\(vm.builder.timeText(block.event.event)) 到 \(vm.builder.endTimeText(block.event.event))")

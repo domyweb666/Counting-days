@@ -87,11 +87,13 @@ struct CalendarScreen: View {
     /// 剛進月曆時，等多久再指定一次捲動位置；清掉與放回之間隔多久
     private let settleDelay: Double = 0.15
     private let settleGap: Double = 0.05
-    /// 側邊欄的寬度、logo 的邊長、滑出來花多久、往左滑多遠算要收起來
+    /// 側邊欄的寬度、logo 的邊長、手指橫向動多遠開始跟著移、往左滑多遠算要收起來
     private let sideMenuWidth: CGFloat = 288
     private let sideMenuLogo: CGFloat = 40
-    private let sideMenuDuration: Double = 0.25
+    private let sideMenuDragStart: CGFloat = 10
     private let sideMenuSwipe: CGFloat = 40
+    /// 側邊欄被手指往左拖了多遠（負的）。放手或手勢被取消就自己回到 0。
+    @GestureState(resetTransaction: Transaction(animation: Theme.Motion.transition)) private var sideMenuDrag: CGFloat = 0
 
     var body: some View {
         VStack(spacing: DT.Space.s3) {
@@ -105,6 +107,8 @@ struct CalendarScreen: View {
                     .padding(.horizontal, inset)
             }
             content
+                // 換檢視（月、時間表、週、3 天、天）時淡入淡出，不直接換掉
+                .animation(Theme.Motion.transition, value: app.settings.value.view)
                 // 捲到底時多留一段，最後一列才不會被右下角的新增鈕蓋住
                 .contentMargins(.bottom, fabSize + DT.Space.s4, for: .scrollContent)
         }
@@ -136,6 +140,9 @@ struct CalendarScreen: View {
                 app.weather.refreshIfNeeded(settings: app.settings.value)
             }
         }
+        // 行程存好、刪掉時震一下。掛在月曆上：那時表單正在收下去，掛在表單上不一定震得到。
+        .sensoryFeedback(.success, trigger: app.settings.value.savedEventCount)
+        .sensoryFeedback(.impact(weight: .light), trigger: app.store.deletedCount)
         .sheet(item: $sharing) { item in
             ActivityView(items: [item.text])
         }
@@ -183,8 +190,11 @@ struct CalendarScreen: View {
             Button { sheet = .monthPicker } label: {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(vm.titleMonthText).dFont(DT.TypeScale.largeTitle).foregroundStyle(Theme.ink)
+                        // 捲到別的月份時，數字用翻的，不直接跳
+                        .contentTransition(.numericText())
                     Text(vm.titleYearText).dFont(DT.TypeScale.subheadline).foregroundStyle(Theme.sub)
                 }
+                .animation(Theme.Motion.change, value: vm.titleMonthText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .frame(minHeight: DT.Size.touch)
@@ -195,10 +205,12 @@ struct CalendarScreen: View {
             // 跑到別的月份時才出現。右邊的「今天」做的是同一件事，這顆放在標題旁邊比較順手。
             if !vm.isShowingThisMonth {
                 CircleIconButton(systemName: "arrow.uturn.backward", label: "回到今天") { vm.goToday() }
+                    .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
             }
             Spacer(minLength: 0)
             PillTextButton(title: "今天") { vm.goToday() }
         }
+        .animation(Theme.Motion.change, value: vm.isShowingThisMonth)
         .padding(.horizontal, inset)
     }
 
@@ -238,7 +250,7 @@ struct CalendarScreen: View {
                     .zIndex(1)
             }
         }
-        .animation(.easeOut(duration: sideMenuDuration), value: showSideMenu)
+        .animation(Theme.Motion.transition, value: showSideMenu)
     }
 
     private var sideMenuPanel: some View {
@@ -297,14 +309,22 @@ struct CalendarScreen: View {
         .frame(width: sideMenuWidth)
         .frame(maxHeight: .infinity)
         .background(Theme.card.ignoresSafeArea())
+        // 手指往左拖，側邊欄跟著走。開了「減少動態效果」就不跟。
+        .offset(x: reduceMotion ? 0 : sideMenuDrag)
         // 上下捲不算，往左滑夠遠才收
         .simultaneousGesture(
-            DragGesture(minimumDistance: sideMenuSwipe).onEnded { drag in
-                let across = drag.translation.width
-                if across < -sideMenuSwipe, abs(drag.translation.height) < abs(across) {
-                    showSideMenu = false
+            DragGesture(minimumDistance: sideMenuDragStart)
+                .updating($sideMenuDrag) { drag, offset, _ in
+                    let across = drag.translation.width
+                    guard abs(drag.translation.height) < abs(across) else { return }
+                    offset = min(0, across)
                 }
-            }
+                .onEnded { drag in
+                    let across = drag.translation.width
+                    if across < -sideMenuSwipe, abs(drag.translation.height) < abs(across) {
+                        showSideMenu = false
+                    }
+                }
         )
         .accessibilityAddTraits(.isModal)
         .accessibilityAction(.escape) { showSideMenu = false }

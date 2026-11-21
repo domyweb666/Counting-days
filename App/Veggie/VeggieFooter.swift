@@ -10,6 +10,8 @@ struct VeggieFooter: View {
     private let logoSide: CGFloat = 64
     private let logoRadius: CGFloat = 14
     private let brandIconSide: CGFloat = 26
+    /// 複製了幾次版本資訊，變了就震一下
+    @State private var copiedCount = 0
 
     var body: some View {
         VStack(spacing: DT.Space.s3) {
@@ -30,7 +32,9 @@ struct VeggieFooter: View {
             .onLongPressGesture {
                 UIPasteboard.general.string = Feedback.diagnostics
                 show(VeggieText.diagnosticsCopied)
+                copiedCount += 1
             }
+            .sensoryFeedback(.success, trigger: copiedCount)
             .accessibilityElement(children: .combine)
             .accessibilityHint("長按複製版本資訊")
             HStack(spacing: DT.Space.s4) {

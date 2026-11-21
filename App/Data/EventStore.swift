@@ -12,6 +12,8 @@ final class EventStore {
     private(set) var status: EKAuthorizationStatus = EKEventStore.authorizationStatus(for: .event)
     /// 系統行事曆每變動一次就加一，畫面看到它變了就重新查詢
     private(set) var changeToken = 0
+    /// 從蒜日子刪掉幾筆行程。月曆看到它變了就震一下。
+    private(set) var deletedCount = 0
     var lastError: String?
 
     @ObservationIgnored private var cache: [String: EKEvent] = [:]
@@ -346,6 +348,7 @@ final class EventStore {
         } catch {
             return "沒有刪掉：\(error.localizedDescription)"
         }
+        deletedCount += 1
         bump()
         return nil
     }
