@@ -136,6 +136,9 @@ struct CalendarScreen: View {
                 app.weather.refreshIfNeeded(settings: app.settings.value)
             }
         }
+        // 行程存好、刪掉時震一下。掛在月曆上：那時表單正在收下去，掛在表單上不一定震得到。
+        .sensoryFeedback(.success, trigger: app.settings.value.savedEventCount)
+        .sensoryFeedback(.impact(weight: .light), trigger: app.store.deletedCount)
         .sheet(item: $sharing) { item in
             ActivityView(items: [item.text])
         }

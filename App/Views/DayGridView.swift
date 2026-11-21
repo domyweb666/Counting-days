@@ -46,6 +46,8 @@ struct DayGridView: View {
                 vm.shiftTimeline(dx < 0 ? 1 : -1)
             }
         )
+        // 換到另一段日期時輕輕點一下
+        .sensoryFeedback(.selection, trigger: vm.timelineAnchor)
         .accessibilityAction(named: "上一段") { vm.shiftTimeline(-1) }
         .accessibilityAction(named: "下一段") { vm.shiftTimeline(1) }
     }

@@ -104,6 +104,8 @@ struct NewEventScreen: View {
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         // 動過之後不能直接往下滑掉，要按「取消」確認，免得打到一半不見
         .interactiveDismissDisabled(isDirty && saved == nil)
+        // 上面跳出紅字（存不了、刪不掉、倒數日放滿）時震一下
+        .sensoryFeedback(.error, trigger: problem) { _, now in now != nil }
     }
 
     // MARK: 狀態
