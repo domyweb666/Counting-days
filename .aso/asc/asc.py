@@ -41,6 +41,8 @@ RATING_BOOL_KEYS = {
     "gambling", "unrestrictedWebAccess", "lootBox", "messagingAndChat",
     "parentalControls", "ageAssurance", "userGeneratedContent", "advertising",
     "healthOrWellnessTopics", "socialMedia", "socialMediaAgeRestricted",
+    # 2026-11-16 起送更新必填，使用者 2026-11-23 決定都填沒有
+    "datingAndRelationships", "sharedLocation",
 }
 # 這些是「覆寫／兒童分類」，留空就是不用，不要動
 RATING_LEAVE_EMPTY = {"kidsAgeBand", "ageRatingOverride", "ageRatingOverrideV2", "koreaAgeRatingOverride", "seventeenPlus", "developerAgeRatingInfoUrl", "gracRatingClassificationNumber"}
