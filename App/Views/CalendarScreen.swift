@@ -93,7 +93,7 @@ struct CalendarScreen: View {
     private let sideMenuDragStart: CGFloat = 10
     private let sideMenuSwipe: CGFloat = 40
     /// 側邊欄被手指往左拖了多遠（負的）。放手或手勢被取消就自己回到 0。
-    @GestureState(resetTransaction: Transaction(animation: Theme.Motion.transition)) private var sideMenuDrag: CGFloat = 0
+    @GestureState(resetTransaction: Transaction(animation: Theme.Motion.sideMenu)) private var sideMenuDrag: CGFloat = 0
 
     var body: some View {
         VStack(spacing: DT.Space.s3) {
@@ -250,7 +250,7 @@ struct CalendarScreen: View {
                     .zIndex(1)
             }
         }
-        .animation(Theme.Motion.transition, value: showSideMenu)
+        .animation(Theme.Motion.sideMenu, value: showSideMenu)
     }
 
     private var sideMenuPanel: some View {

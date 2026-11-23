@@ -286,8 +286,10 @@ enum Theme {
     enum Motion {
         /// 小變化：展開收合、一列出現或消失、換月
         static let change = Animation.snappy
-        /// 整塊換掉、滑進滑出：側邊欄、切換檢視、月曆捲到另一天、時間軸換頁
+        /// 整塊換掉、滑進滑出：切換檢視、月曆捲到另一天、時間軸換頁
         static let transition = Animation.smooth
+        /// 側邊欄開關。常開常關，用 transition 預設的 0.5 秒會覺得拖
+        static let sideMenu = Animation.smooth(duration: 0.22)
     }
 
     // MARK: 月曆格子專用的尺寸（例外：設計系統的階梯放不進 7 欄格子）
