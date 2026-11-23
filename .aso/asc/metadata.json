@@ -1,6 +1,6 @@
 {
   "bundleId": "com.domyweb.countingdays",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "locale": "zh-Hant",
   "copyright": "2026 多米(domyweb)",
   "releaseType": "AFTER_APPROVAL",
@@ -19,7 +19,7 @@
     "privacyPolicyUrl": "https://domyweb.org/tools/suanrizi/privacy/"
   },
   "versionLocalization": {
-    "whatsNew": "設定裡多了「分享給朋友」和「在 App Store 給我們評分」。用得順手，歡迎傳給家人朋友。有想要的功能，一樣到設定的「意見回饋」告訴我。",
+    "whatsNew": "這版調了操作的手感。\n・時間軸左右滑，畫面跟著手指走\n・側邊欄往左滑，跟著手指收起來\n・按「今天」會捲回去，換檢視、換月也有動畫\n・存好、刪掉行程，手機會震一下\n・時間表和時間軸上的行程可以長按，直接分享、編輯或加入倒數日\n\n用起來哪裡卡，到設定的「意見回饋」告訴我。",
     "keywords": "日曆,農曆,節氣,國定假日,倒數日,小工具,週曆,時間表,萬年曆,農民曆,紀念日,天氣,假期,日程,生日,節日,台灣",
     "promotionalText": "剛上架。免費版就有彈性週、清單兩種月曆樣式，加上農曆、節氣、台灣假日和天氣。想換顏色、看週條或倒數更多日子，完整版付一次就一直能用，沒有訂閱，也沒有廣告。",
     "supportUrl": "https://domyweb.org/tools/suanrizi/support/",
