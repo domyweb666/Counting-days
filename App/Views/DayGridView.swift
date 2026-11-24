@@ -19,9 +19,8 @@ struct DayGridView: View {
     @GestureState(resetTransaction: Transaction(animation: Theme.Motion.transition)) private var dragX: CGFloat = 0
     /// 這次往哪邊翻：1 下一段、-1 上一段、0 不是用滑的（按「今天」、點日期）
     @State private var pageDirection = 0
-    /// 手指橫向動多遠開始跟著移、滑多遠算要翻頁
+    /// 手指橫向動多遠開始跟著移
     private let swipeStart: CGFloat = 10
-    private let swipeCommit: CGFloat = 40
 
     private var compact: Bool { vm.viewKind == .week }
 
@@ -54,6 +53,8 @@ struct DayGridView: View {
             }
             if days.contains(where: { !allDayItems($0).isEmpty }) {
                 allDayStrip(days)
+                    .id(dates.first)
+                    .transition(pageTransition)
             }
             ScrollViewReader { proxy in
                 ScrollView {
@@ -70,8 +71,10 @@ struct DayGridView: View {
         .offset(x: dragX)
         .simultaneousGesture(
             DragGesture(minimumDistance: swipeStart)
-                .updating($dragX) { value, offset, _ in
-                    guard !reduceMotion, isSideways(value.translation) else { return }
+                .updating($dragX) { value, offset, transaction in
+                    guard isSideways(value.translation) else { return }
+                    // 放手後的動畫接著手指的速度走。開了「減少動態效果」一樣跟手，只是放手後不接速度。
+                    transaction.tracksVelocity = !reduceMotion
                     offset = value.translation.width
                 }
                 // 先記好方向，放手那一刻舊的那一頁才知道要往哪邊出去
@@ -82,12 +85,16 @@ struct DayGridView: View {
                 }
                 .onEnded { value in
                     let across = value.translation.width
-                    guard isSideways(value.translation), abs(across) >= swipeCommit else {
+                    let direction = across < 0 ? 1 : -1
+                    // 換算成以要翻的那個方向為正
+                    let velocity = value.velocity.width * CGFloat(-direction)
+                    guard isSideways(value.translation),
+                          SwipeRules.commits(distance: Double(abs(across)), velocity: Double(velocity)) else {
                         pageDirection = 0
                         return
                     }
                     withAnimation(Theme.Motion.transition) {
-                        vm.shiftTimeline(across < 0 ? 1 : -1)
+                        vm.shiftTimeline(direction)
                     } completion: {
                         pageDirection = 0
                     }

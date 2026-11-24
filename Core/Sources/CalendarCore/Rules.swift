@@ -120,6 +120,33 @@ public enum HeadPicker {
     }
 }
 
+/// 左右滑放手的那一刻，算不算數（時間軸換頁、側邊欄收起共用）。
+/// 距離與速度都以「要去的那個方向」為正。
+public enum SwipeRules {
+    /// 慢慢拉的話，拉過多遠算數（點）
+    public static let commitDistance = 40.0
+    /// 甩多快算數（點／秒）
+    public static let flickVelocity = 300.0
+    /// 往不能去的方向拉，最多只讓它動這麼遠（點）
+    public static let resistLimit = 24.0
+    /// 往不能去的方向拉，一開始跟手的比例
+    private static let resistRatio = 0.5
+
+    /// 甩得夠快就照甩的方向：往前甩一律算數，往回甩是反悔、一律不算。沒有甩才看拉了多遠。
+    public static func commits(distance: Double, velocity: Double) -> Bool {
+        guard distance > 0 else { return false }
+        if velocity >= flickVelocity { return true }
+        if velocity <= -flickVelocity { return false }
+        return distance >= commitDistance
+    }
+
+    /// 往不能去的方向拉：越拉越動不了，永遠不會超過 `resistLimit`
+    public static func resisted(_ distance: Double) -> Double {
+        guard distance > 0 else { return 0 }
+        return resistLimit * (1 - 1 / (distance * resistRatio / resistLimit + 1))
+    }
+}
+
 /// 什麼時候請 iOS 跳評分視窗，照《蔬菜家族 App 共用基本元素規格》的預設：
 /// 裝滿 3 天、存好行程至少 5 次、這個版本還沒請過。「剛存好一筆行程」由呼叫的地方保證。
 /// iOS 一年最多讓同一個 app 跳三次，請了也可能不跳，所以同一版只請一次，不浪費額度。

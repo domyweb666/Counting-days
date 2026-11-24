@@ -84,6 +84,10 @@ final class CalendarViewModel {
     var topWeekID: Date?
     /// 清單方式的小月曆顯示哪個月
     private(set) var listMonth: Date
+    /// 小月曆上一次換月是往後（true）還是往前，換月時從哪一邊滑進來看這個
+    private(set) var listMonthForward = true
+    /// 每點開一天就加一，月曆收到就把那天的面板捲到看得見。跳到某一天不算，那裡有自己的捲動。
+    private(set) var panelReveal = 0
     /// 時間軸從哪一天開始排（週檢視會再對齊到一週的開頭）
     private(set) var timelineAnchor: Date
 
@@ -335,9 +339,11 @@ final class CalendarViewModel {
     }
 
     func toggle(_ date: Date) {
+        let opens = selected != date
         withAnimation(Theme.Motion.change) {
-            selected = selected == date ? nil : date
+            selected = opens ? date : nil
         }
+        if opens { panelReveal += 1 }
     }
 
     private func ensureWindow(contains date: Date) {
@@ -352,7 +358,7 @@ final class CalendarViewModel {
         let day = calendar.startOfDay(for: date)
         ensureWindow(contains: day)
         if select { selected = day }
-        listMonth = Self.monthStart(day, calendar)
+        showListMonth(Self.monthStart(day, calendar))
         timelineAnchor = day
         let target = builder.startOfWeek(day)
         // 近的用捲的，看得出是往上還是往下。遠的直接跳：捲過一大段還沒排好高度的週，會停歪。
@@ -401,7 +407,12 @@ final class CalendarViewModel {
     func shiftListMonth(_ months: Int) {
         let next = Self.shift(listMonth, months: months, calendar)
         ensureWindow(contains: next)
-        listMonth = next
+        showListMonth(next)
+    }
+
+    private func showListMonth(_ month: Date) {
+        listMonthForward = month >= listMonth
+        listMonth = month
     }
 
     func loadEarlier() {

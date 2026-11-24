@@ -6,6 +6,8 @@ struct ListModeView: View {
     let vm: CalendarViewModel
     let actions: CalendarActions
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     /// 這個畫面的內容離螢幕邊緣 20：外層已經有月曆的 8，這裡再補 12
     private let inset = DT.Size.screenMargin - Theme.Grid.margin
 
@@ -42,6 +44,15 @@ struct ListModeView: View {
         .sensoryFeedback(.selection, trigger: vm.listMonth)
     }
 
+    /// 換月：新的月份從箭頭那一邊滑進來，舊的淡掉。開了「減少動態效果」就只淡入淡出。
+    private var monthTransition: AnyTransition {
+        guard !reduceMotion else { return .opacity }
+        return .asymmetric(
+            insertion: .move(edge: vm.listMonthForward ? .trailing : .leading).combined(with: .opacity),
+            removal: .opacity
+        )
+    }
+
     private var miniCalendar: some View {
         VStack(spacing: DT.Space.s2) {
             HStack {
@@ -49,7 +60,9 @@ struct ListModeView: View {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 15, weight: .semibold))
                         .frame(width: DT.Size.touch, height: DT.Size.touch)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(PressStyle())
                 .accessibilityLabel("上個月")
                 Spacer()
                 Text("\(vm.titleYearText) 年 \(vm.titleMonthText)")
@@ -60,7 +73,9 @@ struct ListModeView: View {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 15, weight: .semibold))
                         .frame(width: DT.Size.touch, height: DT.Size.touch)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(PressStyle())
                 .accessibilityLabel("下個月")
             }
             .foregroundStyle(Theme.accent)
@@ -70,20 +85,25 @@ struct ListModeView: View {
                 }
             }
             .accessibilityHidden(true)
-            VStack(spacing: DT.Space.s1) {
-                ForEach(vm.listWeeks) { week in
-                    HStack(spacing: 0) {
-                        ForEach(Array(week.days.enumerated()), id: \.element.id) { col, day in
-                            Button { vm.toggle(day.date) } label: {
-                                MiniCell(vm: vm, week: week, col: col, day: day)
+            ZStack(alignment: .top) {
+                VStack(spacing: DT.Space.s1) {
+                    ForEach(vm.listWeeks) { week in
+                        HStack(spacing: 0) {
+                            ForEach(Array(week.days.enumerated()), id: \.element.id) { col, day in
+                                Button { vm.toggle(day.date) } label: {
+                                    MiniCell(vm: vm, week: week, col: col, day: day)
+                                }
+                                .buttonStyle(PressStyle())
+                                .accessibilityLabel(vm.accessibilityLabel(for: day))
                             }
-                            .buttonStyle(PressStyle())
-                            .accessibilityLabel(vm.accessibilityLabel(for: day))
                         }
                     }
                 }
+                // 整塊當成新的一月：兩個月共用的那一週才不會自己從底下飛到上面
+                .id(vm.listMonth)
+                .transition(monthTransition)
             }
-            // 換月時格子淡入淡出，不直接換掉
+            .clipped()
             .animation(Theme.Motion.change, value: vm.listMonth)
         }
         .padding(.top, DT.Space.s1)
