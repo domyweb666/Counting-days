@@ -117,6 +117,8 @@ struct CalendarScreen: View {
         .padding(.horizontal, Theme.Grid.margin)
         .padding(.top, DT.Space.s2)
         .background(Theme.bg.ignoresSafeArea())
+        // 表單、短名視窗的鍵盤升起時，後面的月曆不跟著縮。縮了再放大，週列表會重算捲動位置，回來就跑掉了。
+        .ignoresSafeArea(.keyboard)
         // 側邊欄打開時，後面的月曆不讓 VoiceOver 唸
         .accessibilityHidden(showSideMenu)
         .overlay { sideMenu }
