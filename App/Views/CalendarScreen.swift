@@ -93,6 +93,8 @@ struct CalendarScreen: View {
     private let sideMenuDragStart: CGFloat = 10
     /// 側邊欄被手指拖了多遠：往左是負的，往右只讓一點點。放手或手勢被取消就自己回到 0。
     @GestureState(resetTransaction: Transaction(animation: Theme.Motion.sideMenu)) private var sideMenuDrag: CGFloat = 0
+    /// 上一次拖側邊欄是什麼時候放手的
+    @State private var sideMenuDragEndedAt = Date.distantPast
 
     var body: some View {
         VStack(spacing: DT.Space.s3) {
@@ -322,8 +324,9 @@ struct CalendarScreen: View {
                 }
                 .onEnded { drag in
                     let across = drag.translation.width
-                    if abs(drag.translation.height) < abs(across),
-                       SwipeRules.commits(distance: Double(-across), velocity: Double(-drag.velocity.width)) {
+                    guard abs(drag.translation.height) < abs(across) else { return }
+                    sideMenuDragEndedAt = Date()
+                    if SwipeRules.commits(distance: Double(-across), velocity: Double(-drag.velocity.width)) {
                         showSideMenu = false
                     }
                 }
@@ -339,7 +342,12 @@ struct CalendarScreen: View {
         @ViewBuilder icon: () -> Icon,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
+        Button {
+            // 從這一列上開始滑，放手時按鈕也會收到點擊，那一次不算
+            guard sideMenuDrag == 0,
+                  Date().timeIntervalSince(sideMenuDragEndedAt) > SwipeRules.tapGap else { return }
+            action()
+        } label: {
             HStack(spacing: DT.Space.s4) {
                 icon()
                     .frame(width: DT.Space.s8)
@@ -528,6 +536,10 @@ struct CalendarScreen: View {
                 withAnimation(Theme.Motion.change) {
                     proxy.scrollTo(WeekBlock.panelID(week: vm.builder.startOfWeek(day)), anchor: nil)
                 }
+            }
+            .onChange(of: vm.topRealign) {
+                guard let week = vm.topWeekID else { return }
+                withAnimation(Theme.Motion.transition) { proxy.scrollTo(week, anchor: .top) }
             }
         }
     }

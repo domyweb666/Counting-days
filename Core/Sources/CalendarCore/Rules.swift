@@ -127,6 +127,8 @@ public enum SwipeRules {
     public static let commitDistance = 40.0
     /// 甩多快算數（點／秒）
     public static let flickVelocity = 300.0
+    /// 放手後多久以內的點擊算是同一次滑動帶出來的，不算點（秒）
+    public static let tapGap = 0.1
     /// 往不能去的方向拉，最多只讓它動這麼遠（點）
     public static let resistLimit = 24.0
     /// 往不能去的方向拉，一開始跟手的比例

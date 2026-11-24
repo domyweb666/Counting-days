@@ -579,6 +579,8 @@ struct NewEventScreen: View {
         VStack(spacing: 0) { content() }
             .frame(maxWidth: .infinity, alignment: .top)
             .clipped()
+            // 剛長出來的東西跟著整塊一起移，不然它會先出現在最後的位置，跟還在滑的那一列疊在一起
+            .geometryGroup()
     }
 
     private var allDayBinding: Binding<Bool> {
@@ -993,6 +995,7 @@ struct NewEventScreen: View {
         }
         .padding(.horizontal, DT.Space.s4)
         .frame(maxWidth: .infinity)
+        .geometryGroup()
     }
 
     @ViewBuilder
