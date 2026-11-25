@@ -198,7 +198,7 @@ final class EventStore {
     struct EditSeed {
         let event: EKEvent
         let draft: NewEventDraft
-        /// 原本的提醒、重複規則表單表示不了（例如 15 分鐘前、每個月第二個週三）。使用者沒去動就照原本的留著。
+        /// 原本的提醒、重複規則表單表示不了（例如超過 30 天前、每個月第二個週三）。使用者沒去動就照原本的留著。
         let keepsOtherReminder: Bool
         let keepsOtherRepeat: Bool
     }

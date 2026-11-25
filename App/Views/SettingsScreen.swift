@@ -747,37 +747,35 @@ struct DisplayModeSettingsScreen: View {
     }
 
     /// 一週的範例月曆，照現在選的（或試看中的）樣式畫。只是樣子，點不到。
+    /// 四種樣式不一樣高，照現在這一種的高度排的話，換一次下面的四列就整塊跳一次。
+    /// 所以留固定的高度：清單以外三種裡最高的那一種。清單比它高，超過的地方往下淡掉。
     private func preview(_ week: WeekModel) -> some View {
-        let noActions = CalendarActions(open: { _ in }, add: { _ in }, shortName: { _ in }, needFullVersion: { _ in })
-        return VStack(alignment: .trailing, spacing: DT.Space.s1) {
-            switch current {
-            case .flex:
-                ExpandedWeek(vm: app.vm, week: week, showAll: true, actions: noActions)
-            case .head:
-                ExpandedWeek(vm: app.vm, week: week, showAll: false, actions: noActions)
-            case .strips:
-                StripWeek(vm: app.vm, week: week, actions: noActions)
-            case .list:
-                // 清單樣式是小月曆加下面的行程卡：畫小月曆的一列，再接三張「接下來」
-                VStack(alignment: .leading, spacing: DT.Space.s2) {
-                    HStack(spacing: 0) {
-                        ForEach(Array(week.days.enumerated()), id: \.element.id) { col, day in
-                            MiniCell(vm: app.vm, week: week, col: col, day: day)
-                                .frame(maxWidth: .infinity)
-                        }
-                    }
-                    .padding(.vertical, DT.Space.s3)
-                    .background(RoundedRectangle(cornerRadius: DT.Radius.xl).fill(Theme.card))
-                    Text("接下來")
-                        .dFont(DT.TypeScale.headline)
-                        .foregroundStyle(Theme.ink)
-                        .padding(.top, DT.Space.s1)
-                        .padding(.horizontal, DT.Space.s1)
-                    ForEach(app.vm.themePreviewUpcoming(in: week)) { card in
-                        UpcomingCardView(vm: app.vm, card: card)
-                    }
+        VStack(alignment: .trailing, spacing: DT.Space.s1) {
+            ZStack(alignment: .top) {
+                ForEach(DisplayMode.allCases.filter { $0 != .list }, id: \.self) { mode in
+                    modeSample(mode, week: week)
+                        .opacity(mode == current ? 1 : 0)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .top)
+            .overlay {
+                Color.clear
+                    .overlay(alignment: .top) {
+                        modeSample(.list, week: week)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .clipped()
+                    .mask {
+                        VStack(spacing: 0) {
+                            Rectangle()
+                            LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                                .frame(height: DT.Space.s8)
+                        }
+                    }
+                    .opacity(current == .list ? 1 : 0)
+            }
+            // 位置都不動，只有舊的淡出、新的淡入
+            .animation(Theme.Motion.change, value: current)
             Text("範例行程")
                 .dFont(DT.TypeScale.caption)
                 .foregroundStyle(Theme.sub)
@@ -786,6 +784,40 @@ struct DisplayModeSettingsScreen: View {
         .allowsHitTesting(false)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("月曆樣式預覽：用範例行程畫的一週，會跟著你點的樣式換")
+    }
+
+    /// 某一種樣式的範例月曆
+    @ViewBuilder
+    private func modeSample(_ mode: DisplayMode, week: WeekModel) -> some View {
+        let noActions = CalendarActions(open: { _ in }, add: { _ in }, shortName: { _ in }, needFullVersion: { _ in })
+        switch mode {
+        case .flex:
+            ExpandedWeek(vm: app.vm, week: week, showAll: true, actions: noActions)
+        case .head:
+            ExpandedWeek(vm: app.vm, week: week, showAll: false, actions: noActions)
+        case .strips:
+            StripWeek(vm: app.vm, week: week, actions: noActions)
+        case .list:
+            // 清單樣式是小月曆加下面的行程卡：畫小月曆的一列，再接三張「接下來」
+            VStack(alignment: .leading, spacing: DT.Space.s2) {
+                HStack(spacing: 0) {
+                    ForEach(Array(week.days.enumerated()), id: \.element.id) { col, day in
+                        MiniCell(vm: app.vm, week: week, col: col, day: day)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(.vertical, DT.Space.s3)
+                .background(RoundedRectangle(cornerRadius: DT.Radius.xl).fill(Theme.card))
+                Text("接下來")
+                    .dFont(DT.TypeScale.headline)
+                    .foregroundStyle(Theme.ink)
+                    .padding(.top, DT.Space.s1)
+                    .padding(.horizontal, DT.Space.s1)
+                ForEach(app.vm.themePreviewUpcoming(in: week)) { card in
+                    UpcomingCardView(vm: app.vm, card: card)
+                }
+            }
+        }
     }
 }
 
