@@ -129,3 +129,136 @@ public enum WidgetRules {
         return [now] + later.sorted()
     }
 }
+
+// MARK: - 第 66 片起的六種小工具
+
+/// 蒜日子有哪幾種小工具。哪幾種要完整版看 `FullVersionAccess.canShowWidget`。
+/// rawValue 接在 `com.domyweb.countingdays.widget.` 後面就是小工具的種類名，上架後不能改，
+/// 改了使用者放在主畫面的那一塊會失效。
+public enum WidgetStyle: String, CaseIterable, Sendable {
+    /// 小尺寸「今天」（第 60 到 65 片）
+    case today
+    /// 小尺寸色塊小月曆
+    case smallMonth = "month.small"
+    /// 小尺寸倒數日
+    case countdown
+    /// 中尺寸彈性週：從今天起 7 天
+    case flexWeek = "week.flex"
+    /// 中尺寸小月曆加接下來
+    case monthNext = "month.next"
+    /// 大尺寸整月主事件
+    case largeMonth = "month.large"
+    /// 鎖定畫面長方形：今天下一件
+    case lockNext = "lock.next"
+}
+
+/// 月曆格子上這一天要畫的那一件：上面有跨日的就是最上面那一條，沒有就是主事件。
+/// 跟蒜日子清單樣式的小月曆（MiniCell）同一套：只看第 0 條跨日、再看主事件。
+public struct WidgetMonthMark: Hashable, Sendable {
+    public var label: String
+    public var categoryID: String
+}
+
+/// 倒數日小工具要畫的那一個
+public struct WidgetCountdown: Hashable, Sendable {
+    public var title: String
+    /// 那一天（已經開始的跨日行程算今天）
+    public var date: Date
+    /// 還有幾天，0 是今天
+    public var days: Int
+    /// 這一筆佔幾天，跨日的才大於 1
+    public var totalDays: Int
+    public var categoryID: String
+}
+
+extension WidgetRules {
+    /// 倒數日往後查多遠（天）。跟蒜日子一樣看兩年內。
+    public static let countdownDaysAhead = 731
+    /// 「接下來」往後看幾天。小工具最多放三張，一個多月夠了。
+    public static let upcomingDaysAhead = 42
+
+    /// 這個月的格子：從這個月 1 號那一週排到月底那一週。每天的主事件、跨日都跟蒜日子的月曆同一份。
+    public static func monthWeeks(events: [CalEvent], now: Date, calendar: Calendar, settings: AppSettings) -> [WeekModel] {
+        let builder = LayoutBuilder(calendar: calendar, today: now, settings: settings)
+        guard let month = calendar.dateInterval(of: .month, for: builder.today) else { return [] }
+        let lastDay = builder.addDays(month.end, -1)
+        return builder.weeks(from: month.start, to: lastDay, events: events)
+    }
+
+    /// 某一週第幾欄要畫的那一件。沒有就是 nil。
+    public static func monthMark(in week: WeekModel, col: Int, settings: AppSettings) -> WidgetMonthMark? {
+        guard week.days.indices.contains(col) else { return nil }
+        if let seg = week.segments.first(where: { $0.band.lane == 0 && col >= $0.startCol && col <= $0.endCol }) {
+            let event = seg.band.event
+            return WidgetMonthMark(
+                label: CellText.label(title: event.title, shortName: settings.shortNames[event.seriesID]),
+                categoryID: seg.band.categoryID
+            )
+        }
+        guard let head = week.days[col].head else { return nil }
+        return WidgetMonthMark(label: head.label, categoryID: head.categoryID)
+    }
+
+    /// 從今天起 7 天排成一週，今天在最左邊（跟主題頁的預覽一樣，不照週日或週一起排）
+    public static func weekFromToday(events: [CalEvent], now: Date, calendar: Calendar, settings: AppSettings) -> WeekModel? {
+        var rolling = calendar
+        rolling.firstWeekday = calendar.component(.weekday, from: now)
+        let builder = LayoutBuilder(calendar: rolling, today: now, settings: settings)
+        return builder.weeks(from: builder.today, to: builder.addDays(builder.today, 6), events: events).first
+    }
+
+    /// 「接下來」的前幾張，跟蒜日子清單樣式下面那一串同一份
+    public static func upcoming(
+        events: [CalEvent],
+        now: Date,
+        calendar: Calendar,
+        settings: AppSettings,
+        count: Int
+    ) -> [UpcomingCard] {
+        guard count > 0 else { return [] }
+        let builder = LayoutBuilder(calendar: calendar, today: now, settings: settings)
+        let weeks = builder.weeks(from: builder.today, to: builder.addDays(builder.today, upcomingDaysAhead), events: events)
+        return Array(builder.upcoming(in: weeks, limit: count).prefix(count))
+    }
+
+    /// 日期下面那行小字：節日先，再來節氣或農曆（設定關掉農曆就只剩節日）。跟蒜日子月曆上的一樣。
+    public static func subline(for day: DayModel, calendar: Calendar, settings: AppSettings) -> (text: String, isHoliday: Bool)? {
+        if let holiday = day.holidays.first { return (String(holiday.prefix(3)), true) }
+        guard settings.showLunar else { return nil }
+        let text = Lunar.solarTerm(for: day.date, calendar: calendar)
+            ?? Lunar.lunarDay(for: day.date.addingTimeInterval(12 * 3600), timeZone: calendar.timeZone).shortText
+        return text.isEmpty ? nil : (text, false)
+    }
+
+    /// 最快到的那一個倒數日。規則跟蒜日子月曆上面那一排一樣：關掉的行事曆不算，已經開始的跨日行程算今天。
+    /// `countdownIDs` 要先經過 `FullVersionAccess.visibleCountdowns`。
+    public static func nextCountdown(
+        events: [CalEvent],
+        countdownIDs: [String],
+        now: Date,
+        calendar: Calendar,
+        settings: AppSettings
+    ) -> WidgetCountdown? {
+        let builder = LayoutBuilder(calendar: calendar, today: now, settings: settings)
+        var best: WidgetCountdown?
+        for id in countdownIDs {
+            let next = events
+                .filter { $0.seriesID == id && !settings.hiddenCalendarIDs.contains($0.calendarID) }
+                .filter { builder.lastDay(of: $0) >= builder.today }
+                .min { $0.start < $1.start }
+            guard let next else { continue }
+            let first = calendar.startOfDay(for: next.start)
+            let day = max(first, builder.today)
+            let item = WidgetCountdown(
+                title: next.title,
+                date: day,
+                days: builder.dayDistance(from: builder.today, to: day),
+                totalDays: builder.isMultiDay(next) ? builder.dayDistance(from: first, to: builder.lastDay(of: next)) + 1 : 1,
+                categoryID: Classifier.categoryID(for: next, settings: settings)
+            )
+            if let current = best, current.days <= item.days { continue }
+            best = item
+        }
+        return best
+    }
+}

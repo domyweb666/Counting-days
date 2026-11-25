@@ -15,10 +15,12 @@ struct SuanRiZiApp: App {
     }
 }
 
-/// 小工具畫的東西看這兩樣，其中一樣變了就要請它重畫
+/// 小工具畫的東西看這三樣，其中一樣變了就要請它重畫。
+/// 買了沒小工具會自己問 App Store，這裡只是買完、退款時請它馬上重畫，不把結果交給它。
 private struct WidgetSource: Equatable {
     let changeToken: Int
     let settings: AppSettings
+    let isUnlocked: Bool
 }
 
 /// 依行事曆權限決定顯示哪一頁
@@ -65,7 +67,7 @@ struct RootView: View {
             if phase == .active { app.store.refreshStatus() }
         }
         // 打開蒜日子、行事曆有變動、改了設定，都請小工具重畫
-        .task(id: WidgetSource(changeToken: app.store.changeToken, settings: app.settings.value)) {
+        .task(id: WidgetSource(changeToken: app.store.changeToken, settings: app.settings.value, isUnlocked: app.purchase.isUnlocked)) {
             try? await Task.sleep(for: .seconds(widgetReloadDelay))
             guard !Task.isCancelled else { return }
             WidgetCenter.shared.reloadAllTimelines()

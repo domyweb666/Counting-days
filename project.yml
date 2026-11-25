@@ -70,6 +70,8 @@ targets:
       - path: App/Design/DomyTokens.swift
       # 讀行程也用同一份，小工具上的行程才會跟蒜日子對得起來。小工具只呼叫讀的那幾個
       - path: App/Data/EventStore.swift
+      # 買了沒也問同一個：小工具只呼叫 PurchaseStore.checkUnlocked，自己問 App Store，不讀蒜日子留的任何東西
+      - path: App/Data/PurchaseStore.swift
     dependencies:
       - package: CalendarCore
     info:
