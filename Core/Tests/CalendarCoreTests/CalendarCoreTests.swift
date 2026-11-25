@@ -1210,4 +1210,38 @@ final class CalendarCoreTests: XCTestCase {
         XCTAssertNil(decoded.reviewAskedVersion)
         XCTAssertFalse(decoded.showLunar)
     }
+
+    // MARK: 左右滑放手
+
+    func testSwipeWithoutFlickNeedsDistance() {
+        XCTAssertTrue(SwipeRules.commits(distance: 40, velocity: 0))
+        XCTAssertFalse(SwipeRules.commits(distance: 39, velocity: 0))
+        // 放手時還有一點速度，但不到甩的程度：一樣看距離
+        XCTAssertFalse(SwipeRules.commits(distance: 20, velocity: 299))
+        XCTAssertTrue(SwipeRules.commits(distance: 60, velocity: -299))
+    }
+
+    func testSwipeFlickDecidesByDirection() {
+        // 甩得快，距離不到也算
+        XCTAssertTrue(SwipeRules.commits(distance: 12, velocity: 300))
+        // 拉得很遠才往回甩：反悔，不算
+        XCTAssertFalse(SwipeRules.commits(distance: 200, velocity: -300))
+        // 手指停在反方向：再快也不算
+        XCTAssertFalse(SwipeRules.commits(distance: -10, velocity: 900))
+        XCTAssertFalse(SwipeRules.commits(distance: 0, velocity: 900))
+    }
+
+    func testSwipeResistanceNeverPassesLimit() {
+        XCTAssertEqual(SwipeRules.resisted(-50), 0)
+        XCTAssertEqual(SwipeRules.resisted(0), 0)
+        // 越拉越遠，但每一次都比手指動得少、也不會超過上限
+        var last = 0.0
+        for distance in [10.0, 50, 200, 2000] {
+            let moved = SwipeRules.resisted(distance)
+            XCTAssertGreaterThan(moved, last)
+            XCTAssertLessThan(moved, distance)
+            XCTAssertLessThan(moved, SwipeRules.resistLimit)
+            last = moved
+        }
+    }
 }

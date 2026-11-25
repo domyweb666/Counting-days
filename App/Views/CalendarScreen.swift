@@ -87,13 +87,14 @@ struct CalendarScreen: View {
     /// 剛進月曆時，等多久再指定一次捲動位置；清掉與放回之間隔多久
     private let settleDelay: Double = 0.15
     private let settleGap: Double = 0.05
-    /// 側邊欄的寬度、logo 的邊長、手指橫向動多遠開始跟著移、往左滑多遠算要收起來
+    /// 側邊欄的寬度、logo 的邊長、手指橫向動多遠開始跟著移
     private let sideMenuWidth: CGFloat = 288
     private let sideMenuLogo: CGFloat = 40
     private let sideMenuDragStart: CGFloat = 10
-    private let sideMenuSwipe: CGFloat = 40
-    /// 側邊欄被手指往左拖了多遠（負的）。放手或手勢被取消就自己回到 0。
+    /// 側邊欄被手指拖了多遠：往左是負的，往右只讓一點點。放手或手勢被取消就自己回到 0。
     @GestureState(resetTransaction: Transaction(animation: Theme.Motion.sideMenu)) private var sideMenuDrag: CGFloat = 0
+    /// 上一次拖側邊欄是什麼時候放手的
+    @State private var sideMenuDragEndedAt = Date.distantPast
 
     var body: some View {
         VStack(spacing: DT.Space.s3) {
@@ -116,6 +117,8 @@ struct CalendarScreen: View {
         .padding(.horizontal, Theme.Grid.margin)
         .padding(.top, DT.Space.s2)
         .background(Theme.bg.ignoresSafeArea())
+        // 表單、短名視窗的鍵盤升起時，後面的月曆不跟著縮。縮了再放大，週列表會重算捲動位置，回來就跑掉了。
+        .ignoresSafeArea(.keyboard)
         // 側邊欄打開時，後面的月曆不讓 VoiceOver 唸
         .accessibilityHidden(showSideMenu)
         .overlay { sideMenu }
@@ -308,20 +311,24 @@ struct CalendarScreen: View {
         }
         .frame(width: sideMenuWidth)
         .frame(maxHeight: .infinity)
-        .background(Theme.card.ignoresSafeArea())
-        // 手指往左拖，側邊欄跟著走。開了「減少動態效果」就不跟。
-        .offset(x: reduceMotion ? 0 : sideMenuDrag)
-        // 上下捲不算，往左滑夠遠才收
+        // 底色往左多鋪一段，往右拉的時候左邊才不會露出暗幕
+        .background(Theme.card.padding(.leading, -CGFloat(SwipeRules.resistLimit)).ignoresSafeArea())
+        .offset(x: sideMenuDrag)
+        // 上下捲不算。往左甩得夠快、或拉得夠遠才收；往右甩是反悔
         .simultaneousGesture(
             DragGesture(minimumDistance: sideMenuDragStart)
-                .updating($sideMenuDrag) { drag, offset, _ in
+                .updating($sideMenuDrag) { drag, offset, transaction in
                     let across = drag.translation.width
                     guard abs(drag.translation.height) < abs(across) else { return }
-                    offset = min(0, across)
+                    // 放手後的動畫接著手指的速度走。開了「減少動態效果」一樣跟手，只是放手後不接速度。
+                    transaction.tracksVelocity = !reduceMotion
+                    offset = across < 0 ? across : CGFloat(SwipeRules.resisted(Double(across)))
                 }
                 .onEnded { drag in
                     let across = drag.translation.width
-                    if across < -sideMenuSwipe, abs(drag.translation.height) < abs(across) {
+                    guard abs(drag.translation.height) < abs(across) else { return }
+                    sideMenuDragEndedAt = Date()
+                    if SwipeRules.commits(distance: Double(-across), velocity: Double(-drag.velocity.width)) {
                         showSideMenu = false
                     }
                 }
@@ -337,7 +344,12 @@ struct CalendarScreen: View {
         @ViewBuilder icon: () -> Icon,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
+        Button {
+            // 從這一列上開始滑，放手時按鈕也會收到點擊，那一次不算
+            guard sideMenuDrag == 0,
+                  Date().timeIntervalSince(sideMenuDragEndedAt) > SwipeRules.tapGap else { return }
+            action()
+        } label: {
             HStack(spacing: DT.Space.s4) {
                 icon()
                     .frame(width: DT.Space.s8)
@@ -503,22 +515,35 @@ struct CalendarScreen: View {
 
     private var weekScroll: some View {
         @Bindable var model = vm
-        return ScrollView {
-            LazyVStack(spacing: DT.Space.s2) {
-                ForEach(vm.weeks) { week in
-                    WeekBlock(vm: vm, week: week, mode: mode, actions: actions)
+        return ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: DT.Space.s2) {
+                    ForEach(vm.weeks) { week in
+                        WeekBlock(vm: vm, week: week, mode: mode, actions: actions)
+                    }
+                }
+                .scrollTargetLayout()
+                .padding(.bottom, DT.Space.s2)
+                HStack(spacing: DT.Space.s2) {
+                    WideButton(title: "更早的月份", kind: .secondary) { vm.loadEarlier() }
+                    WideButton(title: "更晚的月份", kind: .secondary) { vm.loadLater() }
+                }
+                .padding(.horizontal, inset)
+                .padding(.bottom, DT.Space.s8)
+            }
+            .scrollPosition(id: $model.topWeekID, anchor: .top)
+            // 點開的面板超出畫面才捲，捲到剛好露出整塊；本來就看得到的不動（anchor 不給就是這個意思）
+            .onChange(of: vm.panelReveal) {
+                guard let day = vm.selected else { return }
+                withAnimation(Theme.Motion.change) {
+                    proxy.scrollTo(WeekBlock.panelID(week: vm.builder.startOfWeek(day)), anchor: nil)
                 }
             }
-            .scrollTargetLayout()
-            .padding(.bottom, DT.Space.s2)
-            HStack(spacing: DT.Space.s2) {
-                WideButton(title: "更早的月份", kind: .secondary) { vm.loadEarlier() }
-                WideButton(title: "更晚的月份", kind: .secondary) { vm.loadLater() }
+            .onChange(of: vm.topRealign) {
+                guard let week = vm.topWeekID else { return }
+                withAnimation(Theme.Motion.transition) { proxy.scrollTo(week, anchor: .top) }
             }
-            .padding(.horizontal, inset)
-            .padding(.bottom, DT.Space.s8)
         }
-        .scrollPosition(id: $model.topWeekID, anchor: .top)
     }
 
     // MARK: 彈出畫面
@@ -622,6 +647,9 @@ struct WeekBlock: View {
     let mode: DisplayMode
     let actions: CalendarActions
 
+    /// 當天面板的代號，捲過去時用。照週不照天：同一週換點別天，面板是同一塊，只換內容。
+    static func panelID(week: Date) -> String { "panel\(week.timeIntervalSinceReferenceDate)" }
+
     var body: some View {
         VStack(spacing: DT.Space.s2) {
             if mode == .strips {
@@ -633,6 +661,7 @@ struct WeekBlock: View {
             }
             if let sel = vm.selected, let day = week.days.first(where: { $0.date == sel }) {
                 DayPanel(vm: vm, day: day, actions: actions)
+                    .id(Self.panelID(week: week.id))
             }
         }
     }

@@ -84,6 +84,12 @@ final class CalendarViewModel {
     var topWeekID: Date?
     /// 清單方式的小月曆顯示哪個月
     private(set) var listMonth: Date
+    /// 小月曆上一次換月是往後（true）還是往前，換月時從哪一邊滑進來看這個
+    private(set) var listMonthForward = true
+    /// 每點開一天就加一，月曆收到就把那天的面板捲到看得見。跳到某一天不算，那裡有自己的捲動。
+    private(set) var panelReveal = 0
+    /// 要跳去的那一週已經是最上面那一週、只是被捲掉一截時加一。`topWeekID` 沒變就不會捲，要另外請月曆對齊。
+    private(set) var topRealign = 0
     /// 時間軸從哪一天開始排（週檢視會再對齊到一週的開頭）
     private(set) var timelineAnchor: Date
 
@@ -170,10 +176,13 @@ final class CalendarViewModel {
     var viewKind: ViewKind { settings.value.view }
 
     /// 時間軸現在排的那幾天
-    var timelineDays: [Date] {
+    var timelineDays: [Date] { timelineDays(page: 0) }
+
+    /// 從現在這一段往前、往後數第幾段要排的那幾天（0 是現在這一段，-1 上一段，1 下一段）
+    func timelineDays(page: Int) -> [Date] {
         guard let count = viewKind.dayCount else { return [] }
         let start = count == 7 ? builder.startOfWeek(timelineAnchor) : timelineAnchor
-        return (0..<count).map { builder.addDays(start, $0) }
+        return (0..<count).map { builder.addDays(start, page * count + $0) }
     }
 
     /// 新增行程時預設帶入哪一天
@@ -335,9 +344,11 @@ final class CalendarViewModel {
     }
 
     func toggle(_ date: Date) {
+        let opens = selected != date
         withAnimation(Theme.Motion.change) {
-            selected = selected == date ? nil : date
+            selected = opens ? date : nil
         }
+        if opens { panelReveal += 1 }
     }
 
     private func ensureWindow(contains date: Date) {
@@ -352,13 +363,15 @@ final class CalendarViewModel {
         let day = calendar.startOfDay(for: date)
         ensureWindow(contains: day)
         if select { selected = day }
-        listMonth = Self.monthStart(day, calendar)
+        showListMonth(Self.monthStart(day, calendar))
         timelineAnchor = day
         let target = builder.startOfWeek(day)
         // 近的用捲的，看得出是往上還是往下。遠的直接跳：捲過一大段還沒排好高度的週，會停歪。
-        if let from = topWeekID,
-           let days = calendar.dateComponents([.day], from: from, to: target).day,
-           abs(days) <= Self.animatedJumpDays {
+        if topWeekID == target {
+            topRealign += 1
+        } else if let from = topWeekID,
+                  let days = calendar.dateComponents([.day], from: from, to: target).day,
+                  abs(days) <= Self.animatedJumpDays {
             withAnimation(Theme.Motion.transition) { topWeekID = target }
         } else {
             topWeekID = target
@@ -401,7 +414,12 @@ final class CalendarViewModel {
     func shiftListMonth(_ months: Int) {
         let next = Self.shift(listMonth, months: months, calendar)
         ensureWindow(contains: next)
-        listMonth = next
+        showListMonth(next)
+    }
+
+    private func showListMonth(_ month: Date) {
+        listMonthForward = month >= listMonth
+        listMonth = month
     }
 
     func loadEarlier() {

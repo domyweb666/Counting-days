@@ -300,6 +300,10 @@ struct NewEventScreen: View {
                 optionsSection
                 if let editing { editFooter(editing) }
             }
+            // 月曆、滾輪、行事曆清單開合時，下面的欄位用滑的讓位
+            .animation(Theme.Motion.change, value: picking)
+            .animation(Theme.Motion.change, value: pickingYearMonth)
+            .animation(Theme.Motion.change, value: pickingCalendar)
             .padding(.horizontal, DT.Size.screenMargin)
             .padding(.top, DT.Space.s2)
             .padding(.bottom, DT.Space.s6)
@@ -533,10 +537,12 @@ struct NewEventScreen: View {
                     .padding(.horizontal, DT.Space.s4)
                     .padding(.bottom, DT.Space.s2)
             }
-            if let part = picking {
-                whenPicker(part)
-                    .padding(.horizontal, DT.Space.s2)
-                    .padding(.bottom, DT.Space.s2)
+            unfolding {
+                if let part = picking {
+                    whenPicker(part)
+                        .padding(.horizontal, DT.Space.s2)
+                        .padding(.bottom, DT.Space.s2)
+                }
             }
             Hairline()
             Toggle(isOn: allDayBinding) {
@@ -566,6 +572,15 @@ struct NewEventScreen: View {
         }
         .frame(maxWidth: .infinity)
         .background(RoundedRectangle(cornerRadius: DT.Radius.lg).fill(Theme.card))
+    }
+
+    /// 開合的那一塊：框從上面往下長，裡面的東西跟著露出來，不會蓋到下面的欄位
+    private func unfolding<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: 0) { content() }
+            .frame(maxWidth: .infinity, alignment: .top)
+            .clipped()
+            // 剛長出來的東西跟著整塊一起移，不然它會先出現在最後的位置，跟還在滑的那一列疊在一起
+            .geometryGroup()
     }
 
     private var allDayBinding: Binding<Bool> {
@@ -974,12 +989,13 @@ struct NewEventScreen: View {
             .buttonStyle(PressStyle())
             .accessibilityLabel("存到哪本行事曆")
             .accessibilityValue(selectedCalendar.map(calendarLine) ?? "沒有可以存的行事曆")
-            if pickingCalendar {
-                calendarList
+            unfolding {
+                if pickingCalendar { calendarList }
             }
         }
         .padding(.horizontal, DT.Space.s4)
         .frame(maxWidth: .infinity)
+        .geometryGroup()
     }
 
     @ViewBuilder

@@ -284,11 +284,12 @@ enum Theme {
     // MARK: 動畫（按壓的數字在 DT.Motion；其他畫面的動畫都從這裡拿，不各自寫秒數）
 
     enum Motion {
-        /// 小變化：展開收合、一列出現或消失、換月
-        static let change = Animation.snappy
+        // 每一格都寫明秒數：系統預設是 0.5 秒，展開一天會覺得慢
+        /// 小變化：展開收合、一列出現或消失、換月。用不會彈的，展開時下面的週才不會跟著晃
+        static let change = Animation.smooth(duration: 0.22)
         /// 整塊換掉、滑進滑出：切換檢視、月曆捲到另一天、時間軸換頁
-        static let transition = Animation.smooth
-        /// 側邊欄開關。常開常關，用 transition 預設的 0.5 秒會覺得拖
+        static let transition = Animation.smooth(duration: 0.3)
+        /// 側邊欄開關。常開常關，要比 transition 快
         static let sideMenu = Animation.smooth(duration: 0.22)
     }
 
