@@ -33,6 +33,8 @@ struct NewEventScreen: View {
     /// 月曆上面的「2026年11月」點開了沒：點開是年、月兩個滾輪，用來一次跳很遠
     @State private var pickingYearMonth = false
     @State private var pickingCalendar = false
+    /// 提醒選了「自訂」，那一列下面的滾輪開著
+    @State private var pickingReminder = false
     @State private var problem: String?
     @State private var confirmDiscard = false
     /// 備註的記事本開著
@@ -304,6 +306,7 @@ struct NewEventScreen: View {
             .animation(Theme.Motion.change, value: picking)
             .animation(Theme.Motion.change, value: pickingYearMonth)
             .animation(Theme.Motion.change, value: pickingCalendar)
+            .animation(Theme.Motion.change, value: pickingReminder)
             .padding(.horizontal, DT.Size.screenMargin)
             .padding(.top, DT.Space.s2)
             .padding(.bottom, DT.Space.s6)
@@ -592,6 +595,7 @@ struct NewEventScreen: View {
                 if isOn, picking == .startTime || picking == .endTime {
                     picking = nil
                 }
+                if isOn { pickingReminder = false }
             }
         )
     }
@@ -1066,9 +1070,12 @@ struct NewEventScreen: View {
             .split(whereSeparator: \.isNewline).first.map(String.init) ?? ""
         return SectionCard {
             Menu {
-                Button("不提醒") { draft.reminder = nil }
+                Button("不提醒") { pickReminder(nil) }
                 ForEach(reminders, id: \.self) { option in
-                    Button(option.label) { draft.reminder = option }
+                    Button(option.label) { pickReminder(option) }
+                }
+                if draft.kind == .timed {
+                    Button("自訂…") { startCustomReminder() }
                 }
             } label: {
                 menuRow("提醒", icon: "bell", value: reminderText)
@@ -1077,6 +1084,12 @@ struct NewEventScreen: View {
             .buttonStyle(.plain)
             .accessibilityLabel("提醒")
             .accessibilityValue(reminderText)
+            unfolding {
+                if pickingReminder {
+                    reminderPicker
+                        .padding(.bottom, DT.Space.s2)
+                }
+            }
             Hairline()
             locationRow
                 .id(Field.location)
@@ -1124,6 +1137,81 @@ struct NewEventScreen: View {
                 .tint(Theme.accent)
             }
         }
+    }
+
+    // MARK: 自訂提醒
+
+    private func pickReminder(_ reminder: EventReminder?) {
+        pickingReminder = false
+        draft.reminder = reminder
+    }
+
+    /// 選「自訂」：滾輪從現在的提醒開始轉；還沒設提醒就從預設的長度開始
+    private func startCustomReminder() {
+        // 滾輪要有地方長出來，先把鍵盤和上面開著的月曆、滾輪收掉
+        focus = nil
+        picking = nil
+        if draft.reminder == nil {
+            draft.reminder = .before(minutes: EventReminder.customDefaultMinutes)
+        }
+        pickingReminder = true
+    }
+
+    /// 三個滾輪：幾天、幾小時、幾分鐘，加起來就是開始前多久。轉到哪就存哪。
+    private var reminderPicker: some View {
+        let total = draft.reminder?.minutesBefore ?? 0
+        let day = total / NewEventRules.minutesPerDay
+        let hour = total % NewEventRules.minutesPerDay / 60
+        let minute = total % 60
+        return VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                reminderWheel("天", values: Array(0...EventReminder.customMaxDays), selection: Binding(
+                    get: { day }, set: { setReminder(day: $0, hour: hour, minute: minute) }
+                ))
+                reminderWheel("小時", values: Array(0..<24), selection: Binding(
+                    get: { hour }, set: { setReminder(day: day, hour: $0, minute: minute) }
+                ))
+                reminderWheel("分鐘", values: Array(0..<60), selection: Binding(
+                    get: { minute }, set: { setReminder(day: day, hour: hour, minute: $0) }
+                ))
+            }
+            .pickerStyle(.wheel)
+            .frame(height: wheelHeight)
+            HStack {
+                Text(draft.reminder?.summary ?? "")
+                    .dFont(DT.TypeScale.footnote)
+                    .foregroundStyle(Theme.sub)
+                Spacer()
+                Button {
+                    pickingReminder = false
+                } label: {
+                    Text("完成")
+                        .dFont(DT.TypeScale.callout)
+                        .foregroundStyle(Theme.strong)
+                        .frame(minWidth: DT.Size.touch, minHeight: DT.Size.touch)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PressStyle())
+            }
+        }
+    }
+
+    private func reminderWheel(_ unit: String, values: [Int], selection: Binding<Int>) -> some View {
+        HStack(spacing: 0) {
+            LoopWheel(label: unit, values: values, selection: selection) { "\($0)" }
+                .frame(maxWidth: .infinity)
+                .clipped()
+            Text(unit)
+                .dFont(DT.TypeScale.body)
+                .foregroundStyle(Theme.sub)
+                .fixedSize()
+                .accessibilityHidden(true)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func setReminder(day: Int, hour: Int, minute: Int) {
+        draft.reminder = .before(minutes: day * NewEventRules.minutesPerDay + hour * 60 + minute)
     }
 
     // MARK: 地點

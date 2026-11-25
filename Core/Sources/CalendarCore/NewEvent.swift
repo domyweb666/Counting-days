@@ -3,16 +3,24 @@ import Foundation
 // 自己的新增行程畫面（規格第 20 節）用到的規則：帶入什麼、起訖怎麼推、月曆點兩下、畫面與分享的文字、行事曆檔。
 // 都不靠 iPhone，才能單獨測。
 
-/// 提醒。有時間的行程用前六種，全天行程用後兩種（全天沒有「開始前幾分鐘」可言）。
-public enum EventReminder: String, CaseIterable, Sendable {
+/// 提醒。有時間的行程用前六種與自訂，全天行程用最後兩種（全天沒有「開始前幾分鐘」可言）。
+public enum EventReminder: Hashable, Sendable {
     case atStart
     case minutes5
     case minutes10
     case minutes30
     case hour1
     case day1
+    /// 自己轉出來的：開始前幾分鐘。跟上面幾種一樣長的不會是這一種，用 `before(minutes:)` 建。
+    case custom(minutes: Int)
     case sameDayMorning
     case dayBeforeMorning
+
+    /// 自訂的滾輪轉得到的上限：30 天 23 小時 59 分
+    public static let customMaxDays = 30
+    public static let customMaxMinutes = (customMaxDays + 1) * 24 * 60 - 1
+    /// 選「自訂」時還沒有提醒的話，滾輪停在 1 小時
+    public static let customDefaultMinutes = 60
 
     /// 全天行程提醒的鐘點：早上 9 點
     public static let allDayHour = 9
@@ -22,10 +30,21 @@ public enum EventReminder: String, CaseIterable, Sendable {
 
     public var isForAllDay: Bool { EventReminder.allDayCases.contains(self) }
 
-    /// 既有行程上的提醒對得上表單的哪一種。對不上（例如 15 分鐘前）回傳 nil，那個提醒就照原本的留著。
+    /// 既有行程上的提醒對得上表單的哪一種。對不上（例如開始之後才提醒）回傳 nil，那個提醒就照原本的留著。
     public static func matching(offsetSeconds: Int, isAllDay: Bool) -> EventReminder? {
-        (isAllDay ? allDayCases : timedCases).first { $0.offsetSeconds == offsetSeconds }
+        if isAllDay { return allDayCases.first { $0.offsetSeconds == offsetSeconds } }
+        guard offsetSeconds % 60 == 0, offsetSeconds <= 0, -offsetSeconds / 60 <= customMaxMinutes else { return nil }
+        return before(minutes: -offsetSeconds / 60)
     }
+
+    /// 有時間的行程，開始前幾分鐘提醒。跟選單上現成的一樣長就用現成的。超出滾輪範圍的收到範圍內。
+    public static func before(minutes: Int) -> EventReminder {
+        let clamped = min(max(minutes, 0), customMaxMinutes)
+        return timedCases.first { $0.offsetSeconds == -clamped * 60 } ?? .custom(minutes: clamped)
+    }
+
+    /// 開始前幾分鐘；全天行程的提醒是 nil
+    public var minutesBefore: Int? { isForAllDay ? nil : -offsetSeconds / 60 }
 
     /// 相對於行程開始的秒數，負的是之前。全天行程的開始是那天的午夜。
     public var offsetSeconds: Int {
@@ -36,6 +55,7 @@ public enum EventReminder: String, CaseIterable, Sendable {
         case .minutes30: return -30 * 60
         case .hour1: return -3600
         case .day1: return -86400
+        case .custom(let minutes): return -minutes * 60
         case .sameDayMorning: return EventReminder.allDayHour * 3600
         case .dayBeforeMorning: return EventReminder.allDayHour * 3600 - 86400
         }
@@ -50,9 +70,19 @@ public enum EventReminder: String, CaseIterable, Sendable {
         case .minutes30: return "30 分鐘前"
         case .hour1: return "1 小時前"
         case .day1: return "1 天前"
+        case .custom(let minutes): return EventReminder.customLabel(minutes)
         case .sameDayMorning: return "當天早上 9 點"
         case .dayBeforeMorning: return "前一天早上 9 點"
         }
+    }
+
+    /// 「2 天 3 小時 15 分鐘前」，是 0 的那一段不寫
+    private static func customLabel(_ minutes: Int) -> String {
+        var parts: [String] = []
+        if minutes / 1440 > 0 { parts.append("\(minutes / 1440) 天") }
+        if minutes % 1440 / 60 > 0 { parts.append("\(minutes % 1440 / 60) 小時") }
+        if minutes % 60 > 0 { parts.append("\(minutes % 60) 分鐘") }
+        return parts.joined(separator: " ") + "前"
     }
 
     /// 設了之後寫在表單上的那一句

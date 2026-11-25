@@ -672,7 +672,24 @@ final class CalendarCoreTests: XCTestCase {
         XCTAssertEqual(EventReminder.minutes30.offsetSeconds, -1800)
         XCTAssertEqual(EventReminder.sameDayMorning.offsetSeconds, 9 * 3600)
         XCTAssertEqual(EventReminder.dayBeforeMorning.offsetSeconds, -15 * 3600)
-        XCTAssertEqual(Set(EventReminder.timedCases + EventReminder.allDayCases), Set(EventReminder.allCases))
+        XCTAssertEqual(NewEventRules.reminder(.custom(minutes: 180), fitting: .timed), .custom(minutes: 180))
+        XCTAssertNil(NewEventRules.reminder(.custom(minutes: 180), fitting: .allDay))
+    }
+
+    func testCustomReminder() {
+        XCTAssertEqual(EventReminder.before(minutes: 180), .custom(minutes: 180))
+        XCTAssertEqual(EventReminder.before(minutes: 180).offsetSeconds, -3 * 3600)
+        XCTAssertEqual(EventReminder.before(minutes: 180).label, "3 小時前")
+        XCTAssertEqual(EventReminder.before(minutes: 2 * 1440 + 3 * 60 + 15).label, "2 天 3 小時 15 分鐘前")
+        // 跟選單上現成的一樣長就是現成的那一種
+        XCTAssertEqual(EventReminder.before(minutes: 0), .atStart)
+        XCTAssertEqual(EventReminder.before(minutes: 60), .hour1)
+        XCTAssertEqual(EventReminder.before(minutes: 1440), .day1)
+        // 超出範圍的收到範圍內
+        XCTAssertEqual(EventReminder.before(minutes: -5), .atStart)
+        XCTAssertEqual(EventReminder.before(minutes: 99999), .custom(minutes: EventReminder.customMaxMinutes))
+        XCTAssertEqual(EventReminder.custom(minutes: 90).minutesBefore, 90)
+        XCTAssertNil(EventReminder.sameDayMorning.minutesBefore)
     }
 
     func testPickCalendarForNewEvent() {
@@ -987,8 +1004,12 @@ final class CalendarCoreTests: XCTestCase {
 
         XCTAssertEqual(EventReminder.matching(offsetSeconds: -1800, isAllDay: false), .minutes30)
         XCTAssertEqual(EventReminder.matching(offsetSeconds: 9 * 3600, isAllDay: true), .sameDayMorning)
-        // 15 分鐘前不在表單的選項裡
-        XCTAssertNil(EventReminder.matching(offsetSeconds: -900, isAllDay: false))
+        // 選單上沒有的長度讀成自訂
+        XCTAssertEqual(EventReminder.matching(offsetSeconds: -900, isAllDay: false), .custom(minutes: 15))
+        // 開始之後、不是整分鐘、比滾輪轉得到的還早：表示不了
+        XCTAssertNil(EventReminder.matching(offsetSeconds: 600, isAllDay: false))
+        XCTAssertNil(EventReminder.matching(offsetSeconds: -90, isAllDay: false))
+        XCTAssertNil(EventReminder.matching(offsetSeconds: -60 * 86400, isAllDay: false))
         // 全天行程不會對到「準時」
         XCTAssertNil(EventReminder.matching(offsetSeconds: 0, isAllDay: true))
     }
