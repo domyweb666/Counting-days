@@ -90,6 +90,8 @@ final class CalendarViewModel {
     private(set) var panelReveal = 0
     /// 要跳去的那一週已經是最上面那一週、只是被捲掉一截時加一。`topWeekID` 沒變就不會捲，要另外請月曆對齊。
     private(set) var topRealign = 0
+    /// 每從小工具點進來一次就加一，月曆收到就把擋在前面的畫面收掉
+    private(set) var widgetOpens = 0
     /// 時間軸從哪一天開始排（週檢視會再對齊到一週的開頭）
     private(set) var timelineAnchor: Date
 
@@ -115,11 +117,7 @@ final class CalendarViewModel {
     // MARK: 日期工具
 
     static func makeCalendar(_ s: AppSettings) -> Calendar {
-        var c = Calendar(identifier: .gregorian)
-        c.timeZone = s.effectiveTimeZone(device: .current)
-        c.locale = Locale(identifier: "zh_Hant_TW")
-        c.firstWeekday = s.weekStartsOnMonday ? 2 : 1
-        return c
+        s.displayCalendar(device: .current)
     }
 
     static func monthStart(_ date: Date, _ cal: Calendar) -> Date {
@@ -409,6 +407,12 @@ final class CalendarViewModel {
     func goToday() {
         rebuild()
         jump(to: today)
+    }
+
+    /// 從小工具點進來：停在今天
+    func openFromWidget() {
+        goToday()
+        widgetOpens += 1
     }
 
     func shiftListMonth(_ months: Int) {

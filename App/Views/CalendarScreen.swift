@@ -135,6 +135,7 @@ struct CalendarScreen: View {
             // 在設定裡開了天氣或換了縣市，這裡就去抓
             app.weather.refreshIfNeeded(settings: app.settings.value)
         }
+        .onChange(of: vm.widgetOpens) { uncoverCalendar() }
         // 驗到購買（或退款）之後，顯示幾個倒數日會變
         .onChange(of: app.purchase.isUnlocked) { vm.rebuild() }
         .onChange(of: scenePhase) { _, phase in
@@ -163,6 +164,17 @@ struct CalendarScreen: View {
             Button("取消", role: .cancel) {}
         } message: {
             Text(shortNameTarget?.title ?? "")
+        }
+    }
+
+    /// 從小工具點進來要看到今天，把擋在前面的收掉。正在填的行程表單留著，不然打到一半的字會不見。
+    private func uncoverCalendar() {
+        showSideMenu = false
+        switch sheet {
+        case .newEvent, .edit, .none:
+            break
+        case .settings, .search, .monthPicker, .countdowns, .fullVersion:
+            sheet = nil
         }
     }
 
