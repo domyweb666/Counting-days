@@ -235,6 +235,15 @@ public struct AppSettings: Codable, Equatable, Sendable {
         return zone
     }
 
+    /// 排月曆用的曆法：時區、語言、一週從哪天開始。蒜日子和小工具用同一個，兩邊的「今天」才會一樣。
+    public func displayCalendar(device: TimeZone) -> Calendar {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = effectiveTimeZone(device: device)
+        c.locale = Locale(identifier: "zh_Hant_TW")
+        c.firstWeekday = weekStartsOnMonday ? 2 : 1
+        return c
+    }
+
     public func category(id: String) -> EventCategory {
         categories.first { $0.id == id }
             ?? categories.first { $0.id == AppSettings.fallbackCategoryID }

@@ -1,5 +1,7 @@
 import SwiftUI
 import EventKit
+import WidgetKit
+import CalendarCore
 
 @main
 struct SuanRiZiApp: App {
@@ -13,12 +15,20 @@ struct SuanRiZiApp: App {
     }
 }
 
+/// 小工具畫的東西看這兩樣，其中一樣變了就要請它重畫
+private struct WidgetSource: Equatable {
+    let changeToken: Int
+    let settings: AppSettings
+}
+
 /// 依行事曆權限決定顯示哪一頁
 struct RootView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.scenePhase) private var scenePhase
     /// 等購買驗證等太久，不等了
     @State private var stoppedWaiting = false
+    /// 變動停下來多久才請小工具重畫（秒）。拖選色器時一秒會變很多次，只在停下來之後請一次。
+    private let widgetReloadDelay: Double = 0.5
 
     /// 存下來的設定用到付費的東西，而購買還沒驗完：先不畫，免得已經買的人看到一瞬間沒買的樣子
     private var isWaitingForPurchase: Bool {
@@ -53,6 +63,16 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             // 使用者可能剛從「設定」改完權限回來
             if phase == .active { app.store.refreshStatus() }
+        }
+        // 打開蒜日子、行事曆有變動、改了設定，都請小工具重畫
+        .task(id: WidgetSource(changeToken: app.store.changeToken, settings: app.settings.value)) {
+            try? await Task.sleep(for: .seconds(widgetReloadDelay))
+            guard !Task.isCancelled else { return }
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        .onOpenURL { url in
+            guard WidgetLink.opensToday(url) else { return }
+            app.vm.openFromWidget()
         }
     }
 }

@@ -1147,6 +1147,86 @@ final class CalendarCoreTests: XCTestCase {
         XCTAssertEqual(empty, WidgetToday(rows: [], moreCount: 0))
     }
 
+    func testWidgetTodayHolidayAndLimited() {
+        let now = date(2026, 11, 17, 8, 0)
+        let events = [
+            allDay("holiday", "某節", date(2026, 11, 17), days: 1, cal: "H"),
+            ev("a", "A", date(2026, 11, 17, 9, 0)),
+            ev("b", "B", date(2026, 11, 17, 11, 0)),
+            ev("c", "C", date(2026, 11, 17, 15, 0)),
+            ev("d", "D", date(2026, 11, 17, 17, 0))
+        ]
+        let w = WidgetRules.today(events: events, now: now, calendar: cal, settings: settings)
+        XCTAssertEqual(w.holiday, "某節")
+        XCTAssertEqual(w.moreCount, 1)
+        let two = w.limited(to: 2)
+        XCTAssertEqual(two.rows.map(\.id), ["a", "b"])
+        XCTAssertEqual(two.moreCount, 2)
+        XCTAssertEqual(two.holiday, "某節")
+        // 比現有的多：照原樣
+        XCTAssertEqual(w.limited(to: 9), w)
+        XCTAssertNil(WidgetRules.today(events: events, now: date(2026, 11, 18), calendar: cal, settings: settings).holiday)
+    }
+
+    func testWidgetMomentsAreEventEndsAndMidnight() {
+        settings.hiddenCalendarIDs = ["X"]
+        let now = date(2026, 11, 17, 10, 0)
+        let events = [
+            ev("done", "晨會", date(2026, 11, 17, 8, 0)),
+            ev("a", "A", date(2026, 11, 17, 11, 0)),
+            // 跟 A 同時結束，只排一次
+            ev("b", "B", date(2026, 11, 17, 10, 30), hours: 1.5),
+            ev("hidden", "不看的", date(2026, 11, 17, 15, 0), cal: "X"),
+            allDay("full", "繳房租", date(2026, 11, 17), days: 1),
+            ev("routine", "吃藥", date(2026, 11, 17, 18, 0), daily: true),
+            ev("tomorrow", "開會", date(2026, 11, 18, 9, 0)),
+            ev("later", "後天的", date(2026, 11, 19, 9, 0))
+        ]
+        let moments = WidgetRules.moments(events: events, now: now, calendar: cal, settings: settings)
+        XCTAssertEqual(moments, [
+            now, date(2026, 11, 17, 12, 0), date(2026, 11, 18), date(2026, 11, 18, 10, 0)
+        ])
+        // 沒有行程也要過午夜
+        XCTAssertEqual(
+            WidgetRules.moments(events: [], now: now, calendar: cal, settings: settings),
+            [now, date(2026, 11, 18)]
+        )
+        // 週六到週日跨過一週的邊界，明天的也要排到
+        let saturday = date(2026, 11, 21, 20, 0)
+        let sunday = [ev("sun", "爬山", date(2026, 11, 22, 7, 0))]
+        XCTAssertEqual(
+            WidgetRules.moments(events: sunday, now: saturday, calendar: cal, settings: settings),
+            [saturday, date(2026, 11, 22), date(2026, 11, 22, 8, 0)]
+        )
+    }
+
+    func testWidgetLinkOnlyAcceptsToday() throws {
+        let today = try XCTUnwrap(WidgetLink.today)
+        XCTAssertTrue(WidgetLink.opensToday(today))
+        for text in ["suanrizi://today/", "suanrizi://today?date=2026-11-17", "suanrizi://today#x",
+                     "suanrizi://event", "suanrizi://", "https://today", "other://today"] {
+            XCTAssertFalse(WidgetLink.opensToday(try XCTUnwrap(URL(string: text))), text)
+        }
+    }
+
+    func testWidgetSettingsMissingIsDefaultButBrokenThrows() throws {
+        XCTAssertEqual(try WidgetShared.settings(from: nil), AppSettings())
+        let saved = AppSettings(hiddenCalendarIDs: ["X"])
+        XCTAssertEqual(try WidgetShared.settings(from: JSONEncoder().encode(saved)), saved)
+        XCTAssertThrowsError(try WidgetShared.settings(from: Data("壞掉".utf8)))
+    }
+
+    func testDisplayCalendarFollowsSettings() throws {
+        let taipei = try XCTUnwrap(TimeZone(identifier: "Asia/Taipei"))
+        let device = AppSettings().displayCalendar(device: taipei)
+        XCTAssertEqual(device.timeZone, taipei)
+        XCTAssertEqual(device.firstWeekday, 1)
+        let tokyo = AppSettings(weekStartsOnMonday: true, usesDeviceTimeZone: false, timeZoneID: "Asia/Tokyo")
+            .displayCalendar(device: taipei)
+        XCTAssertEqual(tokyo.timeZone.identifier, "Asia/Tokyo")
+        XCTAssertEqual(tokyo.firstWeekday, 2)
+    }
+
     func testLoopWheelWrapsAroundBothEnds() {
         // 小時：23 的下一列是 0，0 的上一列是 23
         let at23 = LoopWheelRules.middleRow(index: 23, count: 24)

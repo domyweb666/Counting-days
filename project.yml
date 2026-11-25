@@ -35,6 +35,11 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSCalendarsFullAccessUsageDescription: 蒜日子需要讀取你的行事曆，才能把行程畫成月曆；新增與修改行程時會寫回系統行事曆。蒜日子不會把行程傳到任何伺服器，只有你自己按「分享」時才會送出那一筆。
         UILaunchScreen: {}
+        # 點小工具進蒜日子用的網址，認得哪幾個寫在 Core 的 WidgetLink
+        CFBundleURLTypes:
+          - CFBundleURLName: com.domyweb.countingdays
+            CFBundleURLSchemes:
+              - suanrizi
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         ITSAppUsesNonExemptEncryption: false
@@ -63,6 +68,10 @@ targets:
       # 顏色與字級跟蒜日子用同一份，不另外抄
       - path: App/Support/Theme.swift
       - path: App/Design/DomyTokens.swift
+      # 讀行程也用同一份，小工具上的行程才會跟蒜日子對得起來。小工具只呼叫讀的那幾個
+      - path: App/Data/EventStore.swift
+    dependencies:
+      - package: CalendarCore
     info:
       path: Widget/Info.plist
       properties:
