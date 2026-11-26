@@ -142,6 +142,7 @@ struct CalendarScreen: View {
         .onChange(of: app.purchase.isUnlocked) { vm.rebuild() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                vm.forgetFetchedEvents()
                 vm.rebuild()
                 app.weather.refreshIfNeeded(settings: app.settings.value)
             }

@@ -7,6 +7,10 @@ struct SearchScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
     @State private var results: [CalEvent] = []
+    /// `results` 是用哪個字查的。還沒查完時不顯示「找不到」，免得一打字就先閃一下。
+    @State private var searchedText = ""
+    /// 停手多久才查：每打一個字都查三年的行程，打字會頓
+    private let typingPause: Duration = .milliseconds(300)
 
     private var vm: CalendarViewModel { app.vm }
 
@@ -25,11 +29,13 @@ struct SearchScreen: View {
                             message: "輸入標題或地點，會從前一年找到後兩年。點一筆就跳到那一天。"
                         )
                     } else if results.isEmpty {
-                        EmptyStateView(
-                            systemImage: "calendar.badge.exclamationmark",
-                            title: "找不到符合的行程",
-                            message: "換個關鍵字試試。搜尋範圍是前一年到後兩年。"
-                        )
+                        if searchedText == text {
+                            EmptyStateView(
+                                systemImage: "calendar.badge.exclamationmark",
+                                title: "找不到符合的行程",
+                                message: "換個關鍵字試試。搜尋範圍是前一年到後兩年。"
+                            )
+                        }
                     } else {
                         SectionCard {
                             ForEach(Array(results.enumerated()), id: \.element.id) { index, event in
@@ -51,8 +57,17 @@ struct SearchScreen: View {
             }
             .background(Theme.bg.ignoresSafeArea())
             .searchable(text: $text, placement: .navigationBarDrawer(displayMode: .always), prompt: "標題或地點")
-            .onChange(of: text) { _, new in
-                results = app.store.search(new, today: vm.today, calendar: vm.calendar, hidden: app.settings.value.hiddenCalendarIDs)
+            // 字一改，上一次還沒查完的就被取消
+            .task(id: text) {
+                let query = text
+                if hasQuery {
+                    try? await Task.sleep(for: typingPause)
+                    guard !Task.isCancelled else { return }
+                }
+                let found = await app.store.search(query, today: vm.today, calendar: vm.calendar, hidden: app.settings.value.hiddenCalendarIDs)
+                guard !Task.isCancelled else { return }
+                results = found
+                searchedText = query
             }
             .navigationTitle("搜尋")
             .navigationBarTitleDisplayMode(.inline)

@@ -106,6 +106,19 @@ final class CalendarViewModel {
     private(set) var timelineAnchor: Date
 
     @ObservationIgnored private var lunarCache: [Date: String] = [:]
+    /// 上一次向系統行事曆查到的行程，和當時查的條件。
+    /// 改設定、切檢視都會重排月曆，但行程沒變，就不用再去問一次行事曆（行程多的人，那一次查詢最慢）。
+    @ObservationIgnored private var fetched: (key: FetchKey, events: [CalEvent])?
+    /// 每重排一次月曆就加一。時間軸看到它沒變，就沿用上次排好的格子，拖動時不用每一格畫面重排。
+    private(set) var layoutRevision = 0
+
+    /// 查詢條件：行事曆變動次數、查詢範圍、時區。四樣都一樣，查出來的行程就一樣。
+    private struct FetchKey: Equatable {
+        let changeToken: Int
+        let from: Date
+        let to: Date
+        let timeZoneID: String
+    }
 
     static let dowNames = ["日", "一", "二", "三", "四", "五", "六"]
 
@@ -225,12 +238,14 @@ final class CalendarViewModel {
             weeks = []
             upcoming = []
             countdowns = []
+            layoutRevision += 1
             return
         }
-        let events = store.events(from: windowStart, to: windowEnd)
+        let events = windowEvents()
         weeks = builder.weeks(from: windowStart, to: builder.addDays(windowEnd, -1), events: events)
         upcoming = builder.upcoming(in: weeks)
-        countdowns = makeCountdowns()
+        countdowns = makeCountdowns(windowEvents: events)
+        layoutRevision += 1
         if previousToday != builder.today, selected == previousToday {
             selected = nil
         }
@@ -287,16 +302,47 @@ final class CalendarViewModel {
         return Array(previewBuilder.upcoming(in: [week], limit: count).prefix(count))
     }
 
-    private func makeCountdowns() -> [CountdownItem] {
+    /// 月曆載入範圍內的行程。查詢條件跟上一次一樣就沿用，不再問系統行事曆。
+    private func windowEvents() -> [CalEvent] {
+        let key = FetchKey(
+            changeToken: store.changeToken,
+            from: windowStart,
+            to: windowEnd,
+            timeZoneID: store.displayTimeZone.identifier
+        )
+        if let fetched, fetched.key == key { return fetched.events }
+        let events = store.events(from: windowStart, to: windowEnd)
+        fetched = (key, events)
+        return events
+    }
+
+    /// 回到前景時用：在背景那段時間，別的 app 可能改過行事曆，下一次重排一定重新查。
+    func forgetFetchedEvents() {
+        fetched = nil
+    }
+
+    private func makeCountdowns(windowEvents: [CalEvent]) -> [CountdownItem] {
         let ids = settings.visibleCountdowns
         guard !ids.isEmpty,
               let end = calendar.date(byAdding: .year, value: 2, to: today) else { return [] }
         let hidden = settings.value.hiddenCalendarIDs
-        let events = store.events(from: today, to: end).filter { !hidden.contains($0.calendarID) }
+        // 先在月曆已經查到的行程裡找：範圍有蓋到今天時，在這裡找到的就是兩年內最近的那一次。
+        // 找不到的（下一次在載入範圍之後），才另外查兩年。
+        let windowCovers = windowStart <= today && today < windowEnd
+        let inWindow = windowCovers
+            ? windowEvents.filter { $0.end > today && $0.start < end && !hidden.contains($0.calendarID) }
+            : []
+        var later: [CalEvent]?
         var items: [CountdownItem] = []
         for id in ids {
-            let next = events.filter { $0.seriesID == id }.min { $0.start < $1.start }
-            guard let next else { continue }
+            var found = inWindow.filter { $0.seriesID == id }.min { $0.start < $1.start }
+            if found == nil {
+                if later == nil {
+                    later = store.events(from: today, to: end).filter { !hidden.contains($0.calendarID) }
+                }
+                found = later?.filter { $0.seriesID == id }.min { $0.start < $1.start }
+            }
+            guard let next = found else { continue }
             let day = max(calendar.startOfDay(for: next.start), today)
             items.append(CountdownItem(
                 id: id,

@@ -77,11 +77,15 @@ struct CalendarProvider: TimelineProvider {
         let builder = LayoutBuilder(calendar: calendar, today: now, settings: settings)
         // 從這個月 1 號那一週查起：月曆格子要畫整個月，跨日行程排第幾條也要看前面
         let monthStart = calendar.dateInterval(of: .month, for: builder.today)?.start ?? builder.today
-        let daysAhead = style == .countdown ? WidgetRules.countdownDaysAhead : WidgetRules.upcomingDaysAhead + 7
-        let events = store.events(
-            from: builder.startOfWeek(monthStart),
-            to: builder.addDays(builder.today, daysAhead)
-        )
+        let from = builder.startOfWeek(monthStart)
+        let events: [CalEvent]
+        if style == .countdown {
+            // 倒數日要看兩年，只查倒數日那幾個系列，其他行程這一塊用不到
+            let ids = FullVersionAccess.visibleCountdowns(settings.countdowns, isUnlocked: true)
+            events = store.events(from: from, to: builder.addDays(builder.today, WidgetRules.countdownDaysAhead), seriesIDs: ids)
+        } else {
+            events = store.events(from: from, to: builder.addDays(builder.today, WidgetRules.upcomingDaysAhead + 7))
+        }
         return WidgetRules.moments(events: events, now: now, calendar: calendar, settings: settings).map {
             CalendarEntry(date: $0, calendar: calendar, settings: settings, content: .ready(events: events))
         }
