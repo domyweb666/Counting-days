@@ -102,6 +102,8 @@ final class CalendarViewModel {
     private(set) var widgetOpens = 0
     /// 按了控制中心的「新增行程」、月曆還沒打開表單。用旗子不用次數：冷開機時網址比月曆早到，月曆一出現要看得到
     private(set) var wantsNewEvent = false
+    /// 沒買的人點了完整版的小工具、月曆還沒打開完整版頁。用旗子的理由跟 `wantsNewEvent` 一樣
+    private(set) var wantsFullVersion = false
     /// 時間軸從哪一天開始排（週檢視會再對齊到一週的開頭）
     private(set) var timelineAnchor: Date
 
@@ -488,6 +490,17 @@ final class CalendarViewModel {
     /// 月曆處理完「新增行程」（打開了表單，或已經有一張開著）
     func newEventHandled() {
         wantsNewEvent = false
+    }
+
+    /// 從 suanrizi://fullversion 進來：跟點小工具一樣停在今天、收掉擋在前面的，再由月曆打開完整版頁
+    func openFullVersionFromWidget() {
+        openFromWidget()
+        wantsFullVersion = true
+    }
+
+    /// 月曆處理完「看完整版」（打開了完整版頁，或有表單開著就不蓋掉）
+    func fullVersionHandled() {
+        wantsFullVersion = false
     }
 
     func shiftListMonth(_ months: Int) {

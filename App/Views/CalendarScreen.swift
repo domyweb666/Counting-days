@@ -138,6 +138,7 @@ struct CalendarScreen: View {
         .onChange(of: vm.widgetOpens) { uncoverCalendar() }
         // initial：從控制中心冷開機時，網址比月曆早到
         .onChange(of: vm.wantsNewEvent, initial: true) { openNewEventIfAsked() }
+        .onChange(of: vm.wantsFullVersion, initial: true) { openFullVersionIfAsked() }
         // 驗到購買（或退款）之後，顯示幾個倒數日會變
         .onChange(of: app.purchase.isUnlocked) { vm.rebuild() }
         .onChange(of: scenePhase) { _, phase in
@@ -192,6 +193,19 @@ struct CalendarScreen: View {
             return
         case .none, .settings, .search, .monthPicker, .countdowns, .fullVersion:
             sheet = .newEvent(vm.today)
+        }
+    }
+
+    /// 沒買的人點了完整版的小工具：打開完整版頁。正在填的表單留著，不蓋掉打到一半的字。
+    private func openFullVersionIfAsked() {
+        guard vm.wantsFullVersion else { return }
+        vm.fullVersionHandled()
+        uncoverCalendar()
+        switch sheet {
+        case .newEvent, .edit:
+            return
+        case .none, .settings, .search, .monthPicker, .countdowns, .fullVersion:
+            sheet = .fullVersion(.widget)
         }
     }
 

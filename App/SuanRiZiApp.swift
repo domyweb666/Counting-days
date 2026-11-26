@@ -77,6 +77,8 @@ struct RootView: View {
                 app.vm.openFromWidget()
             } else if WidgetLink.opensNewEvent(url) {
                 app.vm.openNewEventFromControl()
+            } else if WidgetLink.opensFullVersion(url) {
+                app.vm.openFullVersionFromWidget()
             } else if let day = WidgetLink.openedDay(url, calendar: app.vm.calendar, today: app.vm.today) {
                 app.vm.openFromWidget(day: day)
             }

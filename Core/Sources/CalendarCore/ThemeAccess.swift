@@ -71,7 +71,7 @@ public enum FullVersionAccess {
     }
 
     /// 不用買就能放的小工具：小尺寸「今天」與色塊小月曆。其他的要完整版（2026-11-26 使用者核准的切法）。
-    public static let freeWidgets: Set<WidgetStyle> = [.today, .smallMonth]
+    public static let freeWidgets: Set<WidgetStyle> = [.today, .smallMonth, .lockToday]
 
     /// 這種小工具能不能畫內容。不能的話小工具只畫一句說明。小工具驗不到購買時 `isUnlocked` 是 false。
     public static func canShowWidget(_ style: WidgetStyle, isUnlocked: Bool) -> Bool {

@@ -16,11 +16,12 @@ public enum WidgetShared {
     }
 }
 
-/// 點小工具、控制中心按鈕時帶進蒜日子的網址。只認得「看今天」「新增行程」這兩個，多一個字都不算。
+/// 點小工具、控制中心按鈕時帶進蒜日子的網址。「看今天」「新增行程」「看完整版」多一個字都不算；「看某一天」只帶一個日期。
 public enum WidgetLink {
     /// 前半段要跟 project.yml 的 CFBundleURLSchemes 一樣
     static let todayAddress = "suanrizi://today"
     static let newEventAddress = "suanrizi://new"
+    static let fullVersionAddress = "suanrizi://fullversion"
 
     public static var today: URL? { URL(string: todayAddress) }
     /// 控制中心的「新增行程」按鈕用
@@ -34,6 +35,15 @@ public enum WidgetLink {
     /// 從外面帶進來的網址是不是「新增行程」。跟「看今天」一樣，不帶參數，其他的一律不理。
     public static func opensNewEvent(_ url: URL) -> Bool {
         url.absoluteString == newEventAddress
+    }
+
+    /// 沒買的人點完整版的小工具，進蒜日子的完整版頁（第 70 片後半）
+    public static var fullVersion: URL? { URL(string: fullVersionAddress) }
+
+    /// 從外面帶進來的網址是不是「看完整版」。跟「看今天」一樣，不帶參數，其他的一律不理。
+    /// 只是打開購買頁，買不買還是使用者自己按，別的 app 打開這個網址也買不了東西。
+    public static func opensFullVersion(_ url: URL) -> Bool {
+        url.absoluteString == fullVersionAddress
     }
 
     // MARK: 看某一天（中、大尺寸小工具上點某一格）
@@ -195,6 +205,8 @@ public enum WidgetStyle: String, CaseIterable, Sendable {
     case largeMonth = "month.large"
     /// 鎖定畫面長方形：今天下一件
     case lockNext = "lock.next"
+    /// 鎖定畫面小圓形：今天幾號、星期幾（第 71 片後半）
+    case lockToday = "lock.today"
 }
 
 /// 月曆格子上這一天要畫的那一件：上面有跨日的就是最上面那一條，沒有就是主事件。

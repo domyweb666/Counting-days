@@ -2,7 +2,7 @@ import SwiftUI
 import WidgetKit
 import CalendarCore
 
-// 第 66 片起的六種小工具：小月曆（免費）、倒數日、彈性週、小月曆加接下來、整個月、鎖定畫面的下一件事（完整版）。
+// 第 66 片起的七種小工具：小月曆、鎖定畫面的日期（免費），倒數日、彈性週、小月曆加接下來、整個月、鎖定畫面的下一件事（完整版）。
 // 放哪幾筆、主事件、哪幾種要完整版都在 Core，這裡只讀資料、畫出來。
 
 struct CalendarEntry: TimelineEntry {
@@ -68,6 +68,13 @@ struct CalendarProvider: TimelineProvider {
         guard FullVersionAccess.canShowWidget(style, isUnlocked: isUnlocked) else {
             return [CalendarEntry(date: now, calendar: calendar, settings: settings, content: .locked)]
         }
+        if style == .lockToday {
+            // 只畫日期，不用問行事曆；過午夜換一張
+            let builder = LayoutBuilder(calendar: calendar, today: now, settings: settings)
+            return [now, builder.addDays(builder.today, 1)].map {
+                CalendarEntry(date: $0, calendar: calendar, settings: settings, content: .ready(events: []))
+            }
+        }
         let store = EventStore()
         guard store.hasAccess else {
             return [CalendarEntry(date: now, calendar: calendar, settings: settings, content: .noAccess)]
@@ -125,6 +132,12 @@ private func monthText(_ date: Date, _ calendar: Calendar) -> String {
     "\(calendar.component(.month, from: date))月"
 }
 
+/// 點小工具帶進蒜日子的網址：沒買的進完整版頁（第 70 片），其他進今天
+private func entryURL(_ entry: CalendarEntry) -> URL? {
+    if case .locked = entry.content { return WidgetLink.fullVersion }
+    return WidgetLink.today
+}
+
 /// 沒權限、設定讀不回來、沒買，各一句話
 private struct WidgetNote: View {
     let text: String
@@ -160,7 +173,7 @@ private struct HomeWidgetFrame<Content: View>: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .containerBackground(Theme.card, for: .widget)
-        .widgetURL(WidgetLink.today)
+        .widgetURL(entryURL(entry))
     }
 }
 
@@ -671,11 +684,36 @@ struct LockNextView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .containerBackground(Color.clear, for: .widget)
+        .widgetURL(entryURL(entry))
+    }
+}
+
+// MARK: - 鎖定畫面的小圓形（今天幾號，免費）
+
+/// 上面星期、下面大字的日。不用讀行事曆，沒給權限、設定讀不回來也照樣畫日期
+struct LockTodayView: View {
+    let entry: CalendarEntry
+
+    var body: some View {
+        ZStack {
+            AccessoryWidgetBackground()
+            VStack(spacing: 0) {
+                Text(weekday(entry.date, entry.calendar))
+                    .dFont(DT.TypeScale.caption)
+                Text(String(entry.calendar.component(.day, from: entry.date)))
+                    .dFont(DT.TypeScale.title2)
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(minimumScale)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("今天 \(entry.calendar.component(.month, from: entry.date))月\(entry.calendar.component(.day, from: entry.date))日 \(weekday(entry.date, entry.calendar))")
+        .containerBackground(Color.clear, for: .widget)
         .widgetURL(WidgetLink.today)
     }
 }
 
-// MARK: - 六種小工具
+// MARK: - 七種小工具
 
 /// 種類名 = 這個前綴 + `WidgetStyle` 的 rawValue。上架後不能改
 private func widgetKind(_ style: WidgetStyle) -> String {
@@ -753,6 +791,18 @@ struct LockNextWidget: Widget {
     }
 }
 
+struct LockTodayWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: widgetKind(.lockToday), provider: CalendarProvider(style: .lockToday)) {
+            LockTodayView(entry: $0)
+        }
+        // 主畫面那塊已經叫「今天」，這塊叫「日期」分開
+        .configurationDisplayName("日期")
+        .description("今天幾號、星期幾，放在鎖定畫面。")
+        .supportedFamilies([.accessoryCircular])
+    }
+}
+
 @main
 struct SuanRiZiWidgets: WidgetBundle {
     var body: some Widget {
@@ -763,6 +813,7 @@ struct SuanRiZiWidgets: WidgetBundle {
         MonthNextWidget()
         LargeMonthWidget()
         LockNextWidget()
+        LockTodayWidget()
         // 控制中心的按鈕，iOS 18 才有（Widget/NewEventControl.swift）
         if #available(iOS 18.0, *) {
             NewEventControl()

@@ -13,7 +13,9 @@ struct FullVersionOffer: View {
         "六款主題",
         "週條、主事件兩種月曆樣式",
         "倒數日不限數量",
-        "類別可以自訂顏色"
+        "類別可以自訂顏色",
+        // 使用者 2026-11-26 逐字確認（第 70 片）
+        "五種主畫面、鎖定畫面小工具"
     ]
 
     private var purchase: PurchaseStore { app.purchase }
@@ -115,6 +117,8 @@ enum FullVersionReason: String {
     case categoryColor
     /// 從設定的「購買」那一區自己點進來的，沒有碰到哪個鎖
     case settings
+    /// 沒買的人點了完整版的小工具（suanrizi://fullversion）
+    case widget
 
     var text: String {
         switch self {
@@ -124,6 +128,8 @@ enum FullVersionReason: String {
             return "免費版可以放 \(FullVersionAccess.freeCountdownLimit) 個倒數日，再多要完整版。"
         case .categoryColor:
             return "免費版從預設的幾個顏色裡挑，自訂顏色要完整版。"
+        case .widget:
+            return "這塊小工具要完整版才看得到。"
         }
     }
 }

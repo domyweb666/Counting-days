@@ -1275,6 +1275,21 @@ final class CalendarCoreTests: XCTestCase {
         }
     }
 
+    func testWidgetLinkFullVersionOnlyAcceptsExactAddress() throws {
+        let full = try XCTUnwrap(WidgetLink.fullVersion)
+        XCTAssertTrue(WidgetLink.opensFullVersion(full))
+        // 跟其他三個網址互不相認
+        XCTAssertFalse(WidgetLink.opensToday(full))
+        XCTAssertFalse(WidgetLink.opensNewEvent(full))
+        XCTAssertNil(WidgetLink.openedDay(full, calendar: Calendar(identifier: .gregorian), today: Date()))
+        XCTAssertFalse(WidgetLink.opensFullVersion(try XCTUnwrap(WidgetLink.today)))
+        XCTAssertFalse(WidgetLink.opensFullVersion(try XCTUnwrap(WidgetLink.newEvent)))
+        for text in ["suanrizi://fullversion/", "suanrizi://fullversion?buy=1", "suanrizi://fullversion#x",
+                     "suanrizi://FULLVERSION", "suanrizi://full", "https://fullversion", "other://fullversion"] {
+            XCTAssertFalse(WidgetLink.opensFullVersion(try XCTUnwrap(URL(string: text))), text)
+        }
+    }
+
     func testWidgetSettingsMissingIsDefaultButBrokenThrows() throws {
         XCTAssertEqual(try WidgetShared.settings(from: nil), AppSettings())
         let saved = AppSettings(hiddenCalendarIDs: ["X"])
@@ -1394,9 +1409,12 @@ final class CalendarCoreTests: XCTestCase {
     // MARK: 第 66 片起的六種小工具
 
     func testWidgetsThatNeedFullVersion() {
-        // 2026-11-26 核准的切法：今天、小月曆免費，其他五種要完整版
+        // 2026-11-26 核准的切法：今天、小月曆免費，其他五種要完整版。
+        // 鎖定畫面的小圓形（今天幾號）同一天加的，購買頁寫「五種」小工具，所以它免費
         XCTAssertTrue(FullVersionAccess.canShowWidget(.today, isUnlocked: false))
         XCTAssertTrue(FullVersionAccess.canShowWidget(.smallMonth, isUnlocked: false))
+        XCTAssertTrue(FullVersionAccess.canShowWidget(.lockToday, isUnlocked: false))
+        XCTAssertEqual(WidgetStyle.allCases.filter { !FullVersionAccess.canShowWidget($0, isUnlocked: false) }.count, 5)
         for style in [WidgetStyle.countdown, .flexWeek, .monthNext, .largeMonth, .lockNext] {
             XCTAssertFalse(FullVersionAccess.canShowWidget(style, isUnlocked: false), style.rawValue)
             XCTAssertTrue(FullVersionAccess.canShowWidget(style, isUnlocked: true), style.rawValue)
