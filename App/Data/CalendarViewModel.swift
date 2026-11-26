@@ -471,6 +471,14 @@ final class CalendarViewModel {
         widgetOpens += 1
     }
 
+    /// 從中、大尺寸小工具點某一天進來：停在那一天（跟從搜尋點過來一樣用 `show`），擋在前面的一樣收掉。
+    /// 日期已經由 `WidgetLink.openedDay` 檢查過。
+    func openFromWidget(day: Date) {
+        rebuild()
+        show(day)
+        widgetOpens += 1
+    }
+
     /// 從控制中心的「新增行程」或 suanrizi://new 進來：跟點小工具一樣停在今天、收掉擋在前面的，再由月曆打開新增
     func openNewEventFromControl() {
         openFromWidget()

@@ -35,6 +35,43 @@ public enum WidgetLink {
     public static func opensNewEvent(_ url: URL) -> Bool {
         url.absoluteString == newEventAddress
     }
+
+    // MARK: 看某一天（中、大尺寸小工具上點某一格）
+
+    static let dayPrefix = "suanrizi://day/"
+    /// 帶進來的日期離今天最多幾天。小工具只畫這個月前後幾週，一年夠寬；再遠的不是小工具帶的，不理。
+    static let dayReachDays = 366
+
+    /// 小工具上某一格要帶的網址：suanrizi://day/2026-12-05。日期照蒜日子顯示用的行事曆（時區）算。
+    public static func day(_ date: Date, calendar: Calendar) -> URL? {
+        let c = calendar.dateComponents([.year, .month, .day], from: date)
+        guard let y = c.year, let m = c.month, let d = c.day, (1...9999).contains(y) else { return nil }
+        let text = String(format: "%04d-%02d-%02d", y, m, d)
+        return URL(string: dayPrefix + text)
+    }
+
+    /// 從外面帶進來的網址是不是「看某一天」，是的話回那一天的 0 點。
+    /// 格式要一字不差（4 位年-2 位月-2 位日，不帶參數），日期要真的存在（2 月 30 日不算），而且離今天一年以內，其他一律回 nil。
+    public static func openedDay(_ url: URL, calendar: Calendar, today: Date) -> Date? {
+        let text = url.absoluteString
+        guard text.hasPrefix(dayPrefix) else { return nil }
+        let parts = text.dropFirst(dayPrefix.count).split(separator: "-", omittingEmptySubsequences: false)
+        guard parts.count == 3,
+              parts[0].count == 4, parts[1].count == 2, parts[2].count == 2,
+              parts.allSatisfy({ $0.allSatisfy { "0123456789".contains($0) } }),
+              let y = Int(parts[0]), let m = Int(parts[1]), let d = Int(parts[2])
+        else { return nil }
+        let wanted = DateComponents(year: y, month: m, day: d)
+        guard let date = calendar.date(from: wanted) else { return nil }
+        // calendar.date(from:) 會把 2 月 30 日推成 3 月 2 日，換回來對不上就是不存在的日子
+        let back = calendar.dateComponents([.year, .month, .day], from: date)
+        guard back.year == y, back.month == m, back.day == d else { return nil }
+        let day = calendar.startOfDay(for: date)
+        guard let distance = calendar.dateComponents([.day], from: calendar.startOfDay(for: today), to: day).day,
+              abs(distance) <= dayReachDays
+        else { return nil }
+        return day
+    }
 }
 
 /// 小工具上的一列行程

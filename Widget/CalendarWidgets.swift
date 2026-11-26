@@ -164,6 +164,22 @@ private struct HomeWidgetFrame<Content: View>: View {
     }
 }
 
+/// 中、大尺寸上點某一天，蒜日子停在那一天（第 69 片）。網址做不出來就不包，點了照外框的 widgetURL 進今天。
+/// 小尺寸整塊只能有一個網址（Apple 的規定），不用這個。
+private struct DayLink<Content: View>: View {
+    let date: Date
+    let calendar: Calendar
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        if let url = WidgetLink.day(date, calendar: calendar) {
+            Link(destination: url) { content() }
+        } else {
+            content()
+        }
+    }
+}
+
 // MARK: - 色塊小月曆（小C 免費、中C 左半邊）
 
 /// 有行程的日子用那天主事件的類別色填滿（上面有跨日的就用跨日那一條），今天外框標出。
@@ -171,6 +187,8 @@ private struct HomeWidgetFrame<Content: View>: View {
 private struct MiniMonthGrid: View {
     let weeks: [WeekModel]
     let entry: CalendarEntry
+    /// 中尺寸才每一格各帶一個網址；小尺寸點哪裡都是進今天
+    var linksDays = false
 
     private let cellGap: CGFloat = 2
 
@@ -179,7 +197,12 @@ private struct MiniMonthGrid: View {
             ForEach(weeks) { week in
                 HStack(spacing: cellGap) {
                     ForEach(Array(week.days.enumerated()), id: \.element.id) { col, day in
-                        cell(day, mark: WidgetRules.monthMark(in: week, col: col, settings: entry.settings))
+                        let mark = WidgetRules.monthMark(in: week, col: col, settings: entry.settings)
+                        if linksDays {
+                            DayLink(date: day.date, calendar: entry.calendar) { cell(day, mark: mark) }
+                        } else {
+                            cell(day, mark: mark)
+                        }
                     }
                 }
             }
@@ -342,27 +365,31 @@ struct FlexWeekView: View {
     private func header(_ week: WeekModel) -> some View {
         HStack(spacing: gap) {
             ForEach(week.days) { day in
-                VStack(spacing: 0) {
-                    Text(dayLabel(day.date))
-                        .sFont(13, .semibold)
-                        .foregroundStyle(day.isToday ? Theme.onAccent : (day.holidays.isEmpty ? Theme.ink : Theme.destructive))
-                        .lineLimit(1)
-                        .minimumScaleFactor(minimumScale)
-                        .padding(.horizontal, gap)
-                        .frame(minWidth: Theme.Grid.dayCircleSmall, minHeight: Theme.Grid.dayCircleSmall)
-                        .background(Capsule().fill(day.isToday ? Theme.accent : Color.clear))
-                    if let sub = WidgetRules.subline(for: day, calendar: entry.calendar, settings: entry.settings) {
-                        Text(sub.text)
-                            .sFont(10, .medium)
-                            .foregroundStyle(sub.isHoliday ? Theme.destructive : Theme.sub)
-                            .lineLimit(1)
-                            .minimumScaleFactor(minimumScale)
-                    }
-                }
-                .frame(maxWidth: .infinity)
+                DayLink(date: day.date, calendar: entry.calendar) { headerDay(day) }
             }
         }
         .accessibilityHidden(true)
+    }
+
+    private func headerDay(_ day: DayModel) -> some View {
+        VStack(spacing: 0) {
+            Text(dayLabel(day.date))
+                .sFont(13, .semibold)
+                .foregroundStyle(day.isToday ? Theme.onAccent : (day.holidays.isEmpty ? Theme.ink : Theme.destructive))
+                .lineLimit(1)
+                .minimumScaleFactor(minimumScale)
+                .padding(.horizontal, gap)
+                .frame(minWidth: Theme.Grid.dayCircleSmall, minHeight: Theme.Grid.dayCircleSmall)
+                .background(Capsule().fill(day.isToday ? Theme.accent : Color.clear))
+            if let sub = WidgetRules.subline(for: day, calendar: entry.calendar, settings: entry.settings) {
+                Text(sub.text)
+                    .sFont(10, .medium)
+                    .foregroundStyle(sub.isHoliday ? Theme.destructive : Theme.sub)
+                    .lineLimit(1)
+                    .minimumScaleFactor(minimumScale)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 
     /// 每月 1 號寫成「12/1」，其餘只寫日，跟蒜日子的月曆一樣
@@ -403,27 +430,29 @@ struct FlexWeekView: View {
             ForEach(week.days) { day in
                 let shown = Array(day.events.prefix(limit))
                 let more = day.events.count - shown.count + day.bands.filter { $0.lane > 0 }.count
-                VStack(spacing: gap) {
-                    ForEach(shown) { e in
-                        let colors = categoryColors(e.categoryID, entry.settings)
-                        Text(e.label)
-                            .sFont(11, .semibold)
-                            .lineLimit(1)
-                            .minimumScaleFactor(minimumScale)
-                            .foregroundStyle(colors.on)
-                            .padding(.vertical, 2)
-                            .frame(maxWidth: .infinity)
-                            .background(RoundedRectangle(cornerRadius: DT.Radius.sm, style: .continuous).fill(colors.fill))
+                DayLink(date: day.date, calendar: entry.calendar) {
+                    VStack(spacing: gap) {
+                        ForEach(shown) { e in
+                            let colors = categoryColors(e.categoryID, entry.settings)
+                            Text(e.label)
+                                .sFont(11, .semibold)
+                                .lineLimit(1)
+                                .minimumScaleFactor(minimumScale)
+                                .foregroundStyle(colors.on)
+                                .padding(.vertical, 2)
+                                .frame(maxWidth: .infinity)
+                                .background(RoundedRectangle(cornerRadius: DT.Radius.sm, style: .continuous).fill(colors.fill))
+                        }
+                        if more > 0 {
+                            Text("+\(more)")
+                                .sFont(10, .semibold)
+                                .foregroundStyle(Theme.sub)
+                                .lineLimit(1)
+                        }
                     }
-                    if more > 0 {
-                        Text("+\(more)")
-                            .sFont(10, .semibold)
-                            .foregroundStyle(Theme.sub)
-                            .lineLimit(1)
-                    }
+                    .frame(maxWidth: .infinity)
+                    .accessibilityElement(children: .combine)
                 }
-                .frame(maxWidth: .infinity)
-                .accessibilityElement(children: .combine)
             }
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -447,7 +476,7 @@ struct MonthNextView: View {
                         .dFont(DT.TypeScale.headline)
                         .foregroundStyle(Theme.ink)
                         .lineLimit(1)
-                    MiniMonthGrid(weeks: weeks, entry: entry)
+                    MiniMonthGrid(weeks: weeks, entry: entry, linksDays: true)
                 }
                 .frame(maxWidth: .infinity)
                 Group {
@@ -549,7 +578,9 @@ struct LargeMonthView: View {
                     ForEach(weeks) { week in
                         HStack(alignment: .top, spacing: gap) {
                             ForEach(Array(week.days.enumerated()), id: \.element.id) { col, day in
-                                cell(day, mark: WidgetRules.monthMark(in: week, col: col, settings: entry.settings))
+                                DayLink(date: day.date, calendar: entry.calendar) {
+                                    cell(day, mark: WidgetRules.monthMark(in: week, col: col, settings: entry.settings))
+                                }
                             }
                         }
                     }

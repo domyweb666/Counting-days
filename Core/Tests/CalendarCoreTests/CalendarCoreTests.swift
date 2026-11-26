@@ -1242,6 +1242,39 @@ final class CalendarCoreTests: XCTestCase {
         }
     }
 
+    func testWidgetDayLinkRoundTripsInDisplayTimeZone() throws {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Taipei"))
+        let today = try XCTUnwrap(cal.date(from: DateComponents(year: 2026, month: 11, day: 26, hour: 9)))
+        // 台北 12/5 凌晨 0:30，換成 UTC 還是 12/4，網址要照台北寫
+        let day = try XCTUnwrap(cal.date(from: DateComponents(year: 2026, month: 12, day: 5, hour: 0, minute: 30)))
+        let url = try XCTUnwrap(WidgetLink.day(day, calendar: cal))
+        XCTAssertEqual(url.absoluteString, "suanrizi://day/2026-12-05")
+        let opened = try XCTUnwrap(WidgetLink.openedDay(url, calendar: cal, today: today))
+        XCTAssertEqual(opened, cal.startOfDay(for: day))
+        // 跟其他兩個網址互不相認
+        XCTAssertFalse(WidgetLink.opensToday(url))
+        XCTAssertFalse(WidgetLink.opensNewEvent(url))
+        XCTAssertNil(WidgetLink.openedDay(try XCTUnwrap(WidgetLink.today), calendar: cal, today: today))
+        XCTAssertNil(WidgetLink.openedDay(try XCTUnwrap(WidgetLink.newEvent), calendar: cal, today: today))
+    }
+
+    func testWidgetDayLinkRejectsAnythingElse() throws {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Taipei"))
+        let today = try XCTUnwrap(cal.date(from: DateComponents(year: 2026, month: 11, day: 26, hour: 9)))
+        XCTAssertNotNil(WidgetLink.openedDay(try XCTUnwrap(URL(string: "suanrizi://day/2027-11-26")), calendar: cal, today: today))
+        XCTAssertNotNil(WidgetLink.openedDay(try XCTUnwrap(URL(string: "suanrizi://day/2025-11-25")), calendar: cal, today: today))
+        for text in ["suanrizi://day/2026-02-30", "suanrizi://day/2026-13-01", "suanrizi://day/2026-00-10",
+                     "suanrizi://day/2026-12-5", "suanrizi://day/26-12-05", "suanrizi://day/2026-12-05/",
+                     "suanrizi://day/2026-12-05?x=1", "suanrizi://day/2026-12-05#x", "suanrizi://day/2026-12",
+                     "suanrizi://day/", "suanrizi://day/+026-12-05", "suanrizi://day/2026-1a-05",
+                     "suanrizi://day/2026-12-05-01", "SUANRIZI://day/2026-12-05", "suanrizi://DAY/2026-12-05",
+                     "https://day/2026-12-05", "suanrizi://day/2028-01-01", "suanrizi://day/2025-11-01"] {
+            XCTAssertNil(WidgetLink.openedDay(try XCTUnwrap(URL(string: text)), calendar: cal, today: today), text)
+        }
+    }
+
     func testWidgetSettingsMissingIsDefaultButBrokenThrows() throws {
         XCTAssertEqual(try WidgetShared.settings(from: nil), AppSettings())
         let saved = AppSettings(hiddenCalendarIDs: ["X"])
