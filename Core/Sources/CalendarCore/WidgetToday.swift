@@ -16,16 +16,24 @@ public enum WidgetShared {
     }
 }
 
-/// 點小工具時帶進蒜日子的網址。只認得「看今天」這一個，多一個字都不算。
+/// 點小工具、控制中心按鈕時帶進蒜日子的網址。只認得「看今天」「新增行程」這兩個，多一個字都不算。
 public enum WidgetLink {
     /// 前半段要跟 project.yml 的 CFBundleURLSchemes 一樣
     static let todayAddress = "suanrizi://today"
+    static let newEventAddress = "suanrizi://new"
 
     public static var today: URL? { URL(string: todayAddress) }
+    /// 控制中心的「新增行程」按鈕用
+    public static var newEvent: URL? { URL(string: newEventAddress) }
 
     /// 從外面帶進來的網址是不是「看今天」。別的 app 也打得開這種網址，所以其他的一律不理。
     public static func opensToday(_ url: URL) -> Bool {
         url.absoluteString == todayAddress
+    }
+
+    /// 從外面帶進來的網址是不是「新增行程」。跟「看今天」一樣，不帶參數，其他的一律不理。
+    public static func opensNewEvent(_ url: URL) -> Bool {
+        url.absoluteString == newEventAddress
     }
 }
 

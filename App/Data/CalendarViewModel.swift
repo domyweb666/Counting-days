@@ -31,6 +31,7 @@ final class AppModel {
     let vm: CalendarViewModel
     let purchase: PurchaseStore
     let weather: WeatherStore
+    @ObservationIgnored private var controlObserver: NSObjectProtocol?
 
     init() {
         let store = EventStore()
@@ -47,6 +48,13 @@ final class AppModel {
         #if DEBUG
         DemoSeeder.runIfAsked(store: store, settings: settings)
         #endif
+        // 控制中心的「新增行程」（Widget/NewEventControl.swift）。在這裡收：從控制中心冷開機時，動作比畫面早跑，
+        // 畫面還沒出來就先記著，月曆一出現再打開表單
+        controlObserver = NotificationCenter.default.addObserver(
+            forName: .newEventControlPressed, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.vm.openNewEventFromControl() }
+        }
     }
 
     /// 那一天要顯示的天氣。沒開天氣、沒選縣市、那天沒有預報（過去的日子、十天以後）都是 nil，畫面上就不顯示。
@@ -92,6 +100,8 @@ final class CalendarViewModel {
     private(set) var topRealign = 0
     /// 每從小工具點進來一次就加一，月曆收到就把擋在前面的畫面收掉
     private(set) var widgetOpens = 0
+    /// 按了控制中心的「新增行程」、月曆還沒打開表單。用旗子不用次數：冷開機時網址比月曆早到，月曆一出現要看得到
+    private(set) var wantsNewEvent = false
     /// 時間軸從哪一天開始排（週檢視會再對齊到一週的開頭）
     private(set) var timelineAnchor: Date
 
@@ -413,6 +423,17 @@ final class CalendarViewModel {
     func openFromWidget() {
         goToday()
         widgetOpens += 1
+    }
+
+    /// 從控制中心的「新增行程」或 suanrizi://new 進來：跟點小工具一樣停在今天、收掉擋在前面的，再由月曆打開新增
+    func openNewEventFromControl() {
+        openFromWidget()
+        wantsNewEvent = true
+    }
+
+    /// 月曆處理完「新增行程」（打開了表單，或已經有一張開著）
+    func newEventHandled() {
+        wantsNewEvent = false
     }
 
     func shiftListMonth(_ months: Int) {

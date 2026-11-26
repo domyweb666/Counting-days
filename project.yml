@@ -20,6 +20,8 @@ targets:
     platform: iOS
     sources:
       - path: App
+      # 控制中心「新增行程」的動作要蒜日子與小工具兩邊都有，按了才打得開蒜日子（檔案裡有寫原因）
+      - path: Widget/NewEventControl.swift
     dependencies:
       - package: CalendarCore
       # 小工具是另一支程式，包在蒜日子裡一起裝

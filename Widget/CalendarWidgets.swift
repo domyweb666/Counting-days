@@ -728,5 +728,9 @@ struct SuanRiZiWidgets: WidgetBundle {
         MonthNextWidget()
         LargeMonthWidget()
         LockNextWidget()
+        // 控制中心的按鈕，iOS 18 才有（Widget/NewEventControl.swift）
+        if #available(iOS 18.0, *) {
+            NewEventControl()
+        }
     }
 }

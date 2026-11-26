@@ -736,3 +736,14 @@ Apple 開發者後台要先建 App Group、小工具的 App ID，兩個 App ID �
 - 蒜日子裡買完、退款時也叫小工具重畫（`WidgetSource` 多看一個「買了沒」，只拿來決定要不要叫它重畫，沒有交給小工具）。
 - 主事件、短名、跨日、日期下的小字、接下來、倒數日的規則都在 `Core` 的 `WidgetToday.swift`（`WidgetRules`），跟蒜日子用同一個 `LayoutBuilder`。倒數日那一條跟蒜日子 `makeCountdowns` 是同一套規則，但蒜日子那邊沒有改成呼叫它，兩邊各一份。
 - 新的六種底色是卡片色（`Theme.card`），「今天」還是頁面底色。主題一律是鼠尾草，買了付費主題的人小工具也是鼠尾草。
+
+### 21.9 控制中心的「新增行程」（2026-11-26，模擬器看過，手機還沒）
+
+使用者 2026-11-26 說「控制中心按鈕要做，免費」。
+
+- 一顆按鈕，名字「新增行程」，圖示 `calendar.badge.plus`，說明「打開蒜日子，直接新增今天的行程。」。iOS 18 才有，蒜日子在 iOS 17 照常，只是找不到這顆。也能放在鎖定畫面下面或動作按鈕。
+- 按下去：打開蒜日子，月曆停在今天，擋在前面的收掉（跟 21.7 同一套），再打開今天的新增表單（帶入照 `NewEventRules.initialDraft`）。已經有一張新增或編輯的表單開著，就留著那一張，不另外開，打到一半的字還在。
+- 免費，不問買了沒。`FullVersionAccess.canShowWidget` 只管 `WidgetStyle` 那幾種小工具，這顆不在裡面，也沒有登記。
+- 種類名 `com.domyweb.countingdays.control.newevent`，上架後不能改。程式在 `Widget/NewEventControl.swift`，蒜日子和小工具兩邊都編進去（`project.yml`）。
+- 按鈕的動作在蒜日子裡面跑（`openAppWhenRun`），跑的時候發一個通知，`AppModel` 收到就叫 `CalendarViewModel.openNewEventFromControl()`。從關著的狀態按，通知比月曆早到，所以用一個旗子記著，月曆出現時再打開表單。
+- 另外 `suanrizi://new` 也會打開新增，效果一樣（`WidgetLink.opensNewEvent`，只認一模一樣的字串，有單元測試）。控制中心那顆沒有用這個網址：照茄記的做法回傳 `OpenURLIntent(suanrizi://new)`，模擬器上系統收到網址但沒打開。

@@ -1230,6 +1230,18 @@ final class CalendarCoreTests: XCTestCase {
         }
     }
 
+    func testWidgetLinkNewEventOnlyAcceptsExactAddress() throws {
+        let new = try XCTUnwrap(WidgetLink.newEvent)
+        XCTAssertTrue(WidgetLink.opensNewEvent(new))
+        // 兩個網址互不相認
+        XCTAssertFalse(WidgetLink.opensToday(new))
+        XCTAssertFalse(WidgetLink.opensNewEvent(try XCTUnwrap(WidgetLink.today)))
+        for text in ["suanrizi://news", "suanrizi://new/", "suanrizi://new?date=2026-11-26", "suanrizi://new#x",
+                     "suanrizi://NEW", "SUANRIZI://new", "suanrizi:new", "https://new", "other://new"] {
+            XCTAssertFalse(WidgetLink.opensNewEvent(try XCTUnwrap(URL(string: text))), text)
+        }
+    }
+
     func testWidgetSettingsMissingIsDefaultButBrokenThrows() throws {
         XCTAssertEqual(try WidgetShared.settings(from: nil), AppSettings())
         let saved = AppSettings(hiddenCalendarIDs: ["X"])

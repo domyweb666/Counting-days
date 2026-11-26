@@ -73,8 +73,11 @@ struct RootView: View {
             WidgetCenter.shared.reloadAllTimelines()
         }
         .onOpenURL { url in
-            guard WidgetLink.opensToday(url) else { return }
-            app.vm.openFromWidget()
+            if WidgetLink.opensToday(url) {
+                app.vm.openFromWidget()
+            } else if WidgetLink.opensNewEvent(url) {
+                app.vm.openNewEventFromControl()
+            }
         }
     }
 }
