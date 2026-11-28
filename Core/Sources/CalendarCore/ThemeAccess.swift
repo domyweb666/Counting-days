@@ -23,7 +23,7 @@ public enum ThemeAccess {
     }
 }
 
-/// 完整版裡主題以外的三樣：倒數日的數量、月曆樣式、類別自訂顏色。
+/// 完整版裡主題以外的四樣：倒數日的數量、月曆樣式、類別自訂顏色、中大尺寸與鎖定畫面的小工具。
 /// 「能不能用」只在這個檔決定，畫面和 store 只問結果。驗不到購買時 `isUnlocked` 是 false，一律照沒買的算。
 public enum FullVersionAccess {
     /// 沒買的人最多放幾個倒數日
@@ -68,6 +68,14 @@ public enum FullVersionAccess {
     /// 選色時先列出來的預設顏色（就是四個預設類別的顏色，會跟著主題換）
     public static var presetCategoryHexes: [String] {
         AppSettings.defaultCategories.map(\.colorHex)
+    }
+
+    /// 不用買就能放的小工具：小尺寸「今天」與色塊小月曆。其他的要完整版（2026-11-26 使用者核准的切法）。
+    public static let freeWidgets: Set<WidgetStyle> = [.today, .smallMonth, .lockToday]
+
+    /// 這種小工具能不能畫內容。不能的話小工具只畫一句說明。小工具驗不到購買時 `isUnlocked` 是 false。
+    public static func canShowWidget(_ style: WidgetStyle, isUnlocked: Bool) -> Bool {
+        freeWidgets.contains(style) || isUnlocked
     }
 
     /// 存下來的設定有沒有用到付費的東西。有的話，開 app 時要等購買驗完再畫第一個畫面，才不會先閃一下沒買的樣子。

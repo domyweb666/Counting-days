@@ -20,6 +20,8 @@ targets:
     platform: iOS
     sources:
       - path: App
+      # 控制中心「新增行程」的動作要蒜日子與小工具兩邊都有，按了才打得開蒜日子（檔案裡有寫原因）
+      - path: Widget/NewEventControl.swift
     dependencies:
       - package: CalendarCore
       # 小工具是另一支程式，包在蒜日子裡一起裝
@@ -70,6 +72,8 @@ targets:
       - path: App/Design/DomyTokens.swift
       # 讀行程也用同一份，小工具上的行程才會跟蒜日子對得起來。小工具只呼叫讀的那幾個
       - path: App/Data/EventStore.swift
+      # 買了沒也問同一個：小工具只呼叫 PurchaseStore.checkUnlocked，自己問 App Store，不讀蒜日子留的任何東西
+      - path: App/Data/PurchaseStore.swift
     dependencies:
       - package: CalendarCore
     info:

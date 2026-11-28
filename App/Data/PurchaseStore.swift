@@ -9,7 +9,7 @@ import StoreKit
 @Observable
 final class PurchaseStore {
     /// App Store Connect 上的商品編號要跟這個一模一樣
-    static let productID = "com.domyweb.countingdays.full"
+    nonisolated static let productID = "com.domyweb.countingdays.full"
 
     private(set) var isUnlocked = false
     /// 開 app 之後有沒有問過 App Store 一次。第一個畫面靠它決定要不要先等，才不會先閃一下沒買的樣子。
@@ -56,17 +56,24 @@ final class PurchaseStore {
 
     /// 重新算一次有沒有買
     func refresh() async {
+        let unlocked = await Self.checkUnlocked()
+        if unlocked != isUnlocked { isUnlocked = unlocked }
+        onChange(unlocked)
+        if !hasChecked { hasChecked = true }
+    }
+
+    /// 問 App Store 現在有沒有買。小工具也呼叫這一個：它不建 PurchaseStore、不存結果，每次重畫自己問。
+    /// 退款的不會出現在 currentEntitlements 裡（Apple 文件），revocationDate 再擋一次。
+    nonisolated static func checkUnlocked() async -> Bool {
         var unlocked = false
         for await result in Transaction.currentEntitlements {
             // 只認 App Store 驗證過的交易，驗不過的當作沒有
             guard case .verified(let transaction) = result else { continue }
-            if transaction.productID == Self.productID, transaction.revocationDate == nil {
+            if transaction.productID == productID, transaction.revocationDate == nil {
                 unlocked = true
             }
         }
-        if unlocked != isUnlocked { isUnlocked = unlocked }
-        onChange(unlocked)
-        if !hasChecked { hasChecked = true }
+        return unlocked
     }
 
     func loadProduct() async {

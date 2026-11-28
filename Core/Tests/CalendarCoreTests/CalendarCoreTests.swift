@@ -672,7 +672,24 @@ final class CalendarCoreTests: XCTestCase {
         XCTAssertEqual(EventReminder.minutes30.offsetSeconds, -1800)
         XCTAssertEqual(EventReminder.sameDayMorning.offsetSeconds, 9 * 3600)
         XCTAssertEqual(EventReminder.dayBeforeMorning.offsetSeconds, -15 * 3600)
-        XCTAssertEqual(Set(EventReminder.timedCases + EventReminder.allDayCases), Set(EventReminder.allCases))
+        XCTAssertEqual(NewEventRules.reminder(.custom(minutes: 180), fitting: .timed), .custom(minutes: 180))
+        XCTAssertNil(NewEventRules.reminder(.custom(minutes: 180), fitting: .allDay))
+    }
+
+    func testCustomReminder() {
+        XCTAssertEqual(EventReminder.before(minutes: 180), .custom(minutes: 180))
+        XCTAssertEqual(EventReminder.before(minutes: 180).offsetSeconds, -3 * 3600)
+        XCTAssertEqual(EventReminder.before(minutes: 180).label, "3 小時前")
+        XCTAssertEqual(EventReminder.before(minutes: 2 * 1440 + 3 * 60 + 15).label, "2 天 3 小時 15 分鐘前")
+        // 跟選單上現成的一樣長就是現成的那一種
+        XCTAssertEqual(EventReminder.before(minutes: 0), .atStart)
+        XCTAssertEqual(EventReminder.before(minutes: 60), .hour1)
+        XCTAssertEqual(EventReminder.before(minutes: 1440), .day1)
+        // 超出範圍的收到範圍內
+        XCTAssertEqual(EventReminder.before(minutes: -5), .atStart)
+        XCTAssertEqual(EventReminder.before(minutes: 99999), .custom(minutes: EventReminder.customMaxMinutes))
+        XCTAssertEqual(EventReminder.custom(minutes: 90).minutesBefore, 90)
+        XCTAssertNil(EventReminder.sameDayMorning.minutesBefore)
     }
 
     func testPickCalendarForNewEvent() {
@@ -987,8 +1004,12 @@ final class CalendarCoreTests: XCTestCase {
 
         XCTAssertEqual(EventReminder.matching(offsetSeconds: -1800, isAllDay: false), .minutes30)
         XCTAssertEqual(EventReminder.matching(offsetSeconds: 9 * 3600, isAllDay: true), .sameDayMorning)
-        // 15 分鐘前不在表單的選項裡
-        XCTAssertNil(EventReminder.matching(offsetSeconds: -900, isAllDay: false))
+        // 選單上沒有的長度讀成自訂
+        XCTAssertEqual(EventReminder.matching(offsetSeconds: -900, isAllDay: false), .custom(minutes: 15))
+        // 開始之後、不是整分鐘、比滾輪轉得到的還早：表示不了
+        XCTAssertNil(EventReminder.matching(offsetSeconds: 600, isAllDay: false))
+        XCTAssertNil(EventReminder.matching(offsetSeconds: -90, isAllDay: false))
+        XCTAssertNil(EventReminder.matching(offsetSeconds: -60 * 86400, isAllDay: false))
         // 全天行程不會對到「準時」
         XCTAssertNil(EventReminder.matching(offsetSeconds: 0, isAllDay: true))
     }
@@ -1209,6 +1230,66 @@ final class CalendarCoreTests: XCTestCase {
         }
     }
 
+    func testWidgetLinkNewEventOnlyAcceptsExactAddress() throws {
+        let new = try XCTUnwrap(WidgetLink.newEvent)
+        XCTAssertTrue(WidgetLink.opensNewEvent(new))
+        // 兩個網址互不相認
+        XCTAssertFalse(WidgetLink.opensToday(new))
+        XCTAssertFalse(WidgetLink.opensNewEvent(try XCTUnwrap(WidgetLink.today)))
+        for text in ["suanrizi://news", "suanrizi://new/", "suanrizi://new?date=2026-11-26", "suanrizi://new#x",
+                     "suanrizi://NEW", "SUANRIZI://new", "suanrizi:new", "https://new", "other://new"] {
+            XCTAssertFalse(WidgetLink.opensNewEvent(try XCTUnwrap(URL(string: text))), text)
+        }
+    }
+
+    func testWidgetDayLinkRoundTripsInDisplayTimeZone() throws {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Taipei"))
+        let today = try XCTUnwrap(cal.date(from: DateComponents(year: 2026, month: 11, day: 26, hour: 9)))
+        // 台北 12/5 凌晨 0:30，換成 UTC 還是 12/4，網址要照台北寫
+        let day = try XCTUnwrap(cal.date(from: DateComponents(year: 2026, month: 12, day: 5, hour: 0, minute: 30)))
+        let url = try XCTUnwrap(WidgetLink.day(day, calendar: cal))
+        XCTAssertEqual(url.absoluteString, "suanrizi://day/2026-12-05")
+        let opened = try XCTUnwrap(WidgetLink.openedDay(url, calendar: cal, today: today))
+        XCTAssertEqual(opened, cal.startOfDay(for: day))
+        // 跟其他兩個網址互不相認
+        XCTAssertFalse(WidgetLink.opensToday(url))
+        XCTAssertFalse(WidgetLink.opensNewEvent(url))
+        XCTAssertNil(WidgetLink.openedDay(try XCTUnwrap(WidgetLink.today), calendar: cal, today: today))
+        XCTAssertNil(WidgetLink.openedDay(try XCTUnwrap(WidgetLink.newEvent), calendar: cal, today: today))
+    }
+
+    func testWidgetDayLinkRejectsAnythingElse() throws {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Taipei"))
+        let today = try XCTUnwrap(cal.date(from: DateComponents(year: 2026, month: 11, day: 26, hour: 9)))
+        XCTAssertNotNil(WidgetLink.openedDay(try XCTUnwrap(URL(string: "suanrizi://day/2027-11-26")), calendar: cal, today: today))
+        XCTAssertNotNil(WidgetLink.openedDay(try XCTUnwrap(URL(string: "suanrizi://day/2025-11-25")), calendar: cal, today: today))
+        for text in ["suanrizi://day/2026-02-30", "suanrizi://day/2026-13-01", "suanrizi://day/2026-00-10",
+                     "suanrizi://day/2026-12-5", "suanrizi://day/26-12-05", "suanrizi://day/2026-12-05/",
+                     "suanrizi://day/2026-12-05?x=1", "suanrizi://day/2026-12-05#x", "suanrizi://day/2026-12",
+                     "suanrizi://day/", "suanrizi://day/+026-12-05", "suanrizi://day/2026-1a-05",
+                     "suanrizi://day/2026-12-05-01", "SUANRIZI://day/2026-12-05", "suanrizi://DAY/2026-12-05",
+                     "https://day/2026-12-05", "suanrizi://day/2028-01-01", "suanrizi://day/2025-11-01"] {
+            XCTAssertNil(WidgetLink.openedDay(try XCTUnwrap(URL(string: text)), calendar: cal, today: today), text)
+        }
+    }
+
+    func testWidgetLinkFullVersionOnlyAcceptsExactAddress() throws {
+        let full = try XCTUnwrap(WidgetLink.fullVersion)
+        XCTAssertTrue(WidgetLink.opensFullVersion(full))
+        // 跟其他三個網址互不相認
+        XCTAssertFalse(WidgetLink.opensToday(full))
+        XCTAssertFalse(WidgetLink.opensNewEvent(full))
+        XCTAssertNil(WidgetLink.openedDay(full, calendar: Calendar(identifier: .gregorian), today: Date()))
+        XCTAssertFalse(WidgetLink.opensFullVersion(try XCTUnwrap(WidgetLink.today)))
+        XCTAssertFalse(WidgetLink.opensFullVersion(try XCTUnwrap(WidgetLink.newEvent)))
+        for text in ["suanrizi://fullversion/", "suanrizi://fullversion?buy=1", "suanrizi://fullversion#x",
+                     "suanrizi://FULLVERSION", "suanrizi://full", "https://fullversion", "other://fullversion"] {
+            XCTAssertFalse(WidgetLink.opensFullVersion(try XCTUnwrap(URL(string: text))), text)
+        }
+    }
+
     func testWidgetSettingsMissingIsDefaultButBrokenThrows() throws {
         XCTAssertEqual(try WidgetShared.settings(from: nil), AppSettings())
         let saved = AppSettings(hiddenCalendarIDs: ["X"])
@@ -1323,5 +1404,120 @@ final class CalendarCoreTests: XCTestCase {
             XCTAssertLessThan(moved, SwipeRules.resistLimit)
             last = moved
         }
+    }
+
+    // MARK: 第 66 片起的六種小工具
+
+    func testWidgetsThatNeedFullVersion() {
+        // 2026-11-26 核准的切法：今天、小月曆免費，其他五種要完整版。
+        // 鎖定畫面的小圓形（今天幾號）同一天加的，購買頁寫「五種」小工具，所以它免費
+        XCTAssertTrue(FullVersionAccess.canShowWidget(.today, isUnlocked: false))
+        XCTAssertTrue(FullVersionAccess.canShowWidget(.smallMonth, isUnlocked: false))
+        XCTAssertTrue(FullVersionAccess.canShowWidget(.lockToday, isUnlocked: false))
+        XCTAssertEqual(WidgetStyle.allCases.filter { !FullVersionAccess.canShowWidget($0, isUnlocked: false) }.count, 5)
+        for style in [WidgetStyle.countdown, .flexWeek, .monthNext, .largeMonth, .lockNext] {
+            XCTAssertFalse(FullVersionAccess.canShowWidget(style, isUnlocked: false), style.rawValue)
+            XCTAssertTrue(FullVersionAccess.canShowWidget(style, isUnlocked: true), style.rawValue)
+        }
+        // 種類名上架後不能改，「今天」那一種要跟原本的一樣
+        XCTAssertEqual(WidgetStyle.today.rawValue, "today")
+        XCTAssertEqual(Set(WidgetStyle.allCases.map(\.rawValue)).count, WidgetStyle.allCases.count)
+    }
+
+    func testWidgetMonthWeeksAndMarks() {
+        let now = date(2026, 11, 26, 9, 0)
+        let events = [
+            ev("rec", "錄影", date(2026, 11, 26, 10, 0)),
+            ev("dent", "牙醫", date(2026, 11, 28, 15, 30), cal: "M"),
+            allDay("trip", "台南行", date(2026, 11, 28), days: 3),
+            ev("old", "開會", date(2026, 11, 3, 10, 0))
+        ]
+        let weeks = WidgetRules.monthWeeks(events: events, now: now, calendar: cal, settings: settings)
+        // 2026 年 11 月 1 號是週日，排滿 5 週，最後一週到 12/5
+        XCTAssertEqual(weeks.count, 5)
+        XCTAssertEqual(weeks.first?.days.first?.date, date(2026, 11, 1))
+        XCTAssertEqual(weeks.last?.days.last?.date, date(2026, 12, 5))
+
+        // 11/26 週四：主事件
+        XCTAssertEqual(WidgetRules.monthMark(in: weeks[3], col: 4, settings: settings)?.label, "錄影")
+        XCTAssertTrue(weeks[3].days[4].isToday)
+        // 11/28 週六：有跨日的，畫跨日的那一條，不畫當天的牙醫
+        XCTAssertEqual(WidgetRules.monthMark(in: weeks[3], col: 6, settings: settings)?.label, "台南行")
+        // 11/29、11/30 跨到下一週也照畫
+        XCTAssertEqual(WidgetRules.monthMark(in: weeks[4], col: 1, settings: settings)?.label, "台南行")
+        // 過去的日子照樣有主事件（畫面上淡色）
+        XCTAssertEqual(WidgetRules.monthMark(in: weeks[0], col: 2, settings: settings)?.label, "開會")
+        XCTAssertTrue(weeks[0].days[2].isPast)
+        // 沒事的日子、超出範圍的欄
+        XCTAssertNil(WidgetRules.monthMark(in: weeks[3], col: 5, settings: settings))
+        XCTAssertNil(WidgetRules.monthMark(in: weeks[3], col: 7, settings: settings))
+    }
+
+    func testWidgetWeekFromTodayStartsToday() throws {
+        let now = date(2026, 11, 26, 9, 0)
+        let events = [allDay("trip", "台南行", date(2026, 11, 28), days: 3)]
+        let week = try XCTUnwrap(WidgetRules.weekFromToday(events: events, now: now, calendar: cal, settings: settings))
+        XCTAssertEqual(week.days.map(\.date).first, date(2026, 11, 26))
+        XCTAssertEqual(week.days.map(\.date).last, date(2026, 12, 2))
+        XCTAssertTrue(week.days[0].isToday)
+        XCTAssertEqual(week.segments.first?.startCol, 2)
+        XCTAssertEqual(week.segments.first?.endCol, 4)
+    }
+
+    func testWidgetUpcomingTakesTheFirstFew() {
+        let now = date(2026, 11, 26, 9, 0)
+        let events = [
+            ev("rec", "錄影", date(2026, 11, 26, 10, 0)),
+            ev("dent", "牙醫", date(2026, 11, 28, 15, 30), cal: "M"),
+            allDay("trip", "台南行", date(2026, 11, 29), days: 3),
+            ev("far", "聚餐", date(2026, 12, 10, 19, 0))
+        ]
+        let cards = WidgetRules.upcoming(events: events, now: now, calendar: cal, settings: settings, count: 3)
+        XCTAssertEqual(cards.map(\.awayText), ["今天", "2 天後", "3 天後"])
+        if case .band(let band) = cards[2].kind {
+            XCTAssertEqual(band.event.title, "台南行")
+        } else {
+            XCTFail("第三張應該是跨日的台南行")
+        }
+        XCTAssertTrue(WidgetRules.upcoming(events: events, now: now, calendar: cal, settings: settings, count: 0).isEmpty)
+    }
+
+    func testWidgetNextCountdown() throws {
+        settings.hiddenCalendarIDs = ["X"]
+        let now = date(2026, 11, 26, 9, 0)
+        let events = [
+            ev("a", "聚餐", date(2026, 12, 10, 19, 0)),
+            allDay("b", "台南行", date(2026, 11, 29), days: 3),
+            ev("hidden", "不看的", date(2026, 11, 27, 10, 0), cal: "X")
+        ]
+        let next = try XCTUnwrap(WidgetRules.nextCountdown(
+            events: events, countdownIDs: ["a", "b", "hidden"], now: now, calendar: cal, settings: settings))
+        XCTAssertEqual(next.title, "台南行")
+        XCTAssertEqual(next.days, 3)
+        XCTAssertEqual(next.totalDays, 3)
+        XCTAssertEqual(next.date, date(2026, 11, 29))
+
+        // 已經開始的跨日行程算今天
+        let going = [allDay("c", "東京", date(2026, 11, 25), days: 3)]
+        let today = try XCTUnwrap(WidgetRules.nextCountdown(
+            events: going, countdownIDs: ["c"], now: now, calendar: cal, settings: settings))
+        XCTAssertEqual(today.days, 0)
+        XCTAssertEqual(today.date, date(2026, 11, 26))
+
+        XCTAssertNil(WidgetRules.nextCountdown(events: events, countdownIDs: [], now: now, calendar: cal, settings: settings))
+        XCTAssertNil(WidgetRules.nextCountdown(events: events, countdownIDs: ["hidden"], now: now, calendar: cal, settings: settings))
+    }
+
+    func testWidgetSublineHolidayThenLunar() throws {
+        let now = date(2026, 11, 26, 9, 0)
+        let events = [allDay("h", "感恩節快樂", date(2026, 11, 26), days: 1, cal: "H")]
+        let week = try XCTUnwrap(WidgetRules.weekFromToday(events: events, now: now, calendar: cal, settings: settings))
+        let holiday = try XCTUnwrap(WidgetRules.subline(for: week.days[0], calendar: cal, settings: settings))
+        XCTAssertEqual(holiday.text, "感恩節")
+        XCTAssertTrue(holiday.isHoliday)
+        XCTAssertEqual(WidgetRules.subline(for: week.days[1], calendar: cal, settings: settings)?.isHoliday, false)
+
+        settings.showLunar = false
+        XCTAssertNil(WidgetRules.subline(for: week.days[1], calendar: cal, settings: settings))
     }
 }

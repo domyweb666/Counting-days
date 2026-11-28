@@ -88,8 +88,8 @@ struct TodayProvider: TimelineProvider {
 
     private struct SharedDrawerMissing: Error {}
 
-    /// 蒜日子抄在共用抽屜裡的設定
-    private static func readSettings() throws -> AppSettings {
+    /// 蒜日子抄在共用抽屜裡的設定。其他六種小工具也讀這一份
+    static func readSettings() throws -> AppSettings {
         guard let shared = UserDefaults(suiteName: WidgetShared.appGroupID) else { throw SharedDrawerMissing() }
         return try WidgetShared.settings(from: shared.data(forKey: WidgetShared.settingsKey))
     }
@@ -207,7 +207,7 @@ struct TodayWidgetView: View {
     }
 }
 
-@main
+// 小工具的進入點在 CalendarWidgets.swift 的 SuanRiZiWidgets，這一種也包在裡面
 struct TodayWidget: Widget {
     /// 蒜日子叫小工具重畫時用這個名字指它，改了名字使用者主畫面上放好的那一塊會失效
     static let kind = "com.domyweb.countingdays.widget.today"

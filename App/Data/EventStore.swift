@@ -72,14 +72,34 @@ final class EventStore {
         return ek.events(matching: predicate).compactMap { convert($0) }
     }
 
+    /// 只要某幾個系列的行程。倒數日小工具用：兩年的行程很多，小工具記憶體又小，
+    /// 只查這幾個系列所在的行事曆，查到的也只留這幾個系列。
+    func events(from start: Date, to end: Date, seriesIDs: [String]) -> [CalEvent] {
+        guard hasAccess, end > start, !seriesIDs.isEmpty else { return [] }
+        let found = seriesIDs.map { ek.event(withIdentifier: $0)?.calendar }
+        // 有些帳號的行程用識別碼找不回來，找不到行事曆就全部查，寧可慢也不要漏掉倒數日
+        let calendars: [EKCalendar]? = found.contains { $0 == nil } ? nil : found.compactMap { $0 }
+        let predicate = ek.predicateForEvents(withStart: start, end: end, calendars: calendars)
+        let wanted = Set(seriesIDs)
+        return ek.events(matching: predicate)
+            .filter { $0.eventIdentifier.map { wanted.contains($0) } ?? false }
+            .compactMap { convert($0) }
+    }
+
     private func convert(_ e: EKEvent) -> CalEvent? {
+        guard let event = Self.makeEvent(e, displayTimeZone: displayTimeZone) else { return nil }
+        cache[event.id] = e
+        return event
+    }
+
+    /// 只換算、不碰 `cache`，所以背景的搜尋也能用
+    nonisolated private static func makeEvent(_ e: EKEvent, displayTimeZone: TimeZone) -> CalEvent? {
         // 外面進來的資料先檢查：缺識別碼或日期的事件不顯示
         guard let seriesID = e.eventIdentifier,
               let start = e.startDate,
               let end = e.endDate,
               let calendar = e.calendar else { return nil }
         let id = seriesID + "|" + String(start.timeIntervalSinceReferenceDate)
-        cache[id] = e
         let rules = e.recurrenceRules ?? []
         let title = (e.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         // 識別碼用原本的開始時間算，下面搬過的時間只拿來排月曆
@@ -198,7 +218,7 @@ final class EventStore {
     struct EditSeed {
         let event: EKEvent
         let draft: NewEventDraft
-        /// 原本的提醒、重複規則表單表示不了（例如 15 分鐘前、每個月第二個週三）。使用者沒去動就照原本的留著。
+        /// 原本的提醒、重複規則表單表示不了（例如超過 30 天前、每個月第二個週三）。使用者沒去動就照原本的留著。
         let keepsOtherReminder: Bool
         let keepsOtherRepeat: Bool
     }
@@ -378,18 +398,26 @@ final class EventStore {
             ?? ek.defaultCalendarForNewEvents?.source
     }
 
-    /// 用標題或地點找事件：往前一年、往後兩年
-    func search(_ text: String, today: Date, calendar: Calendar, hidden: Set<String>) -> [CalEvent] {
+    /// 用標題或地點找事件：往前一年、往後兩年。
+    /// 三年的行程很多，放到背景查，打字才不會頓。查到的不放進 `cache`：點搜尋結果只是跳到那一天，用不到原始事件。
+    func search(_ text: String, today: Date, calendar: Calendar, hidden: Set<String>) async -> [CalEvent] {
         let key = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !key.isEmpty,
+        guard hasAccess, !key.isEmpty,
               let from = calendar.date(byAdding: .year, value: -1, to: today),
               let to = calendar.date(byAdding: .year, value: 2, to: today) else { return [] }
-        let hits = events(from: from, to: to).filter {
-            !hidden.contains($0.calendarID) && ($0.title.localizedCaseInsensitiveContains(key)
-                || ($0.location ?? "").localizedCaseInsensitiveContains(key))
-        }
-        let future = hits.filter { $0.end >= today }.sorted { $0.start < $1.start }
-        let past = hits.filter { $0.end < today }.sorted { $0.start > $1.start }
-        return Array((future + past).prefix(200))
+        let ek = self.ek
+        let zone = displayTimeZone
+        return await Task.detached(priority: .userInitiated) {
+            let predicate = ek.predicateForEvents(withStart: from, end: to, calendars: nil)
+            let hits = ek.events(matching: predicate)
+                .compactMap { Self.makeEvent($0, displayTimeZone: zone) }
+                .filter {
+                    !hidden.contains($0.calendarID) && ($0.title.localizedCaseInsensitiveContains(key)
+                        || ($0.location ?? "").localizedCaseInsensitiveContains(key))
+                }
+            let future = hits.filter { $0.end >= today }.sorted { $0.start < $1.start }
+            let past = hits.filter { $0.end < today }.sorted { $0.start > $1.start }
+            return Array((future + past).prefix(200))
+        }.value
     }
 }

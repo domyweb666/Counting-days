@@ -37,22 +37,58 @@ struct DayGridView: View {
         abs(move.width) > abs(move.height) * 2
     }
 
-    /// 一段時間軸：離現在這一段幾頁、排哪幾天
+    /// 一段時間軸：離現在這一段幾頁、排哪幾天，和每一天排好的全天行程、時間格
     private struct Page: Identifiable {
         let offset: Int
         let dates: [Date]
         let days: [DayModel?]
+        let allDay: [[AllDayItem]]
+        let blocks: [[TimeBlock]]
         /// 用第一天當代號：翻頁之後同一段還是同一塊，位置才會接著滑過去
         var id: Date { dates.first ?? .distantPast }
     }
 
+    /// 排好的三段和當時的條件。左右拖的時候手指每動一下畫面就重畫一次，
+    /// 條件沒變就沿用，不用每一格畫面都重排 21 欄（行程多的人拖起來會頓）。
+    /// 用 class：只是記住算過的結果，改它不需要讓畫面重畫。
+    private final class PageMemo {
+        var key: PageKey?
+        var pages: [Page] = []
+    }
+
+    private struct PageKey: Equatable {
+        let anchor: Date
+        let kind: ViewKind
+        let reduceMotion: Bool
+        let layoutRevision: Int
+    }
+
+    @State private var pageMemo = PageMemo()
+
     /// 上一段、這一段、下一段一起畫，拖的時候就看得到旁邊那一段。
     /// 開了「減少動態效果」只畫這一段，換頁用淡入淡出。
     private var pages: [Page] {
-        (reduceMotion ? [0] : [-1, 0, 1]).map { offset in
+        let key = PageKey(
+            anchor: vm.timelineAnchor,
+            kind: vm.viewKind,
+            reduceMotion: reduceMotion,
+            layoutRevision: vm.layoutRevision
+        )
+        if pageMemo.key == key { return pageMemo.pages }
+        let fresh = (reduceMotion ? [0] : [-1, 0, 1]).map { offset in
             let dates = vm.timelineDays(page: offset)
-            return Page(offset: offset, dates: dates, days: dates.map { vm.day(for: $0) })
+            let days = dates.map { vm.day(for: $0) }
+            return Page(
+                offset: offset,
+                dates: dates,
+                days: days,
+                allDay: days.map { allDayItems($0) },
+                blocks: days.map { day in day.map { vm.builder.timeBlocks(for: $0) } ?? [] }
+            )
         }
+        pageMemo.key = key
+        pageMemo.pages = fresh
+        return fresh
     }
 
     /// 把每一段並排。高度只看這一段，旁邊兩段不佔位置、不收點擊、不給 VoiceOver 唸。
@@ -73,7 +109,7 @@ struct DayGridView: View {
     }
 
     private func hasAllDay(_ page: Page) -> Bool {
-        page.days.contains { !allDayItems($0).isEmpty }
+        page.allDay.contains { !$0.isEmpty }
     }
 
     var body: some View {
@@ -96,7 +132,7 @@ struct DayGridView: View {
             }
             pager(pages, width: width) { page in
                 VStack(spacing: 0) {
-                    if hasAllDay(page) { allDayStrip(page.days) }
+                    if hasAllDay(page) { allDayStrip(page.days, page.allDay) }
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -105,7 +141,7 @@ struct DayGridView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     // 換頁時只換裡面的格子，外面的捲動位置留著
-                    pager(pages, width: width) { grid($0.dates, $0.days) }
+                    pager(pages, width: width) { grid($0.dates, $0.days, $0.blocks) }
                 }
                 .background(Theme.card)
                 .clipShape(UnevenRoundedRectangle(topLeadingRadius: DT.Radius.xl, topTrailingRadius: DT.Radius.xl))
@@ -217,15 +253,15 @@ struct DayGridView: View {
         return bands + singles
     }
 
-    private func allDayStrip(_ days: [DayModel?]) -> some View {
+    private func allDayStrip(_ days: [DayModel?], _ allDay: [[AllDayItem]]) -> some View {
         HStack(alignment: .top, spacing: 0) {
             Text("全天")
                 .sFont(10, .medium)
                 .foregroundStyle(Theme.sub)
                 .frame(width: gutter - 6, height: allDayChip, alignment: .trailing)
                 .padding(.trailing, 6)
-            ForEach(Array(days.enumerated()), id: \.offset) { _, day in
-                let items = allDayItems(day)
+            ForEach(Array(days.enumerated()), id: \.offset) { index, day in
+                let items = allDay[index]
                 let isPast = day?.isPast ?? false
                 VStack(spacing: 2) {
                     ForEach(items.prefix(maxAllDayRows)) { item in
@@ -255,7 +291,7 @@ struct DayGridView: View {
 
     // MARK: 時間格線
 
-    private func grid(_ dates: [Date], _ days: [DayModel?]) -> some View {
+    private func grid(_ dates: [Date], _ days: [DayModel?], _ blocks: [[TimeBlock]]) -> some View {
         HStack(alignment: .top, spacing: 0) {
             VStack(spacing: 0) {
                 ForEach(0..<24, id: \.self) { hour in
@@ -271,7 +307,7 @@ struct DayGridView: View {
             .frame(width: gutter, alignment: .leading)
             .accessibilityHidden(true)
             ForEach(Array(dates.enumerated()), id: \.element) { index, date in
-                column(date, days[index])
+                column(date, days[index], blocks[index])
                     .frame(maxWidth: .infinity)
             }
         }
@@ -292,8 +328,7 @@ struct DayGridView: View {
         .padding(.leading, gutter)
     }
 
-    private func column(_ date: Date, _ day: DayModel?) -> some View {
-        let blocks = day.map { vm.builder.timeBlocks(for: $0) } ?? []
+    private func column(_ date: Date, _ day: DayModel?, _ blocks: [TimeBlock]) -> some View {
         let isPast = day?.isPast ?? false
         return GeometryReader { geo in
             ZStack(alignment: .topLeading) {

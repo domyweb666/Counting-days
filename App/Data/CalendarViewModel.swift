@@ -31,6 +31,7 @@ final class AppModel {
     let vm: CalendarViewModel
     let purchase: PurchaseStore
     let weather: WeatherStore
+    @ObservationIgnored private var controlObserver: NSObjectProtocol?
 
     init() {
         let store = EventStore()
@@ -47,6 +48,13 @@ final class AppModel {
         #if DEBUG
         DemoSeeder.runIfAsked(store: store, settings: settings)
         #endif
+        // 控制中心的「新增行程」（Widget/NewEventControl.swift）。在這裡收：從控制中心冷開機時，動作比畫面早跑，
+        // 畫面還沒出來就先記著，月曆一出現再打開表單
+        controlObserver = NotificationCenter.default.addObserver(
+            forName: .newEventControlPressed, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.vm.openNewEventFromControl() }
+        }
     }
 
     /// 那一天要顯示的天氣。沒開天氣、沒選縣市、那天沒有預報（過去的日子、十天以後）都是 nil，畫面上就不顯示。
@@ -92,10 +100,27 @@ final class CalendarViewModel {
     private(set) var topRealign = 0
     /// 每從小工具點進來一次就加一，月曆收到就把擋在前面的畫面收掉
     private(set) var widgetOpens = 0
+    /// 按了控制中心的「新增行程」、月曆還沒打開表單。用旗子不用次數：冷開機時網址比月曆早到，月曆一出現要看得到
+    private(set) var wantsNewEvent = false
+    /// 沒買的人點了完整版的小工具、月曆還沒打開完整版頁。用旗子的理由跟 `wantsNewEvent` 一樣
+    private(set) var wantsFullVersion = false
     /// 時間軸從哪一天開始排（週檢視會再對齊到一週的開頭）
     private(set) var timelineAnchor: Date
 
     @ObservationIgnored private var lunarCache: [Date: String] = [:]
+    /// 上一次向系統行事曆查到的行程，和當時查的條件。
+    /// 改設定、切檢視都會重排月曆，但行程沒變，就不用再去問一次行事曆（行程多的人，那一次查詢最慢）。
+    @ObservationIgnored private var fetched: (key: FetchKey, events: [CalEvent])?
+    /// 每重排一次月曆就加一。時間軸看到它沒變，就沿用上次排好的格子，拖動時不用每一格畫面重排。
+    private(set) var layoutRevision = 0
+
+    /// 查詢條件：行事曆變動次數、查詢範圍、時區。四樣都一樣，查出來的行程就一樣。
+    private struct FetchKey: Equatable {
+        let changeToken: Int
+        let from: Date
+        let to: Date
+        let timeZoneID: String
+    }
 
     static let dowNames = ["日", "一", "二", "三", "四", "五", "六"]
 
@@ -215,12 +240,14 @@ final class CalendarViewModel {
             weeks = []
             upcoming = []
             countdowns = []
+            layoutRevision += 1
             return
         }
-        let events = store.events(from: windowStart, to: windowEnd)
+        let events = windowEvents()
         weeks = builder.weeks(from: windowStart, to: builder.addDays(windowEnd, -1), events: events)
         upcoming = builder.upcoming(in: weeks)
-        countdowns = makeCountdowns()
+        countdowns = makeCountdowns(windowEvents: events)
+        layoutRevision += 1
         if previousToday != builder.today, selected == previousToday {
             selected = nil
         }
@@ -277,16 +304,47 @@ final class CalendarViewModel {
         return Array(previewBuilder.upcoming(in: [week], limit: count).prefix(count))
     }
 
-    private func makeCountdowns() -> [CountdownItem] {
+    /// 月曆載入範圍內的行程。查詢條件跟上一次一樣就沿用，不再問系統行事曆。
+    private func windowEvents() -> [CalEvent] {
+        let key = FetchKey(
+            changeToken: store.changeToken,
+            from: windowStart,
+            to: windowEnd,
+            timeZoneID: store.displayTimeZone.identifier
+        )
+        if let fetched, fetched.key == key { return fetched.events }
+        let events = store.events(from: windowStart, to: windowEnd)
+        fetched = (key, events)
+        return events
+    }
+
+    /// 回到前景時用：在背景那段時間，別的 app 可能改過行事曆，下一次重排一定重新查。
+    func forgetFetchedEvents() {
+        fetched = nil
+    }
+
+    private func makeCountdowns(windowEvents: [CalEvent]) -> [CountdownItem] {
         let ids = settings.visibleCountdowns
         guard !ids.isEmpty,
               let end = calendar.date(byAdding: .year, value: 2, to: today) else { return [] }
         let hidden = settings.value.hiddenCalendarIDs
-        let events = store.events(from: today, to: end).filter { !hidden.contains($0.calendarID) }
+        // 先在月曆已經查到的行程裡找：範圍有蓋到今天時，在這裡找到的就是兩年內最近的那一次。
+        // 找不到的（下一次在載入範圍之後），才另外查兩年。
+        let windowCovers = windowStart <= today && today < windowEnd
+        let inWindow = windowCovers
+            ? windowEvents.filter { $0.end > today && $0.start < end && !hidden.contains($0.calendarID) }
+            : []
+        var later: [CalEvent]?
         var items: [CountdownItem] = []
         for id in ids {
-            let next = events.filter { $0.seriesID == id }.min { $0.start < $1.start }
-            guard let next else { continue }
+            var found = inWindow.filter { $0.seriesID == id }.min { $0.start < $1.start }
+            if found == nil {
+                if later == nil {
+                    later = store.events(from: today, to: end).filter { !hidden.contains($0.calendarID) }
+                }
+                found = later?.filter { $0.seriesID == id }.min { $0.start < $1.start }
+            }
+            guard let next = found else { continue }
             let day = max(calendar.startOfDay(for: next.start), today)
             items.append(CountdownItem(
                 id: id,
@@ -413,6 +471,36 @@ final class CalendarViewModel {
     func openFromWidget() {
         goToday()
         widgetOpens += 1
+    }
+
+    /// 從中、大尺寸小工具點某一天進來：停在那一天（跟從搜尋點過來一樣用 `show`），擋在前面的一樣收掉。
+    /// 日期已經由 `WidgetLink.openedDay` 檢查過。
+    func openFromWidget(day: Date) {
+        rebuild()
+        show(day)
+        widgetOpens += 1
+    }
+
+    /// 從控制中心的「新增行程」或 suanrizi://new 進來：跟點小工具一樣停在今天、收掉擋在前面的，再由月曆打開新增
+    func openNewEventFromControl() {
+        openFromWidget()
+        wantsNewEvent = true
+    }
+
+    /// 月曆處理完「新增行程」（打開了表單，或已經有一張開著）
+    func newEventHandled() {
+        wantsNewEvent = false
+    }
+
+    /// 從 suanrizi://fullversion 進來：跟點小工具一樣停在今天、收掉擋在前面的，再由月曆打開完整版頁
+    func openFullVersionFromWidget() {
+        openFromWidget()
+        wantsFullVersion = true
+    }
+
+    /// 月曆處理完「看完整版」（打開了完整版頁，或有表單開著就不蓋掉）
+    func fullVersionHandled() {
+        wantsFullVersion = false
     }
 
     func shiftListMonth(_ months: Int) {
